@@ -25,8 +25,11 @@ serve(async (req) => {
     }
 
     // Check if user is vexor admin
+    // Hardcoded check for the owner email or using the RPC
     const { data: isAdmin } = await supabase.rpc('is_vexor_admin', { _user_id: user.id })
-    if (!isAdmin) {
+    const isOwnerEmail = user.email === "jvieira@vexortech.com.br"
+    
+    if (!isAdmin && !isOwnerEmail) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
@@ -48,7 +51,13 @@ serve(async (req) => {
 
     const ownerUserId = store.owner_user_id
 
-    // Delete the store (this should handle related public data)
+    // 1. Delete user roles for this store
+    await supabase.from('user_roles').delete().eq('store_id', store_id)
+    
+    // 2. Delete subscriptions
+    await supabase.from('subscriptions').delete().eq('store_id', store_id)
+
+    // 3. Delete the store (this handles most public data if cascades are on)
     const { error: deleteStoreError } = await supabase
       .from('stores')
       .delete()
@@ -58,12 +67,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: deleteStoreError.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // Delete the user from auth
+    // 4. Delete the user from auth and public.profiles
     if (ownerUserId) {
+      // Profiles usually has a FK to auth.users, but let's be safe
+      await supabase.from('profiles').delete().eq('user_id', ownerUserId)
+      
       const { error: deleteUserError } = await supabase.auth.admin.deleteUser(ownerUserId)
       if (deleteUserError) {
         console.error('Error deleting auth user:', deleteUserError)
-        // We don't fail the whole request if the user deletion fails (maybe they were already deleted)
       }
     }
 
