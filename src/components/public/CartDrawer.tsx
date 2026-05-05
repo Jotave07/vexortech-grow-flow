@@ -1,6 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatBRL } from "@/lib/format";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,7 @@ export const CartDrawer = ({
   slug: string;
 }) => {
   const { items, itemSubtotal, subtotal, updateQty, removeItem, count } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -79,7 +81,11 @@ export const CartDrawer = ({
                 className="w-full"
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`/loja/${slug}/checkout`);
+                  if (!user) {
+                    navigate(`/entrar?redirect=${encodeURIComponent(`/loja/${slug}/checkout`)}`);
+                  } else {
+                    navigate(`/loja/${slug}/checkout`);
+                  }
                 }}
               >
                 Continuar para checkout

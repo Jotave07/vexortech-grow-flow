@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ const schema = z.object({
 
 const Signup = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirect = new URLSearchParams(location.search).get("redirect");
   const [form, setForm] = useState({ full_name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
@@ -41,23 +43,31 @@ const Signup = () => {
     });
 
     if (!error && signUpData.user) {
+      // Default role for user
+      const role = redirect ? "customer" : "store_owner";
       await supabase.from("user_roles").insert({
         user_id: signUpData.user.id,
-        role: "store_owner"
+        role: role
       });
     }
     setLoading(false);
     if (error) {
       if (error.message.includes("already")) {
         toast.info("Este e-mail já possui conta. Redirecionando para login...");
-        setTimeout(() => navigate("/entrar", { replace: true }), 2000);
+        const loginUrl = redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar";
+        setTimeout(() => navigate(loginUrl, { replace: true }), 2000);
         return;
       }
       toast.error(error.message);
       return;
     }
     toast.success("Conta criada! Bem-vindo.");
-    navigate("/onboarding", { replace: true });
+    
+    if (redirect) {
+      navigate(redirect, { replace: true });
+    } else {
+      navigate("/onboarding", { replace: true });
+    }
   };
 
   return (
@@ -85,7 +95,7 @@ const Signup = () => {
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Ja tem conta? <Link to="/entrar" className="text-primary hover:underline">Entrar</Link>
+          Ja tem conta? <Link to={redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar"} className="text-primary hover:underline">Entrar</Link>
         </p>
       </Card>
     </div>

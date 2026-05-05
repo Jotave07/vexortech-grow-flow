@@ -58,7 +58,7 @@ const PublicCheckout = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       toast.info("Você precisa estar logado para finalizar o pedido.");
-      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
     }
   }, [user, authLoading, navigate, location.pathname]);
 
@@ -177,7 +177,7 @@ const PublicCheckout = () => {
 
     setSubmitting(true);
     try {
-      const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("phone", phoneDigits).maybeSingle();
+      const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id || "").maybeSingle();
       let customerId = existingCustomer?.id as string | undefined;
       
       const customerData = {
@@ -324,7 +324,7 @@ const PublicCheckout = () => {
                         .from("customers")
                         .select("*")
                         .eq("store_id", store.id)
-                        .eq("phone", digits)
+                        .eq("user_id", user?.id || "")
                         .maybeSingle();
                       
                       if (data) {
