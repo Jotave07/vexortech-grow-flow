@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, MapPin, Clock, ShoppingBag, Search } from "lucide-react";
+import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,9 @@ import { formatBRL } from "@/lib/format";
 import { ProductDialog } from "@/components/public/ProductDialog";
 import { CartDrawer } from "@/components/public/CartDrawer";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { isStoreOpen } from "@/lib/opening-hours";
+import { toast } from "sonner";
 
 const PublicStore = () => {
   const { slug } = useParams<{ slug: string }>();
