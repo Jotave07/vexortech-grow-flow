@@ -237,6 +237,10 @@ const CustomerDashboard = () => {
                   <p className="font-bold text-lg">{profile?.full_name || 'Não informado'}</p>
                 </div>
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">CPF / CNPJ</label>
+                  <p className="font-bold text-lg">{profile?.document ? formatDoc(profile.document) : 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">E-mail</label>
                   <p className="font-bold text-lg">{user?.email || 'Não informado'}</p>
                 </div>
@@ -244,11 +248,11 @@ const CustomerDashboard = () => {
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">WhatsApp</label>
                   <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'Não informado'}</p>
                 </div>
-                <div className="space-y-1">
+                <div className="col-span-full space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Endereço Principal</label>
                   <p className="font-bold text-sm">
-                    {(profile as any)?.street ? (
-                      `${(profile as any).street}, ${(profile as any).number}${(profile as any).complement ? ` - ${(profile as any).complement}` : ''} | ${(profile as any).neighborhood} - ${(profile as any).city}/${(profile as any).state}`
+                    {profile?.street ? (
+                      `${profile.street}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} | ${profile.neighborhood} - ${profile.city}/${profile.state}`
                     ) : 'Endereço não cadastrado'}
                   </p>
                 </div>
