@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Search, ExternalLink, Pause, Play, Trash2 } from "lucide-react";
+import { Loader2, Search, ExternalLink, Pause, Play, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/format";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const AdminStores = () => {
   const [stores, setStores] = useState<any[]>([]);
