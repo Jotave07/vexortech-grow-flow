@@ -104,7 +104,10 @@ const AdminPlans = () => {
             {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["allows_custom_domain", "Domínio próprio"], ["is_active", "Público"]].map(([k, l]) => (
               <div key={k} className="flex items-center justify-between"><Label>{l}</Label><Switch checked={!!form[k]} onCheckedChange={(v) => setForm({ ...form, [k]: v })} /></div>
             ))}
-            <Button variant="hero" className="w-full" onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
+            <div className="pt-2">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-2">Dica: Planos com slug "premium_cortesia" ou "isento" não geram cobrança.</p>
+              <Button variant="hero" className="w-full" onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
