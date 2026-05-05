@@ -9,6 +9,7 @@ type Profile = {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  document: string | null;
   role?: "super_admin" | "store_owner" | "customer" | null;
   is_exempt?: boolean;
   zip_code?: string | null;
