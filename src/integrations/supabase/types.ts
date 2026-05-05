@@ -635,6 +635,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_available: boolean | null
           is_featured: boolean | null
           name: string
           prep_time_minutes: number | null
@@ -650,6 +651,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_available?: boolean | null
           is_featured?: boolean | null
           name: string
           prep_time_minutes?: number | null
@@ -665,6 +667,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_available?: boolean | null
           is_featured?: boolean | null
           name?: string
           prep_time_minutes?: number | null
