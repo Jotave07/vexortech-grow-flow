@@ -17,6 +17,7 @@ export type Database = {
       categories: {
         Row: {
           created_at: string | null
+          description: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -25,6 +26,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          description?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -33,6 +35,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          description?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -42,6 +45,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "categories_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          code: string
+          created_at: string | null
+          discount_type: string
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_discount_amount: number | null
+          min_purchase_amount: number | null
+          store_id: string
+          usage_count: number | null
+          usage_limit: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          discount_type: string
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_discount_amount?: number | null
+          min_purchase_amount?: number | null
+          store_id: string
+          usage_count?: number | null
+          usage_limit?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_discount_amount?: number | null
+          min_purchase_amount?: number | null
+          store_id?: string
+          usage_count?: number | null
+          usage_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupons_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
@@ -334,51 +390,63 @@ export type Database = {
       plans: {
         Row: {
           created_at: string | null
+          description: string | null
           features: Json | null
           id: string
+          is_active: boolean | null
           max_products: number | null
           name: string
           price_monthly: number
+          slug: string | null
         }
         Insert: {
           created_at?: string | null
+          description?: string | null
           features?: Json | null
           id?: string
+          is_active?: boolean | null
           max_products?: number | null
           name: string
           price_monthly: number
+          slug?: string | null
         }
         Update: {
           created_at?: string | null
+          description?: string | null
           features?: Json | null
           id?: string
+          is_active?: boolean | null
           max_products?: number | null
           name?: string
           price_monthly?: number
+          slug?: string | null
         }
         Relationships: []
       }
       product_option_items: {
         Row: {
           created_at: string | null
+          extra_price: number | null
           id: string
+          is_active: boolean | null
           name: string
           option_id: string
-          price_adjustment: number | null
         }
         Insert: {
           created_at?: string | null
+          extra_price?: number | null
           id?: string
+          is_active?: boolean | null
           name: string
           option_id: string
-          price_adjustment?: number | null
         }
         Update: {
           created_at?: string | null
+          extra_price?: number | null
           id?: string
+          is_active?: boolean | null
           name?: string
           option_id?: string
-          price_adjustment?: number | null
         }
         Relationships: [
           {
@@ -395,8 +463,8 @@ export type Database = {
           created_at: string | null
           id: string
           is_required: boolean | null
-          max_selection: number | null
-          min_selection: number | null
+          max_choices: number | null
+          min_choices: number | null
           name: string
           product_id: string
         }
@@ -404,8 +472,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_required?: boolean | null
-          max_selection?: number | null
-          min_selection?: number | null
+          max_choices?: number | null
+          min_choices?: number | null
           name: string
           product_id: string
         }
@@ -413,8 +481,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_required?: boolean | null
-          max_selection?: number | null
-          min_selection?: number | null
+          max_choices?: number | null
+          min_choices?: number | null
           name?: string
           product_id?: string
         }
@@ -487,9 +555,12 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           document: string | null
+          email: string | null
           full_name: string | null
           id: string
           phone: string | null
+          role: string | null
+          store_id: string | null
           updated_at: string | null
           user_id: string
         }
@@ -497,9 +568,12 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           document?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
+          role?: string | null
+          store_id?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -507,9 +581,12 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           document?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
+          role?: string | null
+          store_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -568,6 +645,7 @@ export type Database = {
           logo_url: string | null
           name: string
           owner_user_id: string
+          plan_id: string | null
           slug: string
           status: string | null
           updated_at: string | null
@@ -580,6 +658,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           owner_user_id: string
+          plan_id?: string | null
           slug: string
           status?: string | null
           updated_at?: string | null
@@ -592,6 +671,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           owner_user_id?: string
+          plan_id?: string | null
           slug?: string
           status?: string | null
           updated_at?: string | null
@@ -604,6 +684,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "stores_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
         ]
       }
       subscriptions: {
@@ -613,9 +700,11 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          last_payment_status: string | null
           plan_id: string | null
           status: string | null
           store_id: string
+          trial_ends_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -624,9 +713,11 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          last_payment_status?: string | null
           plan_id?: string | null
           status?: string | null
           store_id: string
+          trial_ends_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -635,9 +726,11 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          last_payment_status?: string | null
           plan_id?: string | null
           status?: string | null
           store_id?: string
+          trial_ends_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
