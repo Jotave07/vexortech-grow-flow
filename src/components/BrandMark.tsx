@@ -15,10 +15,10 @@ export const BrandMark = ({ compact, className, to }: BrandMarkProps) => {
   );
 
   const content = (
-    <div className={cn("flex items-center gap-0.5 font-black tracking-tighter text-black", compact ? "text-xl" : "text-2xl")}>
-      <span className="relative">
+    <div className={cn("flex items-center gap-0.5 font-black tracking-tighter text-black uppercase", compact ? "text-xl" : "text-2xl")}>
+      <span className="relative inline-block">
         H
-        <span className="absolute -right-0.5 top-1 h-1.5 w-1.5 rounded-full bg-[#00FF00]" />
+        <span className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-[#00FF00] shadow-[0_0_10px_rgba(0,255,0,0.8)]" />
       </span>
       <span>YPE</span>
     </div>
