@@ -1,10 +1,11 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, Variants } from "framer-motion";
 import { Bike, CheckCircle2, Package, CreditCard, Clock, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export const HeroAnimation = () => {
   const shouldReduceMotion = useReducedMotion();
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     initial: { opacity: 0 },
     animate: {
       opacity: 1,
@@ -15,7 +16,7 @@ export const HeroAnimation = () => {
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     initial: { opacity: 0, scale: 0.8, y: 10 },
     animate: { 
       opacity: 1, 
@@ -25,7 +26,7 @@ export const HeroAnimation = () => {
     },
   };
 
-  const lineVariants = {
+  const lineVariants: Variants = {
     initial: { scaleX: 0, originX: 0 },
     animate: { 
       scaleX: 1,
