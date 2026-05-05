@@ -144,16 +144,31 @@ const PublicCheckout = () => {
 
     setSubmitting(true);
     try {
-      const { data: existingCustomer } = await supabase.from("customers").select("id").eq("store_id", store.id).eq("phone", phoneDigits).maybeSingle();
+      const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("phone", phoneDigits).maybeSingle();
       let customerId = existingCustomer?.id as string | undefined;
+      
+      const customerData = {
+        store_id: store.id, 
+        full_name: name.trim(), 
+        phone: phoneDigits,
+        zip_code: zipCode,
+        street: street.trim(),
+        number: number.trim(),
+        complement: complement.trim(),
+        neighborhood: neighborhood.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        registration_completed: true
+      };
+
       if (!customerId) {
-        const { data: newC, error: cErr } = await (supabase.from("customers" as any).insert({ 
-          store_id: store.id, 
-          full_name: name.trim(), 
-          phone: phoneDigits 
-        }).select("id").single() as any);
+        const { data: newC, error: cErr } = await (supabase.from("customers" as any).insert(customerData).select("id").single() as any);
         if (cErr) throw cErr;
         customerId = newC.id;
+      } else {
+        // Update existing customer info
+        const { error: uErr } = await supabase.from("customers").update(customerData).eq("id", customerId);
+        if (uErr) throw uErr;
       }
 
       const deliveryAddress = orderType === "entrega" 
@@ -254,7 +269,45 @@ const PublicCheckout = () => {
             </div>
             <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
-              <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" maxLength={15} className="border-border focus:ring-0" />
+              <div className="flex gap-2">
+                <Input 
+                  value={formatPhone(phone)} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  onBlur={async () => {
+                    const digits = onlyDigits(phone);
+                    if (digits.length >= 10 && store?.id) {
+                      const { data } = await supabase
+                        .from("customers")
+                        .select("*")
+                        .eq("store_id", store.id)
+                        .eq("phone", digits)
+                        .maybeSingle();
+                      
+                      if (data) {
+                        setName(data.full_name || "");
+                        setZipCode(data.zip_code || "");
+                        setStreet(data.street || "");
+                        setNumber(data.number || "");
+                        setComplement(data.complement || "");
+                        setNeighborhood(data.neighborhood || "");
+                        setCity(data.city || "");
+                        setState(data.state || "");
+                        
+                        if (data.neighborhood) {
+                          const matchingZone = zones.find(z => 
+                            z.neighborhood.toLowerCase().trim() === data.neighborhood.toLowerCase().trim()
+                          );
+                          if (matchingZone) setZoneId(matchingZone.id);
+                        }
+                        toast.info("Dados de cadastro carregados!");
+                      }
+                    }
+                  }}
+                  placeholder="(11) 99999-9999" 
+                  maxLength={15} 
+                  className="border-border focus:ring-0" 
+                />
+              </div>
             </div>
           </div>
         </Card>
