@@ -27,11 +27,5 @@ export const ProtectedRoute = ({ children, superAdminOnly }: { children: React.R
     return <Navigate to="/meu-painel" replace />;
   }
 
-  // Prevent store owners from accessing customer panel (/meu-painel)
-  if (location.pathname.startsWith("/meu-painel") && (profile?.role === "store_owner" || profile?.role === "admin" || profile?.role === "super_admin")) {
-    // Only allow if they are also customers? Usually, store owners are separate.
-    // For now, let's keep them separate as requested.
-  }
-
   return <>{children}</>;
 };
