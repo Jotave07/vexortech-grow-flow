@@ -10,8 +10,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo } from "@/server/asaas.functions";
 import { toast } from "sonner";
 
-const STEPS = ["novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
-const STEPS_PICKUP = ["novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
+const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
+const STEPS_PICKUP = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
 
 const OrderTracking = () => {
   const { token } = useParams();
