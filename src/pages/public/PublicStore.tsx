@@ -10,6 +10,7 @@ import { formatBRL } from "@/lib/format";
 import { ProductDialog } from "@/components/public/ProductDialog";
 import { CartDrawer } from "@/components/public/CartDrawer";
 import { useCart } from "@/contexts/CartContext";
+import { isStoreOpen } from "@/lib/opening-hours";
 
 const PublicStore = () => {
   const { slug } = useParams();
