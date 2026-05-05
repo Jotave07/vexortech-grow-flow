@@ -175,8 +175,22 @@ const AdminStores = () => {
                 <div>Criada em: {new Date(selected.created_at).toLocaleDateString("pt-BR")}</div>
               </div>
 
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                <div className="space-y-0.5">
+                  <Label htmlFor="exempt-mode" className="text-sm font-medium flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-green-600" /> Usuário Isento
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">Bypassa todas as travas de assinatura e pagamento.</p>
+                </div>
+                <Switch 
+                  id="exempt-mode" 
+                  checked={selected.is_exempt} 
+                  onCheckedChange={() => toggleExempt(selected)} 
+                />
+              </div>
+
               <div>
-                <label className="text-xs font-medium">Plano</label>
+                <label className="text-xs font-medium">Plano de Referência</label>
                 <Select value={selected.subscriptions?.[0]?.plan_id || (selected.subscriptions?.[0]?.status === 'ativa' && !selected.subscriptions?.[0]?.plan_id ? 'cortesia' : '')} onValueChange={(v) => changePlan(selected, v)}>
                   <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>
