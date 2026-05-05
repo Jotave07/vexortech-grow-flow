@@ -94,8 +94,42 @@ const AdminSettings = () => {
                     <ExternalLink className="h-4 w-4 mr-2" /> Painel Asaas Vexor
                   </a>
                 </Button>
-              </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              <CardTitle>Logs de Assinaturas (MRR)</CardTitle>
             </div>
+            <CardDescription>
+              Atividade recente de cobranças e atualizações de planos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : logs.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic text-center py-4">Nenhum log de assinatura encontrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {logs.map((log) => (
+                  <div key={log.id} className="flex items-center justify-between p-3 border-2 border-black/5 bg-white text-xs">
+                    <div className="space-y-1">
+                      <div className="font-black uppercase">{log.stores?.name || 'LOJA DESCONHECIDA'}</div>
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                        PLANO: {log.plans?.name} · {new Date(log.updated_at).toLocaleString("pt-BR")}
+                      </div>
+                    </div>
+                    <Badge variant={log.status === 'ativa' ? 'default' : 'secondary'} className="rounded-none font-black uppercase text-[9px]">
+                      {log.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
           </CardContent>
         </Card>
 
