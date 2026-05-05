@@ -150,7 +150,7 @@ const PublicStore = () => {
                     <img src={store.cover_url} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full min-h-[12rem] items-end bg-[linear-gradient(135deg,hsl(333_100%_50%_/_0.22),transparent_58%),linear-gradient(315deg,hsl(188_100%_50%_/_0.18),transparent_62%),linear-gradient(180deg,hsl(0_0%_7%),hsl(0_0%_5%))] p-5 text-xs uppercase tracking-[0.18em] text-white/60">
-                      Interface VexorTech
+                      {publicStoreName}
                     </div>
                   )}
                 </div>
