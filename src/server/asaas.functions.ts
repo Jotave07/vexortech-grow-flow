@@ -175,3 +175,52 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
       qrCodeUrl: qrCode.encodedImage,
     };
   });
+
+export const syncPaymentStatus = createServerFn({ method: "POST" })
+  .inputValidator(z.object({
+    orderId: z.string().uuid(),
+    storeId: z.string().uuid(),
+  }))
+  .handler(async ({ data }) => {
+    const { data: storeSettings } = await supabaseAdmin
+      .from("store_settings")
+      .select("asaas_api_key")
+      .eq("store_id", data.storeId)
+      .single() as any;
+
+    if (!storeSettings?.asaas_api_key) return { status: "pending", message: "Gateway não configurado" };
+
+    const { data: payment } = await supabaseAdmin
+      .from("payments")
+      .select("*")
+      .eq("order_id", data.orderId)
+      .single();
+
+    if (!payment?.external_id) return { status: "pending", message: "Pagamento não encontrado" };
+    if (payment.status === "pago") return { status: "paid" };
+
+    const asaasPayment = await asaas.getPayment(storeSettings.asaas_api_key, payment.external_id);
+
+    if (asaasPayment.status === "RECEIVED" || asaasPayment.status === "CONFIRMED") {
+      // Update Payment
+      await supabaseAdmin.from("payments").update({ 
+        status: "pago",
+        paid_at: new Date().toISOString()
+      }).eq("id", payment.id);
+
+      // Update Order
+      await supabaseAdmin.from("orders").update({ status: "novo" }).eq("id", data.orderId);
+      
+      // Add History
+      await supabaseAdmin.from("order_status_history").insert({ 
+        order_id: data.orderId, 
+        store_id: data.storeId, 
+        status: "novo", 
+        notes: "Pagamento PIX confirmado automaticamente" 
+      });
+
+      return { status: "paid" };
+    }
+
+    return { status: "pending", asaasStatus: asaasPayment.status };
+  });
