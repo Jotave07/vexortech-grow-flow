@@ -229,58 +229,53 @@ const PublicCheckout = () => {
         customer_id: customerId,
         customer_name: name.trim().toUpperCase(),
         customer_phone: phoneDigits,
-        delivery_type: orderType, // Changed from order_type to delivery_type
-        status: "novo",
+        delivery_type: orderType,
+        status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo",
         delivery_address: deliveryAddress?.toUpperCase() || null,
         delivery_neighborhood: orderType === "entrega" ? (neighborhood || zone?.neighborhood)?.toUpperCase() : null,
-        // delivery_reference: reference?.toUpperCase() || null, // Might not exist
-        // delivery_zone_id: orderType === "entrega" ? zoneId : null, // Might not exist
         delivery_fee: actualDeliveryFee,
         subtotal,
-        // discount: discount, // renamed to discount_amount in DB
         discount_amount: discount,
         total,
-        // coupon_id: coupon?.id ?? null,
-        // coupon_code: coupon?.code ?? null,
         payment_method: paymentMethod,
-        // change_for: paymentMethod === "dinheiro" && changeFor ? Number(changeFor) : null,
         notes: notes.trim() || null,
-        // estimated_minutes: orderType === "entrega" ? (zone?.estimated_minutes ?? settings.avg_prep_time_minutes) : settings.avg_prep_time_minutes,
       }).select("id, public_token, order_number").single() as any);
       
       if (oErr) throw oErr;
 
       for (const it of items) {
-        const optionsTotal = it.options.reduce((s: number, o: any) => s + Number(o.extra_price), 0);
         const { data: oi, error: iErr } = await (supabase.from("order_items" as any).insert({
           order_id: order.id, store_id: store.id, product_id: it.product_id,
           product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity,
-          // options_total: optionsTotal, subtotal: itemSubtotal(it),
         }).select("id").single() as any);
         if (iErr) throw iErr;
+        
         if (it.options.length) {
           await supabase.from("order_item_options" as any).insert(it.options.map((o: any) => ({
             order_item_id: oi.id, 
-            // store_id: store.id,
             option_name: o.option_name, item_name: o.item_name, extra_price: o.extra_price,
             name: o.item_name, option_item_id: o.item_id
           })));
         }
       }
 
-      await supabase.from("order_status_history").insert({ order_id: order.id, store_id: store.id, status: "novo", notes: "Pedido recebido" });
+      await supabase.from("order_status_history").insert({ 
+        order_id: order.id, 
+        store_id: store.id, 
+        status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo", 
+        notes: paymentMethod === "pix" ? "Pedido aguardando pagamento PIX" : "Pedido recebido" 
+      });
+
       await supabase.from("payments" as any).insert({
         order_id: order.id, store_id: store.id, status: "pendente", amount: total,
       });
 
-      if (paymentMethod === "pix" && (settings.asaas_api_key || (settings as any).pix_enabled)) {
+      if (paymentMethod === "pix" && settings.accept_pix) {
         try {
-          // The creation of payment in the store's Asaas account happens via a secure server function.
-          // The asaas_api_key is only used on the server.
           await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
         } catch (error: any) {
           console.error("Asaas PIX error:", error);
-          toast.error("Erro ao gerar QR Code PIX, mas o pedido foi enviado.");
+          toast.error("Aviso: Houve um problema ao gerar seu QR Code PIX. Por favor, entre em contato com a loja.");
         }
       }
 

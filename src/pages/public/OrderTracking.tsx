@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { getOrderPaymentInfo } from "@/server/asaas.functions";
+import { getOrderPaymentInfo, syncPaymentStatus } from "@/server/asaas.functions";
 import { toast } from "sonner";
 
-const STEPS = ["novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
-const STEPS_PICKUP = ["novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
+const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
+const STEPS_PICKUP = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
 
 const OrderTracking = () => {
   const { token } = useParams();
@@ -21,6 +21,7 @@ const OrderTracking = () => {
   const [loading, setLoading] = useState(true);
   const [pixInfo, setPixInfo] = useState<any>(null);
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
+  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -48,7 +49,27 @@ const OrderTracking = () => {
 
   useEffect(() => {
     void load();
+    const interval = setInterval(load, 15000); // Poll every 15s for status updates
+    return () => clearInterval(interval);
   }, [load]);
+
+  useEffect(() => {
+    if (order?.status !== "aguardando_pagamento") return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id } });
+        if (result.status === "paid") {
+          toast.success("Pagamento confirmado!");
+          void load();
+        }
+      } catch (e) {
+        console.error("Sync error:", e);
+      }
+    }, 5000); // Check payment every 5s
+    
+    return () => clearInterval(interval);
+  }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load]);
 
   const copyPix = () => {
     if (pixInfo?.pixCode) {
@@ -73,7 +94,7 @@ const OrderTracking = () => {
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-4 -mt-6">
-        {order.payment_method === "pix" && order.status === "novo" && pixInfo && (
+        {order.payment_method === "pix" && order.status === "aguardando_pagamento" && pixInfo && (
           <Card className="p-6 border-4 border-primary bg-primary/5 text-center space-y-4">
             <div className="flex flex-col items-center gap-2">
               <QrCode className="h-12 w-12 text-primary" />

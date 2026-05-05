@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useOutletContext, Link } from "react-router-dom";
+import { useOutletContext, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,11 @@ import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
+import { syncPaymentStatus } from "@/server/asaas.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
+  { key: "aguardando_pagamento", label: "Aguardando PIX" },
   { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Confirmar" },
   { key: "confirmado", label: "Confirmados", nextStatus: "em_preparo", nextLabel: "Iniciar preparo" },
   { key: "em_preparo", label: "Em preparo", nextStatus: "saiu_para_entrega", nextLabel: "Saiu/Pronto" },
@@ -26,6 +29,8 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
   const load = async () => {
     const { data } = await supabase.from("orders").select("*").eq("store_id", store.id)
@@ -68,8 +73,15 @@ const Orders = () => {
     const ch = supabase.channel(`orders-${store.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, (payload) => {
         if (payload.eventType === "INSERT") {
-          toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 8000 });
-          playNotificationSound();
+          if ((payload.new as any).status === "novo") {
+            toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 8000 });
+            playNotificationSound();
+          }
+        } else if (payload.eventType === "UPDATE") {
+          if ((payload.old as any).status === "aguardando_pagamento" && (payload.new as any).status === "novo") {
+            toast.success(`✅ Pagamento confirmado! Pedido #${(payload.new as any).order_number}`, { duration: 8000 });
+            playNotificationSound();
+          }
         }
         load();
       }).subscribe();
@@ -257,6 +269,33 @@ const Orders = () => {
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
+                {selected.status === "aguardando_pagamento" && (
+                  <Button 
+                    variant="hero" 
+                    size="sm" 
+                    onClick={async () => {
+                      setSyncing(true);
+                      try {
+                        const res = await syncPaymentStatusFn({ data: { orderId: selected.id, storeId: store.id } });
+                        if (res.status === "paid") {
+                          toast.success("Pagamento confirmado!");
+                          setSelected(null);
+                          load();
+                        } else {
+                          toast.info("Pagamento ainda não identificado.");
+                        }
+                      } catch (e) {
+                        toast.error("Erro ao verificar pagamento");
+                      } finally {
+                        setSyncing(false);
+                      }
+                    }} 
+                    disabled={syncing}
+                  >
+                    {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Verificar Pagamento PIX
+                  </Button>
+                )}
                 <Button asChild variant="outline" size="sm">
                   <a href={buildWhatsAppLink(selected.customer_phone, `Olá ${selected.customer_name}, sobre seu pedido #${selected.order_number}`)} target="_blank" rel="noreferrer">Chamar no WhatsApp</a>
                 </Button>

@@ -69,7 +69,7 @@ const App = () => (
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
                 <Route path="/loja/:slug" element={<PublicStore />} />
-                <Route path="/loja/:slug/checkout" element={<PublicCheckout />} />
+                <Route path="/loja/:slug/checkout" element={<ProtectedRoute><PublicCheckout /></ProtectedRoute>} />
                 <Route path="/pedido/:token" element={<OrderTracking />} />
                 <Route path="/pedido/:token/sucesso" element={<PaymentSuccess />} />
                 <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
