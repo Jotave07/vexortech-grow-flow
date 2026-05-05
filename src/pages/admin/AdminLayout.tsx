@@ -12,6 +12,7 @@ const menu = [
   { to: "/admin", icon: BarChart3, label: "Visao geral", end: true },
   { to: "/admin/lojas", icon: Building2, label: "Lojas" },
   { to: "/admin/planos", icon: CreditCard, label: "Planos" },
+  { to: "/admin/configuracoes", icon: Settings2, label: "Configurações" },
 ];
 
 const AdminLayout = () => {
