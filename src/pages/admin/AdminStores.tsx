@@ -47,7 +47,7 @@ const AdminStores = () => {
       // Find or create a "cortesia" plan record if it doesn't exist, or just update the sub status
       // For now, let's just mark it as active without a specific plan_id if it's courtesy, 
       // but the best way is to have a specific plan.
-      const courtesyPlan = plans.find(p => p.slug === 'premium_cortesia' || p.slug === 'isento');
+      const courtesyPlan = plans.find(p => p.slug?.toLowerCase() === 'premium_cortesia' || p.slug?.toLowerCase() === 'isento');
       const targetPlanId = courtesyPlan?.id || plans[0]?.id;
       
       const sub = store.subscriptions?.[0];
