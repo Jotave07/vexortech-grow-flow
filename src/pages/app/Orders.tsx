@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, MapPin, Clock, RefreshCw } from "lucide-react";
+import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
   { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Confirmar" },
