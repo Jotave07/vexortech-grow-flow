@@ -108,7 +108,7 @@ export type Database = {
       customers: {
         Row: {
           created_at: string | null
-          full_name: string
+          full_name: string | null
           id: string
           last_order_at: string | null
           name: string | null
@@ -119,7 +119,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          full_name: string
+          full_name?: string | null
           id?: string
           last_order_at?: string | null
           name?: string | null
@@ -130,7 +130,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          full_name?: string
+          full_name?: string | null
           id?: string
           last_order_at?: string | null
           name?: string | null
@@ -441,6 +441,7 @@ export type Database = {
           amount: number
           asaas_id: string | null
           created_at: string | null
+          external_id: string | null
           id: string
           order_id: string | null
           paid_at: string | null
@@ -451,6 +452,7 @@ export type Database = {
           amount: number
           asaas_id?: string | null
           created_at?: string | null
+          external_id?: string | null
           id?: string
           order_id?: string | null
           paid_at?: string | null
@@ -461,6 +463,7 @@ export type Database = {
           amount?: number
           asaas_id?: string | null
           created_at?: string | null
+          external_id?: string | null
           id?: string
           order_id?: string | null
           paid_at?: string | null
@@ -822,6 +825,7 @@ export type Database = {
           city: string | null
           cover_url: string | null
           created_at: string | null
+          delivery_fee: number | null
           description: string | null
           document: string | null
           email: string | null
@@ -832,9 +836,11 @@ export type Database = {
           latitude: number | null
           logo_url: string | null
           longitude: number | null
+          min_order_amount: number | null
           name: string
           neighborhood: string | null
           owner_user_id: string
+          payment_methods: Json | null
           phone: string | null
           plan_id: string | null
           primary_color: string | null
@@ -845,6 +851,7 @@ export type Database = {
           status: string | null
           updated_at: string | null
           whatsapp: string | null
+          whatsapp_number: string | null
           zip_code: string | null
         }
         Insert: {
@@ -854,6 +861,7 @@ export type Database = {
           city?: string | null
           cover_url?: string | null
           created_at?: string | null
+          delivery_fee?: number | null
           description?: string | null
           document?: string | null
           email?: string | null
@@ -864,9 +872,11 @@ export type Database = {
           latitude?: number | null
           logo_url?: string | null
           longitude?: number | null
+          min_order_amount?: number | null
           name: string
           neighborhood?: string | null
           owner_user_id: string
+          payment_methods?: Json | null
           phone?: string | null
           plan_id?: string | null
           primary_color?: string | null
@@ -877,6 +887,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           whatsapp?: string | null
+          whatsapp_number?: string | null
           zip_code?: string | null
         }
         Update: {
@@ -886,6 +897,7 @@ export type Database = {
           city?: string | null
           cover_url?: string | null
           created_at?: string | null
+          delivery_fee?: number | null
           description?: string | null
           document?: string | null
           email?: string | null
@@ -896,9 +908,11 @@ export type Database = {
           latitude?: number | null
           logo_url?: string | null
           longitude?: number | null
+          min_order_amount?: number | null
           name?: string
           neighborhood?: string | null
           owner_user_id?: string
+          payment_methods?: Json | null
           phone?: string | null
           plan_id?: string | null
           primary_color?: string | null
@@ -909,6 +923,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           whatsapp?: string | null
+          whatsapp_number?: string | null
           zip_code?: string | null
         }
         Relationships: [
