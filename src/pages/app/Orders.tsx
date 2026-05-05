@@ -88,44 +88,79 @@ const Orders = () => {
   if (loading) return <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin inline text-primary" /></div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Pedidos</h1>
-          <p className="text-muted-foreground">Atualiza em tempo real.</p>
+          <h1 className="text-3xl font-black uppercase tracking-tight">Gestão de Pedidos</h1>
+          <p className="text-muted-foreground font-medium">Acompanhe e processe as vendas do seu delivery.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4" /> Atualizar</Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-none text-[10px] font-black uppercase tracking-widest">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            Em Tempo Real
+          </div>
+          <Button variant="outline" size="sm" onClick={load} className="rounded-none border-black font-bold uppercase tracking-widest text-[10px]">
+            <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {COLUMNS.map((col) => {
           const colOrders = orders.filter((o) => col.key === "saiu_para_entrega"
             ? (o.status === "saiu_para_entrega" || o.status === "pronto_para_retirada")
             : o.status === col.key);
+          
           return (
-            <div key={col.key} className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="font-semibold text-sm">{col.label}</h3>
-                <Badge variant="secondary">{colOrders.length}</Badge>
+            <div key={col.key} className="flex-shrink-0 w-80 flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b-2 border-black pb-2 px-1">
+                <h3 className="font-black text-xs uppercase tracking-widest">{col.label}</h3>
+                <span className="bg-black text-white text-[10px] font-black px-2 py-0.5">{colOrders.length}</span>
               </div>
-              <div className="space-y-2 min-h-[200px]">
+              
+              <div className="space-y-3 min-h-[500px] bg-muted/20 p-2 border-x border-b border-dashed border-black/10">
                 {colOrders.map((o) => (
-                  <Card key={o.id} className={`p-3 cursor-pointer hover:border-primary/50 ${!o.is_seen && col.key === "novo" ? "border-primary animate-pulse" : ""}`} onClick={() => openDetails(o)}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-sm">#{o.order_number}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                  <Card 
+                    key={o.id} 
+                    className={cn(
+                      "p-4 cursor-pointer hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 border-2 border-black rounded-none bg-white",
+                      !o.is_seen && col.key === "novo" ? "ring-2 ring-primary animate-pulse" : ""
+                    )} 
+                    onClick={() => openDetails(o)}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-black text-xs bg-black text-white px-2 py-0.5 tracking-tighter">#{o.order_number}</span>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">{new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
-                    <div className="text-sm truncate">{o.customer_name}</div>
-                    <div className="text-xs text-muted-foreground capitalize">{o.order_type}</div>
-                    <div className="text-sm font-semibold text-primary mt-1">{formatBRL(o.total)}</div>
+                    
+                    <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
+                        {o.order_type}
+                      </Badge>
+                      <div className="font-black text-sm">{formatBRL(o.total)}</div>
+                    </div>
+                    
                     {col.nextStatus && (
-                      <Button size="sm" variant="outline" className="w-full mt-2 text-xs h-7" onClick={(e) => { e.stopPropagation(); updateStatus(o.id, o.order_type === "retirada" && col.key === "em_preparo" ? "pronto_para_retirada" : col.nextStatus!); }}>
+                      <Button 
+                        size="sm" 
+                        variant="hero" 
+                        className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          updateStatus(o.id, o.order_type === "retirada" && col.key === "em_preparo" ? "pronto_para_retirada" : col.nextStatus!); 
+                        }}
+                      >
                         {col.nextLabel}
                       </Button>
                     )}
                   </Card>
                 ))}
-                {colOrders.length === 0 && <div className="text-xs text-center text-muted-foreground py-6">—</div>}
+                {colOrders.length === 0 && (
+                  <div className="h-20 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border border-dashed border-black/10">
+                    Vazio
+                  </div>
+                )}
               </div>
             </div>
           );
