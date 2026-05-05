@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext";
 import { isStoreOpen } from "@/lib/opening-hours";
 
 const PublicStore = () => {
-  const { slug } = useParams();
+  const { slug } = useParams<{ slug: string }>();
   const { setStoreSlug, count, subtotal } = useCart();
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
