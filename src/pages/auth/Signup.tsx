@@ -10,10 +10,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BrandMark } from "@/components/BrandMark";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatDoc } from "@/lib/format";
 
 const schema = z.object({
   full_name: z.string().trim().min(2, "Informe seu nome").max(100),
+  document: z.string().trim().min(11, "Informe um CPF ou CNPJ válido").max(18),
   email: z.string().trim().email("E-mail invalido").max(255),
   password: z.string().min(6, "Minimo 6 caracteres").max(100),
 });
@@ -22,7 +23,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirect = new URLSearchParams(location.search).get("redirect");
-  const [form, setForm] = useState({ full_name: "", email: "", password: "" });
+  const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -38,12 +39,27 @@ const Signup = () => {
       password: parsed.data.password,
       options: {
         emailRedirectTo: window.location.origin + "/meu-painel",
-        data: { full_name: parsed.data.full_name.toUpperCase() },
+        data: { 
+          full_name: parsed.data.full_name.toUpperCase(),
+          document: parsed.data.document.replace(/\D/g, "")
+        },
       },
     });
 
     if (!error && signUpData.user) {
-      // Self-registration is ALWAYS for customers only
+      // Create initial profile and role
+      const { error: profileErr } = await supabase.from("profiles").insert({
+        user_id: signUpData.user.id,
+        full_name: parsed.data.full_name.toUpperCase(),
+        document: parsed.data.document.replace(/\D/g, ""),
+        email: parsed.data.email.toLowerCase(),
+        role: "customer"
+      });
+
+      if (profileErr) {
+        console.error("Error creating profile:", profileErr);
+      }
+
       await supabase.from("user_roles").insert({
         user_id: signUpData.user.id,
         role: "customer"
@@ -80,6 +96,16 @@ const Signup = () => {
           <div>
             <Label htmlFor="full_name">Seu nome</Label>
             <Input id="full_name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required />
+          </div>
+          <div>
+            <Label htmlFor="document">CPF ou CNPJ</Label>
+            <Input 
+              id="document" 
+              value={formatDoc(form.document)} 
+              onChange={(e) => setForm({ ...form, document: e.target.value })} 
+              required 
+              placeholder="000.000.000-00" 
+            />
           </div>
           <div>
             <Label htmlFor="email">E-mail</Label>
