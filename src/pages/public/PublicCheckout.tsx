@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Search } from "lucide-react";
 import { toast } from "sonner";
-import { formatBRL, onlyDigits } from "@/lib/format";
+import { formatBRL, onlyDigits, formatCEP, formatPhone } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment } from "@/server/asaas.functions";
+import { fetchAddressByCep } from "@/services/viacep";
 
 type Zone = { id: string; neighborhood: string; city: string | null; fee: number; min_order: number; estimated_minutes: number };
 
