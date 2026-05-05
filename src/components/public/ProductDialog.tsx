@@ -118,10 +118,10 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
         {product.image_url && <img src={product.image_url} alt={product.name} className="h-48 w-full object-cover" />}
         <div className="space-y-4 p-5">
           <DialogHeader>
-            <DialogTitle className="pr-8 text-xl text-white">{product.name}</DialogTitle>
+            <DialogTitle className="pr-8 text-xl text-black">{product.name}</DialogTitle>
           </DialogHeader>
           {product.description && <p className="text-sm text-muted-foreground">{product.description}</p>}
-          <div className="border border-border bg-background/65 p-3 text-lg font-bold text-white">
+          <div className="border border-border bg-background/65 p-3 text-lg font-bold text-black">
             {product.promo_price ? (
               <>
                 {formatBRL(product.promo_price)}{" "}
@@ -162,7 +162,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                           onClick={() => toggleItem(group, item.id)}
                           className={cn(
                             "flex w-full items-center justify-between border px-3 py-2 text-left text-sm transition-colors",
-                            checked ? "border-primary bg-primary/10 text-white" : "border-border hover:bg-secondary",
+                            checked ? "border-primary bg-primary/10 text-black font-semibold" : "border-border hover:bg-secondary",
                           )}
                         >
                           <span>{item.name}</span>

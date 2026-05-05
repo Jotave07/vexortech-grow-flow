@@ -117,7 +117,7 @@ const PublicStore = () => {
                       <Badge variant={isOpen ? "default" : "secondary"} className="mb-4">
                         {isOpen ? "Aberto agora" : "Fechado"}
                       </Badge>
-                      <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">{publicStoreName}</h1>
+                      <h1 className="text-3xl font-bold tracking-tight text-black md:text-4xl">{publicStoreName}</h1>
                       {store.description && (
                         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
                           {store.description}
@@ -138,7 +138,7 @@ const PublicStore = () => {
                   <div className="mt-8 grid gap-3 sm:grid-cols-3">
                     <div className="border border-border bg-background/60 p-3">
                       <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Regiao</div>
-                      <div className="flex items-center gap-2 text-sm text-white">
+                      <div className="flex items-center gap-2 text-sm text-black">
                         <MapPin className="h-4 w-4 text-primary" />
                         <span>
                           {store.city || "Cidade"}
@@ -148,14 +148,14 @@ const PublicStore = () => {
                     </div>
                     <div className="border border-border bg-background/60 p-3">
                       <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Preparo</div>
-                      <div className="flex items-center gap-2 text-sm text-white">
+                      <div className="flex items-center gap-2 text-sm text-black">
                         <Clock className="h-4 w-4 text-primary" />
                         <span>{settings?.avg_prep_time_minutes ? `~${settings.avg_prep_time_minutes} min` : "Sob demanda"}</span>
                       </div>
                     </div>
                     <div className="border border-border bg-background/60 p-3">
                       <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Pedido minimo</div>
-                      <div className="text-sm font-semibold text-white">
+                      <div className="text-sm font-semibold text-black">
                         {settings?.min_order_value > 0 ? formatBRL(settings.min_order_value) : "Livre"}
                       </div>
                     </div>
@@ -214,7 +214,7 @@ const PublicStore = () => {
                 <div className="flex items-end justify-between gap-4 border-b border-border pb-3">
                   <div>
                     <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-primary">Categoria</div>
-                    <h2 className="text-2xl font-bold text-white">{section.name}</h2>
+                    <h2 className="text-2xl font-bold text-black">{section.name}</h2>
                   </div>
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     {section.items.length} {section.items.length === 1 ? "item" : "itens"}
@@ -235,7 +235,7 @@ const PublicStore = () => {
                           <div className="flex flex-col justify-between p-4">
                             <div>
                               <div className="mb-2 flex items-start justify-between gap-3">
-                                <h3 className="text-lg font-semibold leading-tight text-white">{product.name}</h3>
+                                <h3 className="text-lg font-semibold leading-tight text-black">{product.name}</h3>
                                 {!product.is_available && (
                                   <Badge variant="destructive" className="shrink-0">
                                     Esgotado
@@ -252,7 +252,7 @@ const PublicStore = () => {
                             <div className="mt-5 border-t border-border pt-4">
                               <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Valor</div>
                               <div className="flex items-end gap-2">
-                                <span className="text-2xl font-bold text-white">
+                                <span className="text-2xl font-bold text-black">
                                   {formatBRL(product.promo_price ?? product.price)}
                                 </span>
                                 {product.promo_price && (

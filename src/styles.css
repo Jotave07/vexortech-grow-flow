@@ -114,6 +114,10 @@
 }
 
 @layer components {
+  .bg-gradient-hero {
+    @apply bg-[linear-gradient(180deg,rgba(248,250,252,0.8)_0%,rgba(255,255,255,1)_100%)];
+  }
+
   .brand-logo-frame {
     @apply flex items-center justify-center overflow-hidden transition-all duration-300;
     width: clamp(140px, 15vw, 180px);
@@ -151,4 +155,8 @@
   .transition-smooth {
     @apply transition-all duration-200 ease-in-out;
   }
+}
+
+#lovable-badge {
+  display: none !important;
 }
