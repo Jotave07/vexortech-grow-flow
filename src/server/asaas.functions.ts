@@ -177,10 +177,14 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
     if (!payment?.external_id) return null;
 
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.external_id);
+    if (qrCode.errors) {
+      console.error("Erro ao obter QR Code PIX (info):", qrCode.errors);
+      return null;
+    }
 
     return {
-      pixCode: qrCode.payload,
-      qrCodeUrl: qrCode.encodedImage,
+      pixCode: qrCode.payload || null,
+      qrCodeUrl: qrCode.encodedImage || null,
     };
   });
 
