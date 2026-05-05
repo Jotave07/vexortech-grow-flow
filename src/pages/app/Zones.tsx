@@ -80,8 +80,8 @@ const Zones = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} bairro</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Bairro *</Label><Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} /></div>
-            <div><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+            <div><Label>Bairro *</Label><Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value.toUpperCase() })} /></div>
+            <div><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value.toUpperCase() })} /></div>
             <div className="grid grid-cols-3 gap-3">
               <div><Label>Taxa (R$)</Label><Input type="number" step="0.01" value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} /></div>
               <div><Label>Mín. (R$)</Label><Input type="number" step="0.01" value={form.min_order} onChange={(e) => setForm({ ...form, min_order: e.target.value })} /></div>
