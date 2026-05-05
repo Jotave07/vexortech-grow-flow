@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
+  { key: "aguardando_pagamento", label: "Aguardando PIX" },
   { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Confirmar" },
   { key: "confirmado", label: "Confirmados", nextStatus: "em_preparo", nextLabel: "Iniciar preparo" },
   { key: "em_preparo", label: "Em preparo", nextStatus: "saiu_para_entrega", nextLabel: "Saiu/Pronto" },
