@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ArrowLeft, CheckCircle2, Search } from "lucide-react";
 import { toast } from "sonner";
-import { formatBRL, onlyDigits, formatCEP, formatPhone } from "@/lib/format";
+import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment } from "@/server/asaas.functions";
@@ -34,6 +34,7 @@ const PublicCheckout = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [name, setName] = useState("");
+  const [document, setDocument] = useState("");
   const [phone, setPhone] = useState("");
   const [orderType, setOrderType] = useState<"entrega" | "retirada">("entrega");
   const [zoneId, setZoneId] = useState<string>("");
@@ -66,6 +67,7 @@ const PublicCheckout = () => {
     if (profile) {
       setName(profile.full_name || "");
       setPhone(profile.phone || "");
+      setDocument((profile as any).document || "");
       setZipCode((profile as any).zip_code || "");
       setStreet((profile as any).street || "");
       setNumber((profile as any).number || "");
@@ -160,6 +162,11 @@ const PublicCheckout = () => {
     const phoneDigits = onlyDigits(phone);
     if (phoneDigits.length < 10) return toast.error("Telefone inválido");
     
+    const docDigits = onlyDigits(document);
+    if (docDigits.length !== 11 && docDigits.length !== 14) {
+      return toast.error("CPF ou CNPJ inválido. O Asaas exige este documento para gerar o pagamento.");
+    }
+    
     if (orderType === "entrega") {
       if (!settings.allow_delivery) return toast.error("Loja não faz entrega");
       if (!zoneId) return toast.error("Escolha a região de entrega");
@@ -184,6 +191,7 @@ const PublicCheckout = () => {
         store_id: store.id, 
         full_name: name.trim(), 
         phone: phoneDigits,
+        document: docDigits,
         zip_code: zipCode,
         street: street.trim(),
         number: number.trim(),
@@ -210,6 +218,7 @@ const PublicCheckout = () => {
         await supabase.from("profiles").update({
           full_name: name.trim(),
           phone: phoneDigits,
+          document: docDigits,
           zip_code: zipCode,
           street: street.trim(),
           number: number.trim(),
@@ -229,6 +238,7 @@ const PublicCheckout = () => {
         customer_id: customerId,
         customer_name: name.trim().toUpperCase(),
         customer_phone: phoneDigits,
+        customer_document: docDigits,
         delivery_type: orderType,
         status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo",
         delivery_address: deliveryAddress?.toUpperCase() || null,
@@ -315,6 +325,16 @@ const PublicCheckout = () => {
               <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
             </div>
             <div>
+              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CPF ou CNPJ *</Label>
+              <Input 
+                value={formatDoc(document)} 
+                onChange={(e) => setDocument(e.target.value)} 
+                maxLength={18} 
+                className="border-border focus:ring-0" 
+                placeholder="000.000.000-00" 
+              />
+            </div>
+            <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
               <div className="flex gap-2">
                 <Input 
@@ -332,6 +352,7 @@ const PublicCheckout = () => {
                       
                       if (data) {
                         setName(data.full_name || "");
+                        setDocument(data.document || "");
                         setZipCode(data.zip_code || "");
                         setStreet(data.street || "");
                         setNumber(data.number || "");

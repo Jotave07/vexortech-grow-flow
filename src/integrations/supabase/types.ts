@@ -111,6 +111,7 @@ export type Database = {
           city: string | null
           complement: string | null
           created_at: string | null
+          document: string | null
           full_name: string | null
           id: string
           last_order_at: string | null
@@ -132,6 +133,7 @@ export type Database = {
           city?: string | null
           complement?: string | null
           created_at?: string | null
+          document?: string | null
           full_name?: string | null
           id?: string
           last_order_at?: string | null
@@ -153,6 +155,7 @@ export type Database = {
           city?: string | null
           complement?: string | null
           created_at?: string | null
+          document?: string | null
           full_name?: string | null
           id?: string
           last_order_at?: string | null

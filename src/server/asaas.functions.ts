@@ -107,7 +107,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     const asaasCustomer = await asaas.createCustomer({
       name: (order as any).customer_name || "Cliente",
       email: (order as any).customer_email || "",
-      cpfCnpj: "", // Most stores allow creation without CPF if configured
+      cpfCnpj: (order as any).customer_document || "", // CPF/CNPJ is now mandatory for Asaas payments
       mobilePhone: (order as any).customer_phone || undefined,
     }, storeSettings.asaas_api_key);
 
