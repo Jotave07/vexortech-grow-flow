@@ -22,7 +22,11 @@ type Zone = { id: string; neighborhood: string; city: string | null; fee: number
 const PublicCheckout = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { items, itemSubtotal, subtotal, clear, count } = useCart();
+  const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
+
+  useEffect(() => {
+    if (slug) setStoreSlug(slug);
+  }, [slug, setStoreSlug]);
   const createOrderPaymentFn = useServerFn(createOrderPayment);
 
   const [store, setStore] = useState<any>(null);
