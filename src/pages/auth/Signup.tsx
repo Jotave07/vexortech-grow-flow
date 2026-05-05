@@ -23,7 +23,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirect = new URLSearchParams(location.search).get("redirect");
-  const [form, setForm] = useState({ full_name: "", email: "", password: "" });
+  const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -39,7 +39,10 @@ const Signup = () => {
       password: parsed.data.password,
       options: {
         emailRedirectTo: window.location.origin + "/meu-painel",
-        data: { full_name: parsed.data.full_name.toUpperCase() },
+        data: { 
+          full_name: parsed.data.full_name.toUpperCase(),
+          document: parsed.data.document.replace(/\D/g, "")
+        },
       },
     });
 
