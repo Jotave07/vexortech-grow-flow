@@ -59,15 +59,15 @@ const AppLayout = () => {
       {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-foreground/35 md:hidden" onClick={() => setOpen(false)} />}
 
       <aside className={cn(
-        "dark fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-elegant transition-transform md:sticky md:translate-x-0",
+        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-white transition-transform md:sticky md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="border-b border-sidebar-border p-5">
+        <div className="border-b border-border p-5">
           <BrandMark compact className="mb-5" />
-          <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/65 p-3">
-            <div className="truncate text-sm font-semibold">{store.name}</div>
-            <a href={`/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-sidebar-primary hover:underline">
-              Abrir loja <ExternalLink className="h-3 w-3" />
+          <div className="rounded-none border-2 border-black bg-muted/30 p-3">
+            <div className="truncate text-xs font-black uppercase tracking-tight">{store.name}</div>
+            <a href={`/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary hover:underline">
+              Visualizar loja <ExternalLink className="h-3 w-3" />
             </a>
           </div>
         </div>
