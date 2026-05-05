@@ -63,10 +63,10 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
     });
     if (subscription.errors) throw new Error(subscription.errors[0].description);
 
-    await supabaseAdmin.from("subscriptions").upsert({
+    await supabaseAdmin.from("subscriptions" as any).upsert({
       store_id: data.storeId,
       plan_id: data.planId,
-      external_subscription_id: subscription.id,
+      asaas_subscription_id: subscription.id,
       status: "pendente_pagamento",
       updated_at: new Date().toISOString(),
     }, { onConflict: 'store_id' });
@@ -102,10 +102,10 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     // 3. Create or get customer in store's Asaas
     const asaasCustomer = await asaas.createCustomer({
-      name: order.customer_name,
-      email: order.customer_email || "",
+      name: (order as any).customer_name || "Cliente",
+      email: (order as any).customer_email || "",
       cpfCnpj: "", // Most stores allow creation without CPF if configured
-      mobilePhone: order.customer_phone,
+      mobilePhone: (order as any).customer_phone || undefined,
     }, storeSettings.asaas_api_key);
 
     if (asaasCustomer.errors) {
