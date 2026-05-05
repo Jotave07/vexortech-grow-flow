@@ -23,7 +23,25 @@ const CustomerDashboard = () => {
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
+    document: "",
+    zip_code: "",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
   });
+
+  const isProfileComplete = profile?.full_name && 
+    profile?.phone && 
+    profile?.document && 
+    profile?.zip_code && 
+    profile?.street && 
+    profile?.number && 
+    profile?.neighborhood && 
+    profile?.city && 
+    profile?.state;
 
   useEffect(() => {
     if (authLoading) return;
@@ -33,9 +51,6 @@ const CustomerDashboard = () => {
     }
 
     const loadOrders = async () => {
-      // Find orders by phone or user_id
-      // Priority 1: profile.phone
-      // Priority 2: user.id (if we start linking orders to user_id in the future)
       if (profile?.phone || user?.id) {
         let query = supabase
           .from("orders" as any)
@@ -57,15 +72,32 @@ const CustomerDashboard = () => {
       setFormData({
         full_name: profile.full_name || "",
         phone: profile.phone || "",
+        document: profile.document || "",
+        zip_code: profile.zip_code || "",
+        street: profile.street || "",
+        number: profile.number || "",
+        complement: profile.complement || "",
+        neighborhood: profile.neighborhood || "",
+        city: profile.city || "",
+        state: profile.state || "",
       });
+
+      if (!isProfileComplete) {
+        setEditModalOpen(true);
+      }
     }
 
     loadOrders();
-  }, [user, profile, authLoading, navigate]);
+  }, [user, profile, authLoading, navigate, isProfileComplete]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (!formData.document || formData.document.replace(/\D/g, "").length < 11) {
+      toast.error("Informe um CPF ou CNPJ válido");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -74,6 +106,14 @@ const CustomerDashboard = () => {
         .update({
           full_name: formData.full_name,
           phone: formData.phone.replace(/\D/g, ""),
+          document: formData.document.replace(/\D/g, ""),
+          zip_code: formData.zip_code.replace(/\D/g, ""),
+          street: formData.street,
+          number: formData.number,
+          complement: formData.complement,
+          neighborhood: formData.neighborhood,
+          city: formData.city,
+          state: formData.state,
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", user.id) as any);
