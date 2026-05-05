@@ -56,7 +56,6 @@ const Onboarding = () => {
       .from("stores")
       .insert({
         owner_user_id: user.id,
-        plan_id: selectedPlanId,
         slug: parsed.data.slug,
         name: parsed.data.name,
         description: parsed.data.description || null,
@@ -77,20 +76,12 @@ const Onboarding = () => {
       supabase.from("store_settings").insert({ store_id: store.id }),
       supabase.from("profiles").update({ store_id: store.id, full_name: profile?.full_name ?? null }).eq("user_id", user.id),
       supabase.from("user_roles").insert({ user_id: user.id, role: "store_owner", store_id: store.id }),
-      supabase.from("subscriptions").insert({
-        store_id: store.id,
-        plan_id: selectedPlanId,
-        status: "pendente_pagamento",
-        provider: "stripe",
-        last_payment_status: "pending",
-      }),
     ]);
 
     setLoading(false);
-    sessionStorage.setItem("selected_plan_id", selectedPlanId);
     await refreshProfile();
-    toast.success("Loja criada! Falta concluir a assinatura para liberar o painel.");
-    navigate("/app/assinatura?state=pending_payment", { replace: true });
+    toast.success("Loja criada! Agora escolha seu plano.");
+    navigate("/app/assinatura", { replace: true });
   };
 
   if (authLoading) {
