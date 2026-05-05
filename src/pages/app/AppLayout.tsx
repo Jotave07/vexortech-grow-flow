@@ -80,8 +80,8 @@ const AppLayout = () => {
               end={item.end}
               onClick={() => setOpen(false)}
               className={({ isActive }) => cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-smooth",
-                isActive ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold" : "text-sidebar-foreground/74 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                "flex items-center gap-3 rounded-none px-3 py-2.5 text-sm transition-smooth font-medium",
+                isActive ? "bg-black text-white font-bold" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
