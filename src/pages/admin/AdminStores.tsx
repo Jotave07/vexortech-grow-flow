@@ -43,14 +43,38 @@ const AdminStores = () => {
   };
 
   const changePlan = async (store: any, planId: string) => {
-    const sub = store.subscriptions?.[0];
-    if (sub) {
-      await supabase.from("subscriptions").update({ plan_id: planId, status: "ativa" }).eq("store_id", store.id);
+    if (planId === "cortesia") {
+      // Find or create a "cortesia" plan record if it doesn't exist, or just update the sub status
+      // For now, let's just mark it as active without a specific plan_id if it's courtesy, 
+      // but the best way is to have a specific plan.
+      const courtesyPlan = plans.find(p => p.slug === 'premium_cortesia' || p.slug === 'isento');
+      const targetPlanId = courtesyPlan?.id || plans[0]?.id;
+      
+      const sub = store.subscriptions?.[0];
+      if (sub) {
+        await supabase.from("subscriptions").update({ 
+          plan_id: targetPlanId, 
+          status: "ativa",
+          trial_ends_at: null // Remove trial if any
+        }).eq("store_id", store.id);
+      } else {
+        await supabase.from("subscriptions").insert({ 
+          store_id: store.id, 
+          plan_id: targetPlanId, 
+          status: "ativa" 
+        });
+      }
+      toast.success("Plano Cortesia ativado");
     } else {
-      await supabase.from("subscriptions").insert({ store_id: store.id, plan_id: planId, status: "ativa" });
+      const sub = store.subscriptions?.[0];
+      if (sub) {
+        await supabase.from("subscriptions").update({ plan_id: planId, status: "ativa" }).eq("store_id", store.id);
+      } else {
+        await supabase.from("subscriptions").insert({ store_id: store.id, plan_id: planId, status: "ativa" });
+      }
+      await supabase.from("stores").update({ plan_id: planId }).eq("id", store.id);
+      toast.success("Plano alterado");
     }
-    await supabase.from("stores").update({ plan_id: planId }).eq("id", store.id);
-    toast.success("Plano alterado");
     load();
   };
 
