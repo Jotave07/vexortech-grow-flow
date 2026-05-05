@@ -124,6 +124,7 @@ export type Database = {
           street: string | null
           total_orders: number | null
           total_spent: number | null
+          user_id: string | null
           zip_code: string | null
         }
         Insert: {
@@ -144,6 +145,7 @@ export type Database = {
           street?: string | null
           total_orders?: number | null
           total_spent?: number | null
+          user_id?: string | null
           zip_code?: string | null
         }
         Update: {
@@ -164,6 +166,7 @@ export type Database = {
           street?: string | null
           total_orders?: number | null
           total_spent?: number | null
+          user_id?: string | null
           zip_code?: string | null
         }
         Relationships: [
@@ -720,6 +723,8 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          city: string | null
+          complement: string | null
           created_at: string | null
           document: string | null
           email: string | null
@@ -727,14 +732,21 @@ export type Database = {
           id: string
           is_exempt: boolean | null
           last_login: string | null
+          neighborhood: string | null
+          number: string | null
           phone: string | null
           role: string | null
+          state: string | null
           store_id: string | null
+          street: string | null
           updated_at: string | null
           user_id: string
+          zip_code: string | null
         }
         Insert: {
           avatar_url?: string | null
+          city?: string | null
+          complement?: string | null
           created_at?: string | null
           document?: string | null
           email?: string | null
@@ -742,14 +754,21 @@ export type Database = {
           id?: string
           is_exempt?: boolean | null
           last_login?: string | null
+          neighborhood?: string | null
+          number?: string | null
           phone?: string | null
           role?: string | null
+          state?: string | null
           store_id?: string | null
+          street?: string | null
           updated_at?: string | null
           user_id: string
+          zip_code?: string | null
         }
         Update: {
           avatar_url?: string | null
+          city?: string | null
+          complement?: string | null
           created_at?: string | null
           document?: string | null
           email?: string | null
@@ -757,11 +776,16 @@ export type Database = {
           id?: string
           is_exempt?: boolean | null
           last_login?: string | null
+          neighborhood?: string | null
+          number?: string | null
           phone?: string | null
           role?: string | null
+          state?: string | null
           store_id?: string | null
+          street?: string | null
           updated_at?: string | null
           user_id?: string
+          zip_code?: string | null
         }
         Relationships: []
       }
