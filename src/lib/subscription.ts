@@ -132,6 +132,8 @@ const DEFAULT_LIMITS: PlanLimits = {
   internalUsers: 1,
 };
 
+const PREMIUM_PLAN_SLUGS = ["premium_cortesia", "isento"];
+
 const DEFAULT_CAPABILITIES: PlanCapabilities = {
   coupons: false,
   advancedReports: false,
