@@ -32,11 +32,11 @@ const Signup = () => {
     }
     setLoading(true);
     const { data: signUpData, error } = await supabase.auth.signUp({
-      email: parsed.data.email,
+      email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
       options: {
         emailRedirectTo: window.location.origin + "/onboarding",
-        data: { full_name: parsed.data.full_name },
+        data: { full_name: parsed.data.full_name.toUpperCase() },
       },
     });
 

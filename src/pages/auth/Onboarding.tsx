@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { BrandMark } from "@/components/BrandMark";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { slugify } from "@/lib/format";
+import { slugify, formatPhone, formatDoc } from "@/lib/format";
 import { z } from "zod";
 
 const schema = z.object({
@@ -56,13 +56,14 @@ const Onboarding = () => {
       .insert({
         owner_user_id: user.id,
         slug: parsed.data.slug,
-        name: parsed.data.name,
-        description: parsed.data.description || null,
-        whatsapp: parsed.data.whatsapp,
-        phone: parsed.data.whatsapp,
-        document: parsed.data.document,
-        city: parsed.data.city,
-        state: parsed.data.state,
+        name: parsed.data.name.toUpperCase(),
+        description: parsed.data.description?.toUpperCase() || null,
+        whatsapp: parsed.data.whatsapp.replace(/\D/g, ""),
+        phone: parsed.data.whatsapp.replace(/\D/g, ""),
+        document: parsed.data.document.replace(/\D/g, ""),
+        city: parsed.data.city.toUpperCase(),
+        state: parsed.data.state.toUpperCase(),
+        email: user.email?.toUpperCase(),
       })
       .select()
       .single();
@@ -113,17 +114,17 @@ const Onboarding = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="whatsapp">WhatsApp *</Label>
-              <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+              <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: formatPhone(e.target.value) })} placeholder="(11) 99999-9999" required />
             </div>
             <div>
               <Label htmlFor="document">CPF ou CNPJ *</Label>
-              <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="000.000.000-00" required />
+              <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: formatDoc(e.target.value) })} placeholder="000.000.000-00" required />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <Label htmlFor="city">Cidade *</Label>
-              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
+              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value.toUpperCase() })} required />
             </div>
             <div>
               <Label htmlFor="state">UF *</Label>
