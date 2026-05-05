@@ -1,5 +1,5 @@
 import { Ban, Bell, Link2, MapPin, MessageCircle, Tag, Users } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
 const benefits = [
   { icon: Ban, title: "Margem preservada", desc: "Receba o valor dos pedidos sem taxa por venda corroendo o resultado." },
@@ -11,7 +11,7 @@ const benefits = [
   { icon: MessageCircle, title: "Contato direto", desc: "Leve clientes para WhatsApp quando fizer sentido, sem perder o registro do pedido." },
 ];
 
-const containerVariants = {
+const containerVariants: Variants = {
   initial: { opacity: 0 },
   animate: {
     opacity: 1,
@@ -21,7 +21,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   initial: { opacity: 0, y: 20 },
   animate: { 
     opacity: 1, 
