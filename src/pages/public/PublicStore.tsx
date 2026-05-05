@@ -198,9 +198,16 @@ const PublicStore = () => {
       </section>
 
       <div className="container mx-auto px-4 pt-8">
-        {!acceptOrders && (
-          <div className="mb-6 border border-warning/35 bg-warning/10 p-4 text-center text-sm text-warning">
-            A loja esta fechada e nao esta aceitando pedidos no momento.
+        {isSuspended && (
+          <div className="mb-6 border-4 border-destructive bg-destructive/10 p-6 text-center text-destructive">
+            <h3 className="text-xl font-black uppercase tracking-tight italic mb-2">Operação Temporariamente Suspensa</h3>
+            <p className="font-bold text-sm">Esta loja não está aceitando pedidos no momento por questões administrativas.</p>
+          </div>
+        )}
+
+        {!isSuspended && !acceptOrders && (
+          <div className="mb-6 border border-warning/35 bg-warning/10 p-4 text-center text-sm text-warning font-bold uppercase tracking-widest">
+            A loja está fechada e não está aceitando pedidos no momento.
           </div>
         )}
 
