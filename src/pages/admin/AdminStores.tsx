@@ -144,8 +144,12 @@ const AdminStores = () => {
                 <Select value={selected.subscriptions?.[0]?.plan_id ?? ""} onValueChange={(v) => changePlan(selected, v)}>
                   <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cortesia">Cortesia (Plano Especial Isento)</SelectItem>
-                    {plans.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} — {formatBRL(p.price_monthly)}/mês</SelectItem>)}
+                    <SelectItem value="cortesia">Cortesia (Plano Isento)</SelectItem>
+                    {plans.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} — {formatBRL(p.price_monthly)}/mês
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
