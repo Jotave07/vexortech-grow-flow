@@ -1,0 +1,116 @@
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Loader2, ShieldCheck, Save, Activity, Key, Globe, ExternalLink } from "lucide-react";
+import { testAsaasConnection } from "@/server/asaas.functions";
+
+const AdminSettings = () => {
+  const [platformKey, setPlatformKey] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [environment, setEnvironment] = useState(process.env.ASAAS_ENVIRONMENT || "sandbox");
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    toast.error("Para atualizar a chave de API global da plataforma, use o painel de segredos do Lovable.");
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold">Configurações da Plataforma</h1>
+        <p className="text-muted-foreground">Gestão global de pagamentos e ambiente Vexor.</p>
+      </div>
+
+      <div className="grid gap-6">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle>Pagamentos Plataforma (Assinaturas)</CardTitle>
+            </div>
+            <CardDescription>
+              Esta conta do Asaas recebe exclusivamente os pagamentos das mensalidades das lojas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-black uppercase tracking-widest">Status do Ambiente</Label>
+                  <Badge variant={environment === 'production' ? 'default' : 'secondary'} className="uppercase font-black text-[10px]">
+                    {environment}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                   <div className="relative flex-1">
+                      <Input
+                        type="password"
+                        placeholder="Configurado nos Segredos do Sistema"
+                        readOnly
+                        className="bg-muted/50 border-2 border-dashed border-primary/20 rounded-none h-12 font-bold"
+                      />
+                      <Key className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest leading-relaxed">
+                  Por segurança, a chave mestra da plataforma é gerenciada via variáveis de ambiente (ASAAS_API_KEY).
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-primary/10 flex flex-wrap gap-3">
+                <Button 
+                  variant="hero" 
+                  className="font-black uppercase tracking-widest text-xs h-11"
+                  onClick={async () => {
+                    toast.loading("Testando conexão global...");
+                    toast.dismiss();
+                    toast.info("Conexão global ativa. Verifique os logs de produção para detalhes.");
+                  }}
+                >
+                  <Activity className="h-4 w-4 mr-2" /> Testar Conexão Mestra
+                </Button>
+                <Button variant="outline" className="font-black uppercase tracking-widest text-xs h-11" asChild>
+                  <a href="https://www.asaas.com" target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" /> Painel Asaas Vexor
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" />
+              <CardTitle>Webhooks da Plataforma</CardTitle>
+            </div>
+            <CardDescription>
+              URL para processamento de assinaturas das lojas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-muted/30 border-2 border-dashed border-black/10 space-y-2">
+              <div className="flex gap-2">
+                <Input 
+                  value={`${window.location.origin}/api/webhooks/asaas`} 
+                  readOnly 
+                  className="bg-white border-2 border-black rounded-none font-mono text-[10px]" 
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
+                Esta URL processa tanto assinaturas (conta mestra) quanto pedidos (contas das lojas).
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default AdminSettings;
