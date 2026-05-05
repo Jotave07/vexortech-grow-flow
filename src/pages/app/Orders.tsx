@@ -29,6 +29,8 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
   const load = async () => {
     const { data } = await supabase.from("orders").select("*").eq("store_id", store.id)
