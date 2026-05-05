@@ -206,10 +206,10 @@ const Settings = () => {
       secondary_color: nullableText(storeForm.secondary_color),
     };
     const extendedStorePayload = {
-      public_name: nullableText(storeForm.public_name),
+      public_name: nullableText(storeForm.public_name?.toUpperCase()),
       address_number: nullableText(storeForm.address_number),
-      address_complement: nullableText(storeForm.address_complement),
-      neighborhood: nullableText(storeForm.neighborhood),
+      address_complement: nullableText(storeForm.address_complement?.toUpperCase()),
+      neighborhood: nullableText(storeForm.neighborhood?.toUpperCase()),
       latitude: toNullableNumber(storeForm.latitude),
       longitude: toNullableNumber(storeForm.longitude),
     };
