@@ -158,7 +158,7 @@ const FEATURE_LABELS: Record<SubscriptionFeature, string> = {
   internalUsers: "Usuarios internos adicionais",
 };
 
-const STATUS_LABELS: Record<SubscriptionRecord["status"], string> = {
+const STATUS_LABELS: Record<string, string> = {
   trial: "Periodo de teste",
   ativa: "Ativa",
   suspensa: "Suspensa",
@@ -168,7 +168,7 @@ const STATUS_LABELS: Record<SubscriptionRecord["status"], string> = {
   bloqueada: "Bloqueada",
 };
 
-const STATUS_TONES: Record<SubscriptionRecord["status"], "default" | "secondary" | "destructive"> = {
+const STATUS_TONES: Record<string, "default" | "secondary" | "destructive"> = {
   trial: "secondary",
   ativa: "default",
   suspensa: "destructive",
@@ -252,8 +252,8 @@ export const getStatusMeta = (
   }
 
   return {
-    label: STATUS_LABELS[subscription.status],
-    tone: STATUS_TONES[subscription.status],
+    label: subscription.status ? STATUS_LABELS[subscription.status] : "Indefinido",
+    tone: subscription.status ? STATUS_TONES[subscription.status] : "secondary",
     detail: subscription.status === "cancelada"
       ? "O plano nao sera renovado automaticamente."
       : subscription.status === "suspensa"
