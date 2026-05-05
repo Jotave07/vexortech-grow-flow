@@ -1,0 +1,7 @@
+-- Final sync
+ALTER TABLE public.stores ADD COLUMN IF NOT EXISTS address_number TEXT;
+ALTER TABLE public.stores ADD COLUMN IF NOT EXISTS public_name TEXT;
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS delivery_base_fee DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS last_order_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS is_seen BOOLEAN DEFAULT false;

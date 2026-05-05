@@ -110,6 +110,7 @@ export type Database = {
           created_at: string | null
           full_name: string
           id: string
+          last_order_at: string | null
           phone: string
           store_id: string
           total_orders: number | null
@@ -119,6 +120,7 @@ export type Database = {
           created_at?: string | null
           full_name: string
           id?: string
+          last_order_at?: string | null
           phone: string
           store_id: string
           total_orders?: number | null
@@ -128,6 +130,7 @@ export type Database = {
           created_at?: string | null
           full_name?: string
           id?: string
+          last_order_at?: string | null
           phone?: string
           store_id?: string
           total_orders?: number | null
@@ -318,7 +321,7 @@ export type Database = {
           payment_method: string | null
           status: string | null
           store_id: string
-          total_amount: number
+          total: number
         }
         Insert: {
           created_at?: string | null
@@ -330,7 +333,7 @@ export type Database = {
           payment_method?: string | null
           status?: string | null
           store_id: string
-          total_amount: number
+          total: number
         }
         Update: {
           created_at?: string | null
@@ -342,7 +345,7 @@ export type Database = {
           payment_method?: string | null
           status?: string | null
           store_id?: string
-          total_amount?: number
+          total?: number
         }
         Relationships: [
           {
@@ -368,6 +371,7 @@ export type Database = {
           created_at: string | null
           id: string
           order_id: string | null
+          paid_at: string | null
           status: string
           store_id: string
         }
@@ -377,6 +381,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           order_id?: string | null
+          paid_at?: string | null
           status: string
           store_id: string
         }
@@ -386,6 +391,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           order_id?: string | null
+          paid_at?: string | null
           status?: string
           store_id?: string
         }
@@ -637,12 +643,17 @@ export type Database = {
       }
       store_settings: {
         Row: {
+          accept_card_on_delivery: boolean | null
+          accept_cash: boolean | null
+          accept_orders_when_closed: boolean | null
+          accept_pix: boolean | null
           address: string | null
-          allow_delivery: boolean | null
-          allow_pickup: boolean | null
+          allow_delivery: boolean
+          allow_pickup: boolean
           avg_prep_time_minutes: number | null
           business_hours: Json | null
           created_at: string | null
+          delivery_base_fee: number | null
           delivery_distance_rules: Json | null
           delivery_fee: number | null
           delivery_fee_per_km: number | null
@@ -650,19 +661,27 @@ export type Database = {
           delivery_radius_km: number | null
           excluded_neighborhoods: Json | null
           id: string
+          is_open: boolean | null
           min_order_amount: number | null
           min_order_value: number | null
           payment_methods: Json | null
+          pix_key: string | null
+          pix_key_type: string | null
           store_id: string
           whatsapp_number: string | null
         }
         Insert: {
+          accept_card_on_delivery?: boolean | null
+          accept_cash?: boolean | null
+          accept_orders_when_closed?: boolean | null
+          accept_pix?: boolean | null
           address?: string | null
-          allow_delivery?: boolean | null
-          allow_pickup?: boolean | null
+          allow_delivery?: boolean
+          allow_pickup?: boolean
           avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
+          delivery_base_fee?: number | null
           delivery_distance_rules?: Json | null
           delivery_fee?: number | null
           delivery_fee_per_km?: number | null
@@ -670,19 +689,27 @@ export type Database = {
           delivery_radius_km?: number | null
           excluded_neighborhoods?: Json | null
           id?: string
+          is_open?: boolean | null
           min_order_amount?: number | null
           min_order_value?: number | null
           payment_methods?: Json | null
+          pix_key?: string | null
+          pix_key_type?: string | null
           store_id: string
           whatsapp_number?: string | null
         }
         Update: {
+          accept_card_on_delivery?: boolean | null
+          accept_cash?: boolean | null
+          accept_orders_when_closed?: boolean | null
+          accept_pix?: boolean | null
           address?: string | null
-          allow_delivery?: boolean | null
-          allow_pickup?: boolean | null
+          allow_delivery?: boolean
+          allow_pickup?: boolean
           avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
+          delivery_base_fee?: number | null
           delivery_distance_rules?: Json | null
           delivery_fee?: number | null
           delivery_fee_per_km?: number | null
@@ -690,9 +717,12 @@ export type Database = {
           delivery_radius_km?: number | null
           excluded_neighborhoods?: Json | null
           id?: string
+          is_open?: boolean | null
           min_order_amount?: number | null
           min_order_value?: number | null
           payment_methods?: Json | null
+          pix_key?: string | null
+          pix_key_type?: string | null
           store_id?: string
           whatsapp_number?: string | null
         }
@@ -710,6 +740,7 @@ export type Database = {
         Row: {
           address: string | null
           address_complement: string | null
+          address_number: string | null
           city: string | null
           cover_url: string | null
           created_at: string | null
@@ -720,13 +751,16 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_suspended: boolean | null
+          latitude: number | null
           logo_url: string | null
+          longitude: number | null
           name: string
           neighborhood: string | null
           owner_user_id: string
           phone: string | null
           plan_id: string | null
           primary_color: string | null
+          public_name: string | null
           secondary_color: string | null
           slug: string
           state: string | null
@@ -738,6 +772,7 @@ export type Database = {
         Insert: {
           address?: string | null
           address_complement?: string | null
+          address_number?: string | null
           city?: string | null
           cover_url?: string | null
           created_at?: string | null
@@ -748,13 +783,16 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_suspended?: boolean | null
+          latitude?: number | null
           logo_url?: string | null
+          longitude?: number | null
           name: string
           neighborhood?: string | null
           owner_user_id: string
           phone?: string | null
           plan_id?: string | null
           primary_color?: string | null
+          public_name?: string | null
           secondary_color?: string | null
           slug: string
           state?: string | null
@@ -766,6 +804,7 @@ export type Database = {
         Update: {
           address?: string | null
           address_complement?: string | null
+          address_number?: string | null
           city?: string | null
           cover_url?: string | null
           created_at?: string | null
@@ -776,13 +815,16 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_suspended?: boolean | null
+          latitude?: number | null
           logo_url?: string | null
+          longitude?: number | null
           name?: string
           neighborhood?: string | null
           owner_user_id?: string
           phone?: string | null
           plan_id?: string | null
           primary_color?: string | null
+          public_name?: string | null
           secondary_color?: string | null
           slug?: string
           state?: string | null
