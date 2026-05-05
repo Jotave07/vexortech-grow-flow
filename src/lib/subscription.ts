@@ -281,9 +281,11 @@ export const getPlanUsageProgress = (usage: number, limit: number | null | undef
 };
 
 export const isPaidPlan = (plan: (Partial<PlanRecord> & { priceMonthly?: number }) | null | undefined) => {
-  if (!plan) return false;
+  if (!plan?.id) return false;
+  const price = Number(plan?.price_monthly ?? plan?.priceMonthly ?? 0);
   const isPremiumCourtesy = plan.slug && PREMIUM_PLAN_SLUGS.includes(plan.slug);
-  return Number(plan?.price_monthly ?? plan?.priceMonthly ?? 0) > 0 || isPremiumCourtesy;
+  // Any plan assigned to a store is considered valid, including free/courtesy plans (price 0)
+  return price >= 0 || isPremiumCourtesy;
 };
 
 export const getSubscriptionAccessState = ({
