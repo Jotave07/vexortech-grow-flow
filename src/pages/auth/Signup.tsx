@@ -66,7 +66,12 @@ const Signup = () => {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message.includes("already") ? "Este e-mail ja esta cadastrado" : error.message);
+      if (error.message.includes("already")) {
+        toast.info("Este e-mail já possui conta. Redirecionando para login...");
+        setTimeout(() => navigate("/entrar", { replace: true }), 2000);
+        return;
+      }
+      toast.error(error.message);
       return;
     }
     toast.success("Conta criada! Agora vamos ativar sua assinatura.");
