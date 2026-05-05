@@ -321,7 +321,7 @@ const PublicCheckout = () => {
 
               <div>
                 <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Bairro *</Label>
-                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Ex: Centro" />
+                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value.toUpperCase())} placeholder="Ex: Centro" />
               </div>
 
               <div>
