@@ -152,7 +152,7 @@ const Subscription = () => {
         customerData: {
           name: profileData?.full_name || "Lojista",
           email: user?.email || "",
-          cpfCnpj: store.document,
+          cpfCnpj: store.document.replace(/\D/g, ""),
           mobilePhone: store.whatsapp || "",
         }
       });
