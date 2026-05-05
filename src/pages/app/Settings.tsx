@@ -552,7 +552,7 @@ const Settings = () => {
                   type="number"
                   step="0.1"
                   value={storeSettings.delivery_radius_km ?? ""}
-                  onChange={(e) => setStoreSettings({ ...storeSettings, delivery_radius_km: e.target.value ? Number(e.target.value) : null })}
+                  onChange={(e) => setStoreSettings({ ...storeSettings, delivery_radius_km: e.target.value ? Number(e.target.value) : 0 })}
                   placeholder="Ex: 8"
                 />
               </Field>
@@ -971,7 +971,7 @@ const buildStoreSettings = (settings: StoreSettingsRow | null): StoreSettingsRow
   pix_key: settings?.pix_key ?? null,
   pix_key_type: settings?.pix_key_type ?? null,
   business_hours: settings?.business_hours ?? DEFAULT_BUSINESS_HOURS,
-  delivery_radius_km: settings?.delivery_radius_km ?? null,
+  delivery_radius_km: settings?.delivery_radius_km ?? 0,
   delivery_base_fee: settings?.delivery_base_fee ?? 0,
   delivery_distance_rules: settings?.delivery_distance_rules ?? [],
   delivery_fee_per_km: settings?.delivery_fee_per_km ?? 0,
