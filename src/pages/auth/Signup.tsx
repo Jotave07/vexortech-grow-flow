@@ -47,7 +47,19 @@ const Signup = () => {
     });
 
     if (!error && signUpData.user) {
-      // Self-registration is ALWAYS for customers only
+      // Create initial profile and role
+      const { error: profileErr } = await supabase.from("profiles").insert({
+        user_id: signUpData.user.id,
+        full_name: parsed.data.full_name.toUpperCase(),
+        document: parsed.data.document.replace(/\D/g, ""),
+        email: parsed.data.email.toLowerCase(),
+        role: "customer"
+      });
+
+      if (profileErr) {
+        console.error("Error creating profile:", profileErr);
+      }
+
       await supabase.from("user_roles").insert({
         user_id: signUpData.user.id,
         role: "customer"
