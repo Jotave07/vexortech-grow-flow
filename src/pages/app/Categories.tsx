@@ -40,12 +40,12 @@ const Categories = () => {
     if (!form.name.trim()) return toast.error("Nome obrigatório");
     setSaving(true);
     if (editing) {
-      const { error } = await supabase.from("categories").update({ name: form.name.trim(), description: form.description || null, sort_order: form.sort_order }).eq("id", editing.id);
+      const { error } = await supabase.from("categories").update({ name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order }).eq("id", editing.id);
       setSaving(false);
       if (error) return toast.error(error.message);
       toast.success("Categoria atualizada");
     } else {
-      const { error } = await supabase.from("categories").insert({ store_id: store.id, name: form.name.trim(), description: form.description || null, sort_order: form.sort_order });
+      const { error } = await supabase.from("categories").insert({ store_id: store.id, name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order });
       setSaving(false);
       if (error) return toast.error(error.message);
       toast.success("Categoria criada");
