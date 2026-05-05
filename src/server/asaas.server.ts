@@ -91,5 +91,12 @@ export const asaas = {
 
   async getPayment(storeApiKey: string, paymentId: string) {
     return asaasRequest(`/payments/${paymentId}`, 'GET', storeApiKey);
+  },
+
+  async refundPayment(storeApiKey: string, paymentId: string, value: number, description: string) {
+    return asaasRequest(`/payments/${paymentId}/refund`, 'POST', storeApiKey, {
+      value,
+      description
+    });
   }
 };
