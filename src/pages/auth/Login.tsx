@@ -87,7 +87,7 @@ const Login = () => {
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Nao tem conta? <Link to="/cadastrar" className="text-primary hover:underline">Cadastre-se</Link>
+          Nao tem conta? <Link to={redirect ? `/cadastrar?redirect=${encodeURIComponent(redirect)}` : "/cadastrar"} className="text-primary hover:underline">Cadastre-se</Link>
         </p>
       </Card>
     </div>
