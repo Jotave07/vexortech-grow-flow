@@ -110,18 +110,24 @@ const Onboarding = () => {
             <Label htmlFor="description">Descricao curta</Label>
             <Textarea id="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} />
           </div>
-          <div>
-            <Label htmlFor="whatsapp">WhatsApp *</Label>
-            <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="whatsapp">WhatsApp *</Label>
+              <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+            </div>
+            <div>
+              <Label htmlFor="document">CPF ou CNPJ *</Label>
+              <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="000.000.000-00" required />
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <Label htmlFor="city">Cidade</Label>
-              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+              <Label htmlFor="city">Cidade *</Label>
+              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
             </div>
             <div>
-              <Label htmlFor="state">UF</Label>
-              <Input id="state" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} />
+              <Label htmlFor="state">UF *</Label>
+              <Input id="state" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} placeholder="ES" required />
             </div>
           </div>
           <Button type="submit" variant="hero" className="w-full" disabled={loading}>
