@@ -32,11 +32,14 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (!authLoading) {
+      if (profile?.role === "customer") {
+        navigate("/meu-painel", { replace: true });
+        return;
+      }
+      
       const isStoreOwner = profile?.role === "store_owner";
       if (profile?.store_id && isStoreOwner) {
         navigate("/app", { replace: true });
-      } else if (profile?.role === "customer") {
-        navigate("/meu-painel", { replace: true });
       }
     }
   }, [authLoading, profile, navigate]);
