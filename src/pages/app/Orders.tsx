@@ -38,15 +38,38 @@ const Orders = () => {
   useEffect(() => {
     if (!store?.id) return;
     load();
+    const playNotificationSound = () => {
+      try {
+        // Um som de notificação mais robusto e "alto"
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const playTone = (freq: number, startTime: number, duration: number) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(0.5, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        };
+
+        // Sequência de "bi-bi" alto
+        const now = audioContext.currentTime;
+        playTone(880, now, 0.1);
+        playTone(880, now + 0.2, 0.1);
+        playTone(1108.73, now + 0.4, 0.3);
+      } catch (e) {
+        console.error("Erro ao tocar som:", e);
+      }
+    };
+
     const ch = supabase.channel(`orders-${store.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, (payload) => {
         if (payload.eventType === "INSERT") {
-          toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 6000 });
-          try {
-            new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ==").play().catch(() => undefined);
-          } catch {
-            // Audio feedback is optional and can be blocked by the browser.
-          }
+          toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 8000 });
+          playNotificationSound();
         }
         load();
       }).subscribe();
