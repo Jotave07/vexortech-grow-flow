@@ -201,8 +201,8 @@ const PublicCheckout = () => {
       }
 
       await supabase.from("order_status_history").insert({ order_id: order.id, store_id: store.id, status: "novo", notes: "Pedido recebido" });
-      await supabase.from("payments").insert({
-        order_id: order.id, store_id: store.id, method: paymentMethod, status: "pendente", amount: total,
+      await supabase.from("payments" as any).insert({
+        order_id: order.id, store_id: store.id, status: "pendente", amount: total,
       });
 
       if (paymentMethod === "pix" && (settings.asaas_api_key || (settings as any).pix_enabled)) {
