@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BrandMark } from "@/components/BrandMark";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { formatBRL, slugify } from "@/lib/format";
+import { slugify } from "@/lib/format";
 import { z } from "zod";
 
 const schema = z.object({
@@ -24,7 +23,6 @@ const schema = z.object({
 });
 
 const Onboarding = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", city: "", state: "" });
@@ -95,39 +93,6 @@ const Onboarding = () => {
         <h1 className="mb-2 text-2xl font-bold">Configuração da sua loja</h1>
         <p className="mb-6 text-sm text-muted-foreground">Sua loja será criada e você poderá gerenciar tudo após ativar sua assinatura.</p>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-3">
-            <Label>Plano escolhido</Label>
-            {plansLoading ? (
-              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                Carregando planos...
-              </div>
-            ) : plans.length === 0 ? (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
-                Nenhum plano ativo disponivel no momento.
-              </div>
-            ) : (
-              <RadioGroup value={selectedPlanId} onValueChange={setSelectedPlanId} className="space-y-2">
-                {plans.map((plan) => (
-                  <label key={plan.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-smooth ${selectedPlanId === plan.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/35"}`}>
-                    <RadioGroupItem value={plan.id} className="mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium">{plan.name}</span>
-                        <span className="text-sm font-semibold text-primary">{formatBRL(plan.price_monthly)}/mes</span>
-                      </div>
-                      {plan.description && <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>}
-                    </div>
-                  </label>
-                ))}
-              </RadioGroup>
-            )}
-            {selectedPlan && (
-              <p className="text-xs text-muted-foreground">
-                A assinatura sera criada para o plano <span className="font-medium text-foreground">{selectedPlan.name}</span> e o acesso so sera liberado apos o pagamento.
-              </p>
-            )}
-          </div>
           <div>
             <Label htmlFor="name">Nome do estabelecimento *</Label>
             <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Burger Vexor" required />
@@ -157,7 +122,7 @@ const Onboarding = () => {
               <Input id="state" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} />
             </div>
           </div>
-          <Button type="submit" variant="hero" className="w-full" disabled={loading || plansLoading || !selectedPlanId}>
+          <Button type="submit" variant="hero" className="w-full" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />} Criar loja e seguir para assinatura
           </Button>
         </form>
