@@ -499,7 +499,7 @@ const Settings = () => {
               </div>
               <Field>
                 <Label htmlFor="store-city">Cidade</Label>
-                <Input id="store-city" value={storeForm.city ?? ""} onChange={(e) => setStoreForm({ ...storeForm, city: e.target.value })} />
+                <Input id="store-city" value={storeForm.city?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, city: e.target.value.toUpperCase() })} />
               </Field>
               <Field>
                 <Label htmlFor="store-state">UF</Label>
