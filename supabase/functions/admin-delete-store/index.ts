@@ -33,7 +33,36 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const { store_id } = await req.json()
+    const { store_id, action } = await req.json()
+
+    if (action === 'cleanup_orphans') {
+      // 1. Get all users from auth
+      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({
+        perPage: 1000
+      })
+      if (listError) throw listError
+
+      // 2. Get all profile ids
+      const { data: profiles } = await supabase.from('profiles').select('user_id')
+      const profileIds = new Set(profiles?.map(p => p.user_id) || [])
+
+      const deleted = []
+      for (const u of users) {
+        // Don't delete the current admin or the owner
+        if (u.id === user.id || u.email === "jvieira@vexortech.com.br") continue
+
+        // If user is not in profiles, delete from auth
+        if (!profileIds.has(u.id)) {
+          const { error: delErr } = await supabase.auth.admin.deleteUser(u.id)
+          if (!delErr) deleted.push(u.email)
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, deleted_count: deleted.length, deleted_emails: deleted }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (!store_id) {
       return new Response(JSON.stringify({ error: 'Store ID is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
