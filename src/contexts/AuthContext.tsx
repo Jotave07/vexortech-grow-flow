@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId: string, userEmail?: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
+    const { data } = await supabase.from("profiles" as any).select("*").eq("user_id", userId).maybeSingle();
     
     let profileData = data as any;
     

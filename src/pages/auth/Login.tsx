@@ -42,7 +42,7 @@ const Login = () => {
     }
 
     // Check role for redirection
-    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user?.id || "").maybeSingle();
+    const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
     setLoading(false);
     toast.success("Bem-vindo!");
     
