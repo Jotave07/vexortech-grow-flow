@@ -191,6 +191,7 @@ const PublicCheckout = () => {
         store_id: store.id, 
         full_name: name.trim(), 
         phone: phoneDigits,
+        document: docDigits,
         zip_code: zipCode,
         street: street.trim(),
         number: number.trim(),
