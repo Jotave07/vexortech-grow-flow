@@ -35,9 +35,13 @@ const PublicCheckout = () => {
   const [phone, setPhone] = useState("");
   const [orderType, setOrderType] = useState<"entrega" | "retirada">("entrega");
   const [zoneId, setZoneId] = useState<string>("");
+  const [zipCode, setZipCode] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "cartao_entrega">("pix");
   const [changeFor, setChangeFor] = useState("");
@@ -45,6 +49,35 @@ const PublicCheckout = () => {
   const [couponCode, setCouponCode] = useState("");
   const [coupon, setCoupon] = useState<any>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
+
+  const handleCepLookup = async () => {
+    const cleanCep = onlyDigits(zipCode);
+    if (cleanCep.length !== 8) return;
+    setLoadingCep(true);
+    try {
+      const addr = await fetchAddressByCep(cleanCep);
+      setStreet(addr.street);
+      setNeighborhood(addr.neighborhood);
+      setCity(addr.city);
+      setState(addr.state);
+      
+      // Try to find a matching delivery zone by neighborhood
+      const matchingZone = zones.find(z => 
+        z.neighborhood.toLowerCase().trim() === addr.neighborhood.toLowerCase().trim()
+      );
+      if (matchingZone) {
+        setZoneId(matchingZone.id);
+      } else {
+        setZoneId("");
+        toast.info("Bairro não encontrado na lista de entregas. Verifique as regiões atendidas.");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao buscar CEP");
+    } finally {
+      setLoadingCep(false);
+    }
+  };
 
   useEffect(() => {
     if (!slug) return;
