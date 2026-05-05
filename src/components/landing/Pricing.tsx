@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/format";
+import { motion, Variants } from "framer-motion";
 
 const buildFeatures = (plan: any) => {
   const features: string[] = [];
@@ -11,15 +12,34 @@ const buildFeatures = (plan: any) => {
   if (plan.max_products) features.push(`${plan.max_products} produtos`);
   else features.push("Produtos ilimitados");
 
-  features.push("Link publico");
-  features.push("Gestao de produtos");
+  features.push("Link público");
+  features.push("Gestão de produtos");
 
   if (plan.allows_coupons) features.push("Cupons");
-  if (plan.allows_advanced_reports) features.push("Relatorios completos");
-  if (plan.allows_custom_branding) features.push("Personalizacao visual");
-  if (plan.allows_custom_domain) features.push("Dominio proprio");
+  if (plan.allows_advanced_reports) features.push("Relatórios completos");
+  if (plan.allows_custom_branding) features.push("Personalização visual");
+  if (plan.allows_custom_domain) features.push("Domínio próprio");
 
   return features;
+};
+
+const containerVariants: Variants = {
+  initial: { opacity: 0 },
+  animate: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  initial: { opacity: 0, y: 30 },
+  animate: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
+  },
 };
 
 export const Pricing = () => {
@@ -37,7 +57,7 @@ export const Pricing = () => {
       features: buildFeatures(plan),
       highlight: index === 1,
       priceLabel: Number(plan.price_monthly) > 0 ? formatBRL(plan.price_monthly) : "Sob consulta",
-      period: Number(plan.price_monthly) > 0 ? "/mes" : "",
+      period: Number(plan.price_monthly) > 0 ? "/mês" : "",
       cta: Number(plan.price_monthly) > 0 ? `Assinar ${plan.name}` : "Falar com vendas",
       variant: index === 1 ? "hero" : "outline",
     }));
@@ -46,15 +66,32 @@ export const Pricing = () => {
   return (
     <section id="planos" className="section-band py-20 md:py-24">
       <div className="container mx-auto px-4">
-        <div className="mb-12 max-w-2xl">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mb-12 max-w-2xl"
+        >
           <p className="mb-3 text-sm font-semibold uppercase text-primary">Planos</p>
-          <h2 className="mb-4 text-3xl font-bold md:text-5xl">Custo previsivel para uma operacao mais independente.</h2>
+          <h2 className="mb-4 text-3xl font-bold md:text-5xl">Custo previsível para uma operação mais independente.</h2>
           <p className="text-lg text-muted-foreground">Sem taxa por pedido e com troca de plano conforme a loja cresce.</p>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-5 md:grid-cols-3">
+        <motion.div 
+          variants={containerVariants}
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, margin: "-100px" }}
+          className="grid gap-5 md:grid-cols-3"
+        >
           {displayPlans.map((plan) => (
-            <div key={plan.id} className={`vexor-panel relative flex flex-col border bg-card p-7 shadow-card transition-smooth ${plan.highlight ? "border-primary shadow-elegant" : "border-border hover:border-primary/40"}`}>
+            <motion.div 
+              key={plan.id} 
+              variants={itemVariants}
+              whileHover={{ y: -8, transition: { duration: 0.3 } }}
+              className={`vexor-panel relative flex flex-col border bg-card p-7 shadow-card transition-colors ${plan.highlight ? "border-primary shadow-elegant" : "border-border hover:border-primary/40"}`}
+            >
               {plan.highlight && (
                 <div className="absolute -top-3 left-5 border border-primary bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary-foreground">
                   Mais escolhido
@@ -77,9 +114,9 @@ export const Pricing = () => {
               <Button variant={plan.variant as "hero" | "outline"} size="lg" className="mt-auto w-full" asChild>
                 <Link to="/cadastrar">{plan.cta}</Link>
               </Button>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );
