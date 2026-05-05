@@ -353,6 +353,7 @@ export type Database = {
           id: string
           is_seen: boolean | null
           notes: string | null
+          order_number: number
           payment_method: string | null
           payment_status: string | null
           public_token: string | null
@@ -360,6 +361,7 @@ export type Database = {
           store_id: string
           subtotal: number | null
           total: number
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -379,6 +381,7 @@ export type Database = {
           id?: string
           is_seen?: boolean | null
           notes?: string | null
+          order_number?: number
           payment_method?: string | null
           payment_status?: string | null
           public_token?: string | null
@@ -386,6 +389,7 @@ export type Database = {
           store_id: string
           subtotal?: number | null
           total: number
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -405,6 +409,7 @@ export type Database = {
           id?: string
           is_seen?: boolean | null
           notes?: string | null
+          order_number?: number
           payment_method?: string | null
           payment_status?: string | null
           public_token?: string | null
@@ -412,6 +417,7 @@ export type Database = {
           store_id?: string
           subtotal?: number | null
           total?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -735,6 +741,7 @@ export type Database = {
           pix_key: string | null
           pix_key_type: string | null
           store_id: string
+          updated_at: string | null
           whatsapp_number: string | null
         }
         Insert: {
@@ -764,6 +771,7 @@ export type Database = {
           pix_key?: string | null
           pix_key_type?: string | null
           store_id: string
+          updated_at?: string | null
           whatsapp_number?: string | null
         }
         Update: {
@@ -793,6 +801,7 @@ export type Database = {
           pix_key?: string | null
           pix_key_type?: string | null
           store_id?: string
+          updated_at?: string | null
           whatsapp_number?: string | null
         }
         Relationships: [
@@ -1052,6 +1061,22 @@ export type Database = {
               total: number
             }[]
           }
+        | {
+            Args: { _order_id?: string; _token: string }
+            Returns: {
+              created_at: string
+              delivery_type: string
+              id: string
+              notes: string
+              payment_method: string
+              payment_status: string
+              public_token: string
+              status: string
+              store_id: string
+              store_name: string
+              total: number
+            }[]
+          }
       get_public_order_items:
         | {
             Args: { _order_id: string }
@@ -1071,6 +1096,15 @@ export type Database = {
               unit_price: number
             }[]
           }
+        | {
+            Args: { _order_id?: string; _token: string }
+            Returns: {
+              id: string
+              product_name: string
+              quantity: number
+              unit_price: number
+            }[]
+          }
       get_public_order_status_history:
         | {
             Args: { _order_id: string }
@@ -1083,6 +1117,15 @@ export type Database = {
           }
         | {
             Args: { _order_id: string; _token?: string }
+            Returns: {
+              created_at: string
+              id: string
+              notes: string
+              status: string
+            }[]
+          }
+        | {
+            Args: { _order_id?: string; _token: string }
             Returns: {
               created_at: string
               id: string
