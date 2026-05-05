@@ -141,7 +141,7 @@ const AdminStores = () => {
 
               <div>
                 <label className="text-xs font-medium">Plano</label>
-                <Select value={selected.subscriptions?.[0]?.plan_id ?? ""} onValueChange={(v) => changePlan(selected, v)}>
+                <Select value={selected.subscriptions?.[0]?.plan_id || (selected.subscriptions?.[0]?.status === 'ativa' && !selected.subscriptions?.[0]?.plan_id ? 'cortesia' : '')} onValueChange={(v) => changePlan(selected, v)}>
                   <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cortesia">Cortesia (Plano Isento)</SelectItem>
