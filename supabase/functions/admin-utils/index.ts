@@ -35,7 +35,9 @@ serve(async (req) => {
 
     if (action === 'cleanup_orphans') {
       // 1. Get all users from auth
-      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers()
+      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({
+        perPage: 1000
+      })
       if (listError) throw listError
 
       // 2. Get all profile user_ids
