@@ -60,8 +60,9 @@ const Onboarding = () => {
         description: parsed.data.description || null,
         whatsapp: parsed.data.whatsapp,
         phone: parsed.data.whatsapp,
-        city: parsed.data.city || null,
-        state: parsed.data.state || null,
+        document: parsed.data.document,
+        city: parsed.data.city,
+        state: parsed.data.state,
       })
       .select()
       .single();
