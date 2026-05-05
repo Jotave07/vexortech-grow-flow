@@ -68,9 +68,19 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     if (!order) throw new Error("Pedido não encontrado.");
 
-    // 3. Create PIX payment in store's Asaas
+    // 3. Create or get customer in store's Asaas
+    // For simplicity and speed in delivery, we create a new one or the store can handle it.
+    // Asaas requires at least name and cpfCnpj (or we can use a dummy for PIX if allowed, but better to be safe)
+    const asaasCustomer = await asaas.createCustomer({
+      name: order.customer_name,
+      email: order.customer_email || "",
+      cpfCnpj: "", // Optional in some PIX flows but recommended
+      mobilePhone: order.customer_phone,
+    }, storeSettings.asaas_api_key);
+
+    // 4. Create PIX payment in store's Asaas
     const payment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
-      customer: order.customer_name, // Should ideally create a customer in Asaas too
+      customer: asaasCustomer.id || asaasCustomer.errors?.[0]?.description, // Fallback for debugging if creation fails
       value: Number(order.total),
       dueDate: new Date().toISOString().split('T')[0],
       description: `Pedido #${order.order_number} - ${order.customer_name}`,
