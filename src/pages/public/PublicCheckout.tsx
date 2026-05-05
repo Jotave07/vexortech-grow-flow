@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +23,42 @@ type Zone = { id: string; neighborhood: string; city: string | null; fee: number
 const PublicCheckout = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
+  const { user, profile, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (slug) setStoreSlug(slug);
   }, [slug, setStoreSlug]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.info("Você precisa estar logado para finalizar o pedido.");
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
+    }
+  }, [user, authLoading, navigate, location.pathname]);
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name || "");
+      setPhone(profile.phone || "");
+      setZipCode(profile.zip_code || "");
+      setStreet(profile.street || "");
+      setNumber(profile.number || "");
+      setComplement(profile.complement || "");
+      setNeighborhood(profile.neighborhood || "");
+      setCity(profile.city || "");
+      setState(profile.state || "");
+      
+      if (profile.neighborhood && zones.length > 0) {
+        const neighborhoodLower = profile.neighborhood.toLowerCase().trim();
+        const matchingZone = zones.find(z => 
+          z.neighborhood.toLowerCase().trim() === neighborhoodLower
+        );
+        if (matchingZone) setZoneId(matchingZone.id);
+      }
+    }
+  }, [profile, zones]);
   const createOrderPaymentFn = useServerFn(createOrderPayment);
 
   const [store, setStore] = useState<any>(null);

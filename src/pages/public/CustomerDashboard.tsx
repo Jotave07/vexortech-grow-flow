@@ -36,12 +36,18 @@ const CustomerDashboard = () => {
       // Find orders by phone or user_id
       // Priority 1: profile.phone
       // Priority 2: user.id (if we start linking orders to user_id in the future)
-      if (profile?.phone) {
-        const { data } = await (supabase
+      if (profile?.phone || user?.id) {
+        let query = supabase
           .from("orders" as any)
-          .select("*, stores(name, slug, whatsapp)")
-          .eq("customer_phone", profile.phone.replace(/\D/g, ""))
-          .order("created_at", { ascending: false }) as any);
+          .select("*, stores(name, slug, whatsapp)");
+          
+        if (user?.id) {
+          query = query.or(`customer_id.in.(select id from customers where user_id.eq.${user.id}),customer_phone.eq.${profile?.phone?.replace(/\D/g, "") || 'none'}`);
+        } else {
+          query = query.eq("customer_phone", profile?.phone?.replace(/\D/g, "") || 'none');
+        }
+
+        const { data } = await (query.order("created_at", { ascending: false }) as any);
         setOrders(data ?? []);
       }
       setLoading(false);
@@ -197,6 +203,14 @@ const CustomerDashboard = () => {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">WhatsApp</label>
                   <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Endereço Principal</label>
+                  <p className="font-bold text-sm">
+                    {profile?.street ? (
+                      `${profile.street}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} | ${profile.neighborhood} - ${profile.city}/${profile.state}`
+                    ) : 'Endereço não cadastrado'}
+                  </p>
                 </div>
               </div>
               <Button 
