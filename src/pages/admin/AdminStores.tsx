@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Search, ExternalLink, Pause, Play, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Search, ExternalLink, Pause, Play, Trash2, ShieldCheck, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
@@ -18,6 +18,19 @@ const AdminStores = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<any>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newStore, setNewStore] = useState({
+    email: "",
+    password: "",
+    full_name: "",
+    name: "",
+    slug: "",
+    whatsapp: "",
+    document: "",
+    city: "",
+    state: "",
+  });
 
   const load = async () => {
     setLoading(true);
@@ -121,13 +134,49 @@ const AdminStores = () => {
     load();
   };
 
+  const handleCreateStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-create-store", {
+        body: newStore
+      });
+
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Erro ao criar loja");
+
+      toast.success("Loja e empresário criados com sucesso!");
+      setCreateModalOpen(false);
+      setNewStore({
+        email: "",
+        password: "",
+        full_name: "",
+        name: "",
+        slug: "",
+        whatsapp: "",
+        document: "",
+        city: "",
+        state: "",
+      });
+      load();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) return <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin inline text-primary" /></div>;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Lojas</h1>
-        <p className="text-muted-foreground">{stores.length} lojas no total.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">Lojas</h1>
+          <p className="text-muted-foreground">{stores.length} lojas no total.</p>
+        </div>
+        <Button onClick={() => setCreateModalOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" /> Nova Loja
+        </Button>
       </div>
 
       <div className="relative">
@@ -215,6 +264,98 @@ const AdminStores = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Nova Loja e Empresário</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateStore} className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>E-mail do Empresário</Label>
+                <Input 
+                  type="email" 
+                  value={newStore.email} 
+                  onChange={(e) => setNewStore({ ...newStore, email: e.target.value })}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Senha Temporária</Label>
+                <Input 
+                  type="password" 
+                  value={newStore.password} 
+                  onChange={(e) => setNewStore({ ...newStore, password: e.target.value })}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nome Completo do Empresário</Label>
+                <Input 
+                  value={newStore.full_name} 
+                  onChange={(e) => setNewStore({ ...newStore, full_name: e.target.value })}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nome da Loja</Label>
+                <Input 
+                  value={newStore.name} 
+                  onChange={(e) => setNewStore({ ...newStore, name: e.target.value })}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Slug (URL da loja)</Label>
+                <Input 
+                  value={newStore.slug} 
+                  onChange={(e) => setNewStore({ ...newStore, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>WhatsApp</Label>
+                <Input 
+                  value={newStore.whatsapp} 
+                  onChange={(e) => setNewStore({ ...newStore, whatsapp: e.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>CPF ou CNPJ</Label>
+                <Input 
+                  value={newStore.document} 
+                  onChange={(e) => setNewStore({ ...newStore, document: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input 
+                    value={newStore.city} 
+                    onChange={(e) => setNewStore({ ...newStore, city: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>UF</Label>
+                  <Input 
+                    value={newStore.state} 
+                    onChange={(e) => setNewStore({ ...newStore, state: e.target.value.toUpperCase().slice(0, 2) })}
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateModalOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={creating}>
+                {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Criar Loja
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
