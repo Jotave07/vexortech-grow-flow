@@ -52,6 +52,17 @@ const AdminStores = () => {
     load();
   };
 
+  const toggleExempt = async (store: any) => {
+    if (!store.owner_profile_id) {
+      return toast.error("Dono da loja não encontrado no sistema de perfis.");
+    }
+    const newValue = !store.is_exempt;
+    const { error } = await supabase.from("profiles").update({ is_exempt: newValue }).eq("id", store.owner_profile_id);
+    if (error) return toast.error(error.message);
+    toast.success(newValue ? "Loja marcada como Isenta (Acesso Total)" : "Isenção removida");
+    load();
+  };
+
   const changePlan = async (store: any, planId: string) => {
     if (planId === "cortesia") {
       // Find or create a "cortesia" plan record if it doesn't exist, or just update the sub status
