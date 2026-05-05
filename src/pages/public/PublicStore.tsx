@@ -124,8 +124,14 @@ const PublicStore = () => {
                         </p>
                       )}
                     </div>
-                    <div className="hidden h-24 w-24 shrink-0 border border-border bg-secondary md:block">
-                      {store.logo_url && <img src={store.logo_url} alt="" className="h-full w-full object-cover" />}
+                    <div className="hidden h-24 w-24 shrink-0 overflow-hidden border-2 border-white/10 bg-white p-1 md:block shadow-xl">
+                      {store.logo_url ? (
+                        <img src={store.logo_url} alt="" className="h-full w-full object-contain" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center bg-muted text-xs font-bold text-muted-foreground">
+                          LOGO
+                        </div>
+                      )}
                     </div>
                   </div>
 
