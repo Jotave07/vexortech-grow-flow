@@ -26,6 +26,11 @@ const AdminLayout = () => {
       return;
     }
     (async () => {
+      // Manual check for the requested admin email
+      if (user.email === "jvieira@vexortech.com.br") {
+        setIsAdmin(true);
+        return;
+      }
       const { data } = await supabase.rpc("is_vexor_admin", { _user_id: user.id });
       setIsAdmin(!!data);
     })();
