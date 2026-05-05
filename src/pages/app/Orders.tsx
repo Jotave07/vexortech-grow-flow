@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, MapPin, Clock, RefreshCw } from "lucide-react";
+import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
   { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Confirmar" },
@@ -20,6 +21,7 @@ const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: st
 
 const Orders = () => {
   const { store } = useOutletContext<{ store: any }>();
+  const { accessState, message } = useSubscriptionStatus();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
@@ -87,6 +89,25 @@ const Orders = () => {
   };
 
   if (loading) return <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin inline text-primary" /></div>;
+
+  if (accessState !== "active") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
+        <div className="bg-amber-50 text-amber-600 p-4 rounded-full border-2 border-amber-200">
+          <AlertTriangle className="h-12 w-12" />
+        </div>
+        <div className="max-w-md">
+          <h2 className="text-2xl font-black uppercase tracking-tight italic">Acesso Restrito</h2>
+          <p className="text-muted-foreground mt-2 font-medium">{message}</p>
+        </div>
+        <Button variant="hero" className="font-black uppercase tracking-widest text-xs h-12 px-8" asChild>
+          <Link to="/app/assinatura">
+            Regularizar Assinatura <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

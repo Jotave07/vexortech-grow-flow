@@ -18,14 +18,15 @@ const schema = z.object({
   slug: z.string().trim().min(3, "Slug muito curto").max(50).regex(/^[a-z0-9-]+$/, "Use apenas letras, numeros e hifen"),
   description: z.string().max(500).optional(),
   whatsapp: z.string().trim().min(10, "WhatsApp invalido").max(20),
-  city: z.string().trim().max(100).optional(),
-  state: z.string().trim().max(2).optional(),
+  document: z.string().trim().min(11, "CPF ou CNPJ inválido").max(18),
+  city: z.string().trim().min(2, "Informe sua cidade").max(100),
+  state: z.string().trim().length(2, "UF deve ter 2 letras"),
 });
 
 const Onboarding = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
-  const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", city: "", state: "" });
+  const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", document: "", city: "", state: "" });
   const [loading, setLoading] = useState(false);
   const publicBaseUrl = `${window.location.host}/loja/`;
 
@@ -59,8 +60,9 @@ const Onboarding = () => {
         description: parsed.data.description || null,
         whatsapp: parsed.data.whatsapp,
         phone: parsed.data.whatsapp,
-        city: parsed.data.city || null,
-        state: parsed.data.state || null,
+        document: parsed.data.document,
+        city: parsed.data.city,
+        state: parsed.data.state,
       })
       .select()
       .single();
@@ -108,18 +110,24 @@ const Onboarding = () => {
             <Label htmlFor="description">Descricao curta</Label>
             <Textarea id="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} />
           </div>
-          <div>
-            <Label htmlFor="whatsapp">WhatsApp *</Label>
-            <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="whatsapp">WhatsApp *</Label>
+              <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+            </div>
+            <div>
+              <Label htmlFor="document">CPF ou CNPJ *</Label>
+              <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="000.000.000-00" required />
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <Label htmlFor="city">Cidade</Label>
-              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+              <Label htmlFor="city">Cidade *</Label>
+              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
             </div>
             <div>
-              <Label htmlFor="state">UF</Label>
-              <Input id="state" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} />
+              <Label htmlFor="state">UF *</Label>
+              <Input id="state" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} placeholder="ES" required />
             </div>
           </div>
           <Button type="submit" variant="hero" className="w-full" disabled={loading}>

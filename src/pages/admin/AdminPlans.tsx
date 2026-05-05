@@ -33,7 +33,7 @@ const AdminPlans = () => {
   };
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", slug: "", description: "", price_monthly: "0", max_products: "", is_active: true, allows_coupons: false, allows_advanced_reports: false, allows_custom_branding: false, allows_custom_domain: false });
+    setForm({ name: "", slug: "", description: "", price_monthly: "0", max_products: "", is_active: true, allows_coupons: false, allows_advanced_reports: false, allows_custom_branding: false, allows_custom_domain: false, sort_order: plans.length });
     setOpen(true);
   };
 
@@ -101,10 +101,13 @@ const AdminPlans = () => {
               <div><Label>Preço/mês</Label><Input type="number" step="0.01" value={form.price_monthly} onChange={(e) => setForm({ ...form, price_monthly: e.target.value })} /></div>
               <div><Label>Máx. produtos</Label><Input type="number" value={form.max_products} onChange={(e) => setForm({ ...form, max_products: e.target.value })} placeholder="∞" /></div>
             </div>
-            {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["allows_custom_domain", "Domínio próprio"], ["is_active", "Ativo"]].map(([k, l]) => (
+            {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["allows_custom_domain", "Domínio próprio"], ["is_active", "Público"]].map(([k, l]) => (
               <div key={k} className="flex items-center justify-between"><Label>{l}</Label><Switch checked={!!form[k]} onCheckedChange={(v) => setForm({ ...form, [k]: v })} /></div>
             ))}
-            <Button variant="hero" className="w-full" onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
+            <div className="pt-2">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-2">Dica: Planos com slug "premium_cortesia" ou "isento" não geram cobrança.</p>
+              <Button variant="hero" className="w-full" onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ShoppingBag, DollarSign, TrendingUp, Clock, Loader2 } from "lucide-react";
+import { ShoppingBag, DollarSign, TrendingUp, Clock, Loader2, AlertTriangle, ArrowRight } from "lucide-react";
+import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 
 type Stats = {
   todayOrders: number;
@@ -20,6 +21,7 @@ type Stats = {
 
 const Dashboard = () => {
   const { store } = useOutletContext<{ store: any }>();
+  const { accessState, message } = useSubscriptionStatus();
   const [stats, setStats] = useState<Stats | null>(null);
   const [topProducts, setTopProducts] = useState<{ name: string; qty: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +88,25 @@ const Dashboard = () => {
 
   if (loading || !stats) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
+  if (accessState !== "active") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
+        <div className="bg-amber-50 text-amber-600 p-4 rounded-full border-2 border-amber-200">
+          <AlertTriangle className="h-12 w-12" />
+        </div>
+        <div className="max-w-md">
+          <h2 className="text-2xl font-black uppercase tracking-tight italic">Acesso Restrito</h2>
+          <p className="text-muted-foreground mt-2 font-medium">{message}</p>
+        </div>
+        <Button variant="hero" className="font-black uppercase tracking-widest text-xs h-12 px-8" asChild>
+          <Link to="/app/assinatura">
+            Regularizar Assinatura <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    );
   }
 
   return (

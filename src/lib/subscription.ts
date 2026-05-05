@@ -132,6 +132,8 @@ const DEFAULT_LIMITS: PlanLimits = {
   internalUsers: 1,
 };
 
+const PREMIUM_PLAN_SLUGS = ["premium_cortesia", "isento"];
+
 const DEFAULT_CAPABILITIES: PlanCapabilities = {
   coupons: false,
   advancedReports: false,
@@ -278,8 +280,11 @@ export const getPlanUsageProgress = (usage: number, limit: number | null | undef
   };
 };
 
-export const isPaidPlan = (plan: (Partial<PlanRecord> & { priceMonthly?: number }) | null | undefined) =>
-  Number(plan?.price_monthly ?? plan?.priceMonthly ?? 0) > 0;
+export const isPaidPlan = (plan: (Partial<PlanRecord> & { priceMonthly?: number }) | null | undefined) => {
+  if (!plan) return false;
+  const isPremiumCourtesy = plan.slug && PREMIUM_PLAN_SLUGS.includes(plan.slug);
+  return Number(plan?.price_monthly ?? plan?.priceMonthly ?? 0) > 0 || isPremiumCourtesy;
+};
 
 export const getSubscriptionAccessState = ({
   subscription,
@@ -297,11 +302,20 @@ export const getSubscriptionAccessState = ({
   if (!subscription || !plan || !isPaidPlan(plan)) return "no_plan";
 
   if (subscription.status === "ativa") return "active";
-  if (subscription.status === "pendente_pagamento") return "pending_payment";
+  
+  // If subscription is canceled, check if we're still within the paid period
+  if (subscription.status === "cancelada") {
+    const periodEnd = (subscription as any).current_period_end;
+    if (periodEnd && new Date(periodEnd) > new Date()) {
+      return "active";
+    }
+    return "canceled";
+  }
+
   if (subscription.status === "trial") return "active";
   if (subscription.status === "inadimplente") return "past_due";
-  if (subscription.status === "cancelada") return "canceled";
   if (subscription.status === "bloqueada" || subscription.status === "suspensa") return "blocked";
+  if (subscription.status === "pendente_pagamento") return "pending_payment";
 
   if (subscription.last_payment_status === "failed" || subscription.last_payment_status === "past_due") return "past_due";
   return "pending_payment";
