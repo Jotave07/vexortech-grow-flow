@@ -35,40 +35,43 @@ serve(async (req) => {
     if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
       
       // 1. Process Subscription
-      if (payment.subscription) {
-        const { data: subscription, error: subError } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('external_subscription_id', payment.subscription)
-          .single()
+      // We also check for payment.subscription or externalReference (which we set to storeId in some cases)
+      // but the most reliable for recurring is payment.subscription
+      const subscriptionId = payment.subscription || payment.externalReference
 
-        if (subscription) {
-          await supabase
-            .from('subscriptions')
-            .update({ 
-              status: 'ativo',
-              last_payment_at: new Date().toISOString()
-            })
-            .eq('id', subscription.id)
-            
-          console.log(`Subscription ${subscription.id} updated to active`)
-        }
+      const { data: subscription, error: subError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .or(`external_subscription_id.eq.${payment.subscription},id.eq.${payment.externalReference}`)
+        .maybeSingle()
+
+      if (subscription && (payment.subscription || subscription.store_id === payment.externalReference)) {
+        await supabase
+          .from('subscriptions')
+          .update({ 
+            status: 'ativa',
+            last_payment_at: new Date().toISOString()
+          })
+          .eq('id', subscription.id)
+          
+        console.log(`Subscription ${subscription.id} updated to active`)
       }
 
       // 2. Process Order Payment
-      // Identification by external_id (payment.id from Asaas)
+      // Identification by external_id (payment.id from Asaas) or externalReference (order.id)
       const { data: orderPayment, error: payError } = await supabase
         .from('payments')
         .select('*, orders(*)')
-        .eq('external_id', payment.id)
-        .single()
+        .or(`external_id.eq.${payment.id},order_id.eq.${payment.externalReference}`)
+        .maybeSingle()
 
       if (orderPayment) {
         await supabase
           .from('payments')
           .update({ 
             status: 'pago', 
-            paid_at: new Date().toISOString() 
+            paid_at: new Date().toISOString(),
+            external_id: payment.id // Ensure we have the ID for future reference
           })
           .eq('id', orderPayment.id)
 

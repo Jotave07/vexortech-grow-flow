@@ -16,6 +16,7 @@ type SubscriptionStatusResult = {
   plan: PlanRow | null;
   store: StoreRow | null;
   isPlatformAdmin: boolean;
+  user: any;
   refresh: () => Promise<void>;
 };
 
@@ -80,6 +81,7 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
     plan,
     store,
     isPlatformAdmin,
+    user,
     refresh,
   };
 };

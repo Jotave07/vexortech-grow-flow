@@ -36,6 +36,7 @@ const Subscription = () => {
     plan,
     store,
     isPlatformAdmin,
+    user,
     refresh,
   } = useSubscriptionStatus();
   const [selectedPlanId, setSelectedPlanId] = useState("");
@@ -137,12 +138,17 @@ const Subscription = () => {
     }
 
     try {
+      const { data: profileData } = await supabase.from("profiles").select("*").eq("user_id", store.owner_user_id).single();
+      
       const checkout = await createSubscriptionCheckout({
         planId: selectedPlanId,
         storeId: store.id,
-        provider: "stripe",
-        successUrl: `${window.location.origin}/app/assinatura?state=pending_payment`,
-        cancelUrl: `${window.location.origin}/app/assinatura?state=${accessParam}`,
+        customerData: {
+          name: profileData?.full_name || "Lojista",
+          email: user?.email || "",
+          cpfCnpj: "", // Lojista preencherá no Asaas se necessário
+          mobilePhone: store.whatsapp || "",
+        }
       });
 
       await refresh();
