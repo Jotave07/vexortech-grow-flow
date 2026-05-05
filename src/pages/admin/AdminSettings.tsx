@@ -11,7 +11,7 @@ import { Loader2, ShieldCheck, Save, Activity, Key, Globe, ExternalLink, Trash2 
 const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<any[]>([]);
-  const environment = "sandbox"; // Standard for this project based on asaas.functions.ts
+  const environment = "sandbox" as string; // Standard for this project based on asaas.functions.ts
 
   useEffect(() => {
     const loadLogs = async () => {
