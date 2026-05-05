@@ -247,6 +247,9 @@ const Settings = () => {
       ...baseSettingsPayload,
       ...extendedSettingsPayload,
     } as any).eq("store_id", store.id);
+    const safeSettingsUpdate = shouldRetryWithLegacySchema(settingsUpdate.error)
+      ? await supabase.from("store_settings").update(baseSettingsPayload as any).eq("store_id", store.id)
+      : settingsUpdate;
 
     setSaving(false);
 
