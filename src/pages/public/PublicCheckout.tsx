@@ -326,11 +326,11 @@ const PublicCheckout = () => {
 
               <div>
                 <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label>
-                <Input value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, Bloco..." />
+                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} placeholder="Apto, Bloco..." />
               </div>
               <div>
                 <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label>
-                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Próximo a..." />
+                <Input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} placeholder="Próximo a..." />
               </div>
             </div>
           </Card>
