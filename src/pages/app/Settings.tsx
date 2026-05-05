@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Loader2, MapPin, Palette, Plus, Save, Search, Settings2, Store, TimerReset, Trash2, Truck, Upload, Wallet, Copy, ExternalLink, ShieldCheck, Activity } from "lucide-react";
 import { fetchAddressByCep, ViaCepError, buildAddressLabel, normalizeCep } from "@/services/viacep";
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
-import { formatBRL, formatPhone, formatDoc } from "@/lib/format";
+import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
 import { testAsaasConnection } from "@/server/asaas.functions";
 
