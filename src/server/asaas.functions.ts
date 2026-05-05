@@ -53,7 +53,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
         store_id: data.storeId,
         plan_id: data.planId,
         external_subscription_id: subscription.id,
-        status: "pendente",
+        status: "pendente_pagamento",
       });
 
     return {
