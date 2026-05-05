@@ -297,7 +297,8 @@ export const getSubscriptionAccessState = ({
   if (!subscription || !plan || !isPaidPlan(plan)) return "no_plan";
 
   if (subscription.status === "ativa") return "active";
-  if (subscription.status === "pendente_pagamento" || subscription.status === "trial") return "pending_payment";
+  if (subscription.status === "pendente_pagamento") return "pending_payment";
+  if (subscription.status === "trial") return "active";
   if (subscription.status === "inadimplente") return "past_due";
   if (subscription.status === "cancelada") return "canceled";
   if (subscription.status === "bloqueada" || subscription.status === "suspensa") return "blocked";
