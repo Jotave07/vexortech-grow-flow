@@ -111,6 +111,7 @@ export type Database = {
           full_name: string
           id: string
           last_order_at: string | null
+          name: string | null
           phone: string
           store_id: string
           total_orders: number | null
@@ -121,6 +122,7 @@ export type Database = {
           full_name: string
           id?: string
           last_order_at?: string | null
+          name?: string | null
           phone: string
           store_id: string
           total_orders?: number | null
@@ -131,6 +133,7 @@ export type Database = {
           full_name?: string
           id?: string
           last_order_at?: string | null
+          name?: string | null
           phone?: string
           store_id?: string
           total_orders?: number | null
@@ -193,25 +196,34 @@ export type Database = {
       order_item_options: {
         Row: {
           created_at: string | null
+          extra_price: number | null
           id: string
+          item_name: string | null
           name: string
           option_item_id: string
+          option_name: string | null
           order_item_id: string
           price: number | null
         }
         Insert: {
           created_at?: string | null
+          extra_price?: number | null
           id?: string
+          item_name?: string | null
           name: string
           option_item_id: string
+          option_name?: string | null
           order_item_id: string
           price?: number | null
         }
         Update: {
           created_at?: string | null
+          extra_price?: number | null
           id?: string
+          item_name?: string | null
           name?: string
           option_item_id?: string
+          option_name?: string | null
           order_item_id?: string
           price?: number | null
         }
@@ -231,6 +243,7 @@ export type Database = {
           id: string
           order_id: string
           product_id: string | null
+          product_name: string | null
           quantity: number
           store_id: string | null
           unit_price: number
@@ -240,6 +253,7 @@ export type Database = {
           id?: string
           order_id: string
           product_id?: string | null
+          product_name?: string | null
           quantity: number
           store_id?: string | null
           unit_price: number
@@ -249,6 +263,7 @@ export type Database = {
           id?: string
           order_id?: string
           product_id?: string | null
+          product_name?: string | null
           quantity?: number
           store_id?: string | null
           unit_price?: number
@@ -322,41 +337,80 @@ export type Database = {
       orders: {
         Row: {
           created_at: string | null
+          customer_document: string | null
+          customer_email: string | null
           customer_id: string | null
+          customer_name: string | null
           customer_phone: string | null
+          delivery_address: string | null
+          delivery_city: string | null
+          delivery_fee: number | null
+          delivery_neighborhood: string | null
+          delivery_state: string | null
           delivery_type: string | null
+          delivery_zip_code: string | null
+          discount_amount: number | null
           id: string
           is_seen: boolean | null
           notes: string | null
           payment_method: string | null
+          payment_status: string | null
+          public_token: string | null
           status: string | null
           store_id: string
+          subtotal: number | null
           total: number
         }
         Insert: {
           created_at?: string | null
+          customer_document?: string | null
+          customer_email?: string | null
           customer_id?: string | null
+          customer_name?: string | null
           customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_fee?: number | null
+          delivery_neighborhood?: string | null
+          delivery_state?: string | null
           delivery_type?: string | null
+          delivery_zip_code?: string | null
+          discount_amount?: number | null
           id?: string
           is_seen?: boolean | null
           notes?: string | null
           payment_method?: string | null
+          payment_status?: string | null
+          public_token?: string | null
           status?: string | null
           store_id: string
+          subtotal?: number | null
           total: number
         }
         Update: {
           created_at?: string | null
+          customer_document?: string | null
+          customer_email?: string | null
           customer_id?: string | null
+          customer_name?: string | null
           customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_fee?: number | null
+          delivery_neighborhood?: string | null
+          delivery_state?: string | null
           delivery_type?: string | null
+          delivery_zip_code?: string | null
+          discount_amount?: number | null
           id?: string
           is_seen?: boolean | null
           notes?: string | null
           payment_method?: string | null
+          payment_status?: string | null
+          public_token?: string | null
           status?: string | null
           store_id?: string
+          subtotal?: number | null
           total?: number
         }
         Relationships: [
@@ -969,37 +1023,73 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_public_order: {
-        Args: { _order_id: string }
-        Returns: {
-          created_at: string
-          delivery_type: string
-          id: string
-          notes: string
-          payment_method: string
-          status: string
-          store_name: string
-          total: number
-        }[]
-      }
-      get_public_order_items: {
-        Args: { _order_id: string }
-        Returns: {
-          id: string
-          product_name: string
-          quantity: number
-          unit_price: number
-        }[]
-      }
-      get_public_order_status_history: {
-        Args: { _order_id: string }
-        Returns: {
-          created_at: string
-          id: string
-          notes: string
-          status: string
-        }[]
-      }
+      get_public_order:
+        | {
+            Args: { _order_id: string }
+            Returns: {
+              created_at: string
+              delivery_type: string
+              id: string
+              notes: string
+              payment_method: string
+              status: string
+              store_name: string
+              total: number
+            }[]
+          }
+        | {
+            Args: { _order_id: string; _token?: string }
+            Returns: {
+              created_at: string
+              delivery_type: string
+              id: string
+              notes: string
+              payment_method: string
+              payment_status: string
+              status: string
+              store_id: string
+              store_name: string
+              total: number
+            }[]
+          }
+      get_public_order_items:
+        | {
+            Args: { _order_id: string }
+            Returns: {
+              id: string
+              product_name: string
+              quantity: number
+              unit_price: number
+            }[]
+          }
+        | {
+            Args: { _order_id: string; _token?: string }
+            Returns: {
+              id: string
+              product_name: string
+              quantity: number
+              unit_price: number
+            }[]
+          }
+      get_public_order_status_history:
+        | {
+            Args: { _order_id: string }
+            Returns: {
+              created_at: string
+              id: string
+              notes: string
+              status: string
+            }[]
+          }
+        | {
+            Args: { _order_id: string; _token?: string }
+            Returns: {
+              created_at: string
+              id: string
+              notes: string
+              status: string
+            }[]
+          }
       is_vexor_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
