@@ -460,7 +460,7 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-[220px_auto] gap-3 items-end">
               <Field>
                 <Label htmlFor="store-zip-code">CEP</Label>
-                <Input id="store-zip-code" value={storeForm.zip_code ?? ""} onChange={(e) => setStoreForm({ ...storeForm, zip_code: e.target.value })} placeholder="00000-000" />
+                <Input id="store-zip-code" value={formatCEP(storeForm.zip_code) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, zip_code: e.target.value })} placeholder="00000-000" />
               </Field>
               <Button variant="outline" type="button" className="w-full md:w-auto" onClick={lookupCep} disabled={cepLookup.status === "loading"}>
                 {cepLookup.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
