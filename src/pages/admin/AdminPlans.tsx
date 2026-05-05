@@ -33,7 +33,7 @@ const AdminPlans = () => {
   };
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", slug: "", description: "", price_monthly: "0", max_products: "", is_active: true, allows_coupons: false, allows_advanced_reports: false, allows_custom_branding: false, allows_custom_domain: false });
+    setForm({ name: "", slug: "", description: "", price_monthly: "0", max_products: "", is_active: true, allows_coupons: false, allows_advanced_reports: false, allows_custom_branding: false, allows_custom_domain: false, sort_order: plans.length });
     setOpen(true);
   };
 
