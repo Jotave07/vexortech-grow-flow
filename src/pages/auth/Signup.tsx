@@ -43,23 +43,31 @@ const Signup = () => {
     });
 
     if (!error && signUpData.user) {
+      // Default role for user
+      const role = redirect ? "customer" : "store_owner";
       await supabase.from("user_roles").insert({
         user_id: signUpData.user.id,
-        role: "store_owner"
+        role: role
       });
     }
     setLoading(false);
     if (error) {
       if (error.message.includes("already")) {
         toast.info("Este e-mail já possui conta. Redirecionando para login...");
-        setTimeout(() => navigate("/entrar", { replace: true }), 2000);
+        const loginUrl = redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar";
+        setTimeout(() => navigate(loginUrl, { replace: true }), 2000);
         return;
       }
       toast.error(error.message);
       return;
     }
     toast.success("Conta criada! Bem-vindo.");
-    navigate("/onboarding", { replace: true });
+    
+    if (redirect) {
+      navigate(redirect, { replace: true });
+    } else {
+      navigate("/onboarding", { replace: true });
+    }
   };
 
   return (
