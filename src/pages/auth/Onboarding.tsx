@@ -32,7 +32,7 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (!authLoading) {
-      const isStoreOwner = profile?.role === "store_owner" || profile?.role === "admin";
+      const isStoreOwner = profile?.role === "store_owner";
       if (profile?.store_id && isStoreOwner) {
         navigate("/app", { replace: true });
       } else if (profile?.role === "customer") {
