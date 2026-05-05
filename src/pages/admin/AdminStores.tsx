@@ -79,11 +79,21 @@ const AdminStores = () => {
   };
 
   const remove = async (store: any) => {
-    if (!confirm(`EXCLUIR PERMANENTEMENTE a loja "${store.name}"? Isso apaga TODOS os dados.`)) return;
-    const { error } = await supabase.from("stores").delete().eq("id", store.id);
-    if (error) return toast.error(error.message);
-    toast.success("Loja excluída");
-    setSelected(null); load();
+    if (!confirm(`EXCLUIR PERMANENTEMENTE a loja "${store.name}"? Isso apaga TODOS os dados, inclusive o acesso do lojista.`)) return;
+    
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke("admin-delete-store", {
+      body: { store_id: store.id }
+    });
+
+    if (error || data?.error) {
+      setLoading(false);
+      return toast.error(error?.message || data?.error || "Erro ao excluir loja");
+    }
+
+    toast.success("Loja e usuário excluídos com sucesso");
+    setSelected(null);
+    load();
   };
 
   if (loading) return <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin inline text-primary" /></div>;
