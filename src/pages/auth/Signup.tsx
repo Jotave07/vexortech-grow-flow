@@ -37,17 +37,16 @@ const Signup = () => {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
       options: {
-        emailRedirectTo: window.location.origin + "/onboarding",
+        emailRedirectTo: window.location.origin + "/meu-painel",
         data: { full_name: parsed.data.full_name.toUpperCase() },
       },
     });
 
     if (!error && signUpData.user) {
-      // Default role for user
-      const role = redirect ? "customer" : "store_owner";
+      // Self-registration is ALWAYS for customers only
       await supabase.from("user_roles").insert({
         user_id: signUpData.user.id,
-        role: role
+        role: "customer"
       });
     }
     setLoading(false);
@@ -66,7 +65,7 @@ const Signup = () => {
     if (redirect) {
       navigate(redirect, { replace: true });
     } else {
-      navigate("/onboarding", { replace: true });
+      navigate("/meu-painel", { replace: true });
     }
   };
 
@@ -74,8 +73,8 @@ const Signup = () => {
     <div className="auth-shell py-8">
       <BrandMark to="/" className="mb-8" />
       <Card className="auth-card">
-        <h1 className="mb-2 text-2xl font-bold">Criar sua conta</h1>
-        <p className="mb-6 text-sm text-muted-foreground">Comece a vender online em minutos.</p>
+        <h1 className="mb-2 text-2xl font-bold">Criar conta de cliente</h1>
+        <p className="mb-6 text-sm text-muted-foreground">Cadastre-se para realizar seus pedidos e acompanhar seu histórico.</p>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>

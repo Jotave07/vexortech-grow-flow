@@ -22,5 +22,10 @@ export const ProtectedRoute = ({ children, superAdminOnly }: { children: React.R
     return <Navigate to="/app" replace />;
   }
 
+  // Prevent customers from accessing store owner panel (/app)
+  if (location.pathname.startsWith("/app") && profile?.role === "customer") {
+    return <Navigate to="/meu-painel" replace />;
+  }
+
   return <>{children}</>;
 };

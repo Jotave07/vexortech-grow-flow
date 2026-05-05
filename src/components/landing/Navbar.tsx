@@ -33,7 +33,7 @@ export const Navbar = () => {
                 <Link to="/entrar">Entrar</Link>
               </Button>
               <Button variant="hero" size="sm" asChild>
-                <Link to="/cadastrar">Comecar</Link>
+                <Link to="/cadastrar">Cadastrar</Link>
               </Button>
             </>
           )}
