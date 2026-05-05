@@ -79,15 +79,11 @@ const PaymentSuccess = () => {
             <Clock className="h-14 w-14 text-primary mx-auto animate-pulse" />
             <h1 className="text-xl font-bold">Confirmando pagamento…</h1>
             <p className="text-sm text-muted-foreground">
-              O Stripe está nos avisando. Isso costuma levar alguns segundos.
-              {sessionId && (
-                <span className="block text-xs mt-2 break-all opacity-60">Sessão: {sessionId}</span>
-              )}
+              Aguardando a confirmação do pagamento. Isso costuma levar alguns segundos.
             </p>
             {polls >= MAX_POLLS && (
               <p className="text-xs text-muted-foreground">
-                Ainda não recebemos a confirmação. Você pode acompanhar abaixo — assim que o
-                Stripe confirmar, o status será atualizado automaticamente.
+                Ainda não recebemos a confirmação automática. Você pode acompanhar abaixo — o status será atualizado assim que o pagamento for detectado.
               </p>
             )}
           </>
