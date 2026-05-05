@@ -495,7 +495,7 @@ const Settings = () => {
               </Field>
               <div className="md:col-span-2">
                 <Label htmlFor="store-address-complement">Complemento</Label>
-                <Input id="store-address-complement" value={storeForm.address_complement ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address_complement: e.target.value })} />
+                <Input id="store-address-complement" value={storeForm.address_complement?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address_complement: e.target.value.toUpperCase() })} />
               </div>
               <Field>
                 <Label htmlFor="store-city">Cidade</Label>
