@@ -112,7 +112,7 @@ const PublicCheckout = () => {
     if (!store || !settings) return;
     
     if (!isStoreOpen(settings.business_hours, settings.is_open) && !settings.accept_orders_when_closed) {
-      return toast.error("A loja está fechada no momento e não aceita pedidos.");
+      return toast.error(`A loja está fechada no momento. Próxima abertura às ${settings.next_opening_time || 'breve'}`);
     }
 
     if (!name.trim() || name.trim().length < 2) return toast.error("Informe seu nome");
