@@ -920,8 +920,8 @@ const UploadField = ({
   <div className="rounded-lg border border-border bg-background/65 p-4 space-y-3">
     <Label>{label}</Label>
     <div className="flex items-center gap-3">
-      <div className={`${previewClassName} rounded bg-muted overflow-hidden flex items-center justify-center shrink-0`}>
-        {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-cover" /> : emptyIcon}
+      <div className={`${previewClassName} rounded-none border-2 border-black bg-white overflow-hidden flex items-center justify-center shrink-0`}>
+        {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-contain" /> : emptyIcon}
       </div>
       <label className="cursor-pointer">
         <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onFileSelect(e.target.files[0])} />
