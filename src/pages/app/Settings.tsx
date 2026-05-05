@@ -1011,15 +1011,15 @@ const buildStoreForm = (store: StoreRow): StoreRow => ({
   secondary_color: store.secondary_color ?? "#101828",
 });
 
-const buildStoreSettings = (settings: StoreSettingsRow | null): StoreSettingsRow => ({
+const buildStoreSettings = (settings: any): any => ({
   id: settings?.id ?? crypto.randomUUID(),
   store_id: settings?.store_id ?? "",
   created_at: settings?.created_at ?? new Date().toISOString(),
   updated_at: settings?.updated_at ?? new Date().toISOString(),
   is_open: settings?.is_open ?? true,
   accept_orders_when_closed: settings?.accept_orders_when_closed ?? false,
-  min_order_value: settings?.min_order_value ?? 0,
-  avg_prep_time_minutes: settings?.avg_prep_time_minutes ?? 30,
+  min_order_value: Number(settings?.min_order_value ?? 0),
+  avg_prep_time_minutes: Number(settings?.avg_prep_time_minutes ?? 30),
   allow_delivery: settings?.allow_delivery ?? true,
   allow_pickup: settings?.allow_pickup ?? true,
   accept_cash: settings?.accept_cash ?? true,
