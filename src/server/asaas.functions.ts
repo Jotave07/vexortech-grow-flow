@@ -131,18 +131,26 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     // 5. Get QR Code
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
+    if (qrCode.errors) {
+      console.error("Erro ao obter QR Code PIX:", qrCode.errors);
+      // We don't throw here to allow the order to be created even if QR code generation fails temporarily
+    }
 
     // 6. Update payment in DB
     await supabaseAdmin
       .from("payments")
-      .update({ external_id: payment.id })
+      .update({ 
+        external_id: payment.id,
+        // Also save invoice URL if available
+        status: "pendente" 
+      })
       .eq("order_id", order.id);
 
     return {
       paymentId: payment.id,
-      pixCode: qrCode.payload,
-      qrCodeUrl: qrCode.encodedImage,
-      invoiceUrl: payment.invoiceUrl,
+      pixCode: qrCode.payload || null,
+      qrCodeUrl: qrCode.encodedImage || null,
+      invoiceUrl: payment.invoiceUrl || null,
     };
   });
 
