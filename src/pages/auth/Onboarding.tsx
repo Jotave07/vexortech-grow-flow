@@ -114,11 +114,11 @@ const Onboarding = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="whatsapp">WhatsApp *</Label>
-              <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+              <Input id="whatsapp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: formatPhone(e.target.value) })} placeholder="(11) 99999-9999" required />
             </div>
             <div>
               <Label htmlFor="document">CPF ou CNPJ *</Label>
-              <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="000.000.000-00" required />
+              <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: formatDoc(e.target.value) })} placeholder="000.000.000-00" required />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
