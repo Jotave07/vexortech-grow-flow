@@ -128,7 +128,9 @@ const CustomerDashboard = () => {
                 <ShoppingBag className="h-12 w-12 mx-auto text-black/10 mb-4" />
                 <h3 className="font-black uppercase tracking-tight text-xl">Nenhum pedido ainda</h3>
                 <p className="text-muted-foreground text-sm">Seus pedidos aparecerão aqui assim que você realizar sua primeira compra.</p>
-                <Button className="mt-6 font-black uppercase" variant="hero" onClick={() => navigate('/')}>Ver lojas disponíveis</Button>
+                <Button className="mt-6 font-black uppercase" variant="hero" asChild>
+                  <Link to="/">Ver lojas disponíveis</Link>
+                </Button>
               </Card>
             ) : (
               orders.map((order) => (
