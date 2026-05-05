@@ -108,39 +108,63 @@ export type Database = {
       customers: {
         Row: {
           asaas_id: string | null
+          city: string | null
+          complement: string | null
           created_at: string | null
           full_name: string | null
           id: string
           last_order_at: string | null
           name: string | null
+          neighborhood: string | null
+          number: string | null
           phone: string
+          registration_completed: boolean | null
+          state: string | null
           store_id: string
+          street: string | null
           total_orders: number | null
           total_spent: number | null
+          zip_code: string | null
         }
         Insert: {
           asaas_id?: string | null
+          city?: string | null
+          complement?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
           last_order_at?: string | null
           name?: string | null
+          neighborhood?: string | null
+          number?: string | null
           phone: string
+          registration_completed?: boolean | null
+          state?: string | null
           store_id: string
+          street?: string | null
           total_orders?: number | null
           total_spent?: number | null
+          zip_code?: string | null
         }
         Update: {
           asaas_id?: string | null
+          city?: string | null
+          complement?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
           last_order_at?: string | null
           name?: string | null
+          neighborhood?: string | null
+          number?: string | null
           phone?: string
+          registration_completed?: boolean | null
+          state?: string | null
           store_id?: string
+          street?: string | null
           total_orders?: number | null
           total_spent?: number | null
+          zip_code?: string | null
         }
         Relationships: [
           {
