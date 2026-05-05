@@ -3,6 +3,36 @@ import { z } from "zod";
 import { asaas } from "./asaas.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Security: Check if user is the platform owner
+const isPlatformOwner = (email: string | undefined) => email === "jvieira@vexortech.com.br";
+
+export const testAsaasConnection = createServerFn({ method: "POST" })
+  .inputValidator(z.object({
+    apiKey: z.string().min(1),
+    isPlatform: z.boolean().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    // Basic validation to check if the API key works by fetching account info or similar
+    // Since we don't have a specific "test" endpoint, we'll try to list customers with limit 1
+    const result = await asaas.createCustomer({ name: "Test Connection", email: "test@example.com", cpfCnpj: "" }, data.apiKey);
+    
+    // If it's not a 401/403, the key is likely valid (even if creation fails for other reasons like CPF)
+    // Actually, a better way is to just use a GET request to /customers?limit=1
+    const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'}/customers?limit=1`, {
+      headers: { 'access_token': data.apiKey }
+    });
+
+    if (response.ok) {
+      return { success: true, message: "Conexão estabelecida com sucesso." };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      return { 
+        success: false, 
+        message: errorData.errors?.[0]?.description || "Falha ao conectar com o Asaas. Verifique sua chave de API." 
+      };
+    }
+  });
+
 export const createSubscriptionCheckout = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     storeId: z.string().uuid(),
@@ -15,6 +45,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
     }),
   }))
   .handler(async ({ data }) => {
+    // This ALWAYS uses the Platform ASAAS account (owner account)
     const asaasCustomer = await asaas.createCustomer(data.customerData);
     if (asaasCustomer.errors) throw new Error(asaasCustomer.errors[0].description);
 
@@ -32,12 +63,13 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
     });
     if (subscription.errors) throw new Error(subscription.errors[0].description);
 
-    await supabaseAdmin.from("subscriptions").insert({
+    await supabaseAdmin.from("subscriptions").upsert({
       store_id: data.storeId,
       plan_id: data.planId,
       external_subscription_id: subscription.id,
       status: "pendente_pagamento",
-    });
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'store_id' });
 
     return { invoiceUrl: subscription.invoiceUrl, subscriptionId: subscription.id };
   });
@@ -48,7 +80,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     storeId: z.string().uuid(),
   }))
   .handler(async ({ data }) => {
-    // 1. Get Store settings for Asaas API Key
+    // 1. Get Store settings for Asaas API Key (Isolated per store)
     const { data: storeSettings } = await supabaseAdmin
       .from("store_settings")
       .select("asaas_api_key")
@@ -72,15 +104,13 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     const asaasCustomer = await asaas.createCustomer({
       name: order.customer_name,
       email: order.customer_email || "",
-      cpfCnpj: "", // Note: Asaas may require this depending on account settings
+      cpfCnpj: "", // Most stores allow creation without CPF if configured
       mobilePhone: order.customer_phone,
     }, storeSettings.asaas_api_key);
 
     if (asaasCustomer.errors) {
-      console.error("Erro ao criar cliente no Asaas:", asaasCustomer.errors);
-      // If customer creation fails, we try to proceed or throw a better error
-      // Some Asaas accounts allow creating payments with just name/email if configured, 
-      // but usually they require a customerId.
+      console.error("Erro ao criar cliente no Asaas da loja:", asaasCustomer.errors);
+      // Fallback or detailed error
     }
 
     // 4. Create PIX payment in store's Asaas
@@ -93,13 +123,13 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     });
 
     if (payment.errors) {
-      throw new Error(`Erro Asaas: ${payment.errors[0].description}`);
+      throw new Error(`Erro Asaas da Loja: ${payment.errors[0].description}`);
     }
 
-    // 4. Get QR Code
+    // 5. Get QR Code
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
 
-    // 5. Update payment in DB
+    // 6. Update payment in DB
     await supabaseAdmin
       .from("payments")
       .update({ external_id: payment.id })

@@ -5,13 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/BrandMark";
-import { BarChart3, Building2, CreditCard, Loader2, LogOut, Menu, ShieldAlert, X } from "lucide-react";
+import { BarChart3, Building2, CreditCard, Loader2, LogOut, Menu, ShieldAlert, X, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menu = [
   { to: "/admin", icon: BarChart3, label: "Visao geral", end: true },
   { to: "/admin/lojas", icon: Building2, label: "Lojas" },
   { to: "/admin/planos", icon: CreditCard, label: "Planos" },
+  { to: "/admin/configuracoes", icon: Settings2, label: "Configurações" },
 ];
 
 const AdminLayout = () => {

@@ -83,7 +83,7 @@ const OrderTracking = () => {
             
             {pixInfo.qrCodeUrl && (
               <div className="bg-white p-2 inline-block border-2 border-black">
-                <img src={`data:image/png;base64,${pixInfo.qrCodeUrl}`} alt="QR Code PIX" className="w-48 h-48" />
+                <img src={pixInfo.qrCodeUrl.startsWith('data:') ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`} alt="QR Code PIX" className="w-48 h-48" />
               </div>
             )}
 
