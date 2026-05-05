@@ -26,7 +26,7 @@ const Products = () => {
   const [open, setOpen] = useState(false);
   const [optionsFor, setOptionsFor] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState<any>({ name: "", description: "", price: "", promo_price: "", category_id: "", prep_time_minutes: "", image_url: "", is_featured: false });
+  const [form, setForm] = useState<any>({ name: "", description: "", price: "", promo_price: "", category_id: "", prep_time_minutes: "", image_url: "", is_featured: false, is_available: true });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -48,7 +48,7 @@ const Products = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: "", promo_price: "", category_id: categories[0]?.id ?? "", prep_time_minutes: "", image_url: "", is_featured: false });
+    setForm({ name: "", description: "", price: "", promo_price: "", category_id: categories[0]?.id ?? "", prep_time_minutes: "", image_url: "", is_featured: false, is_available: true });
     setOpen(true);
   };
   const openEdit = (p: Product) => {
@@ -56,7 +56,7 @@ const Products = () => {
     setForm({
       name: p.name, description: p.description ?? "", price: String(p.price), promo_price: p.promo_price ? String(p.promo_price) : "",
       category_id: p.category_id ?? "", prep_time_minutes: p.prep_time_minutes ? String(p.prep_time_minutes) : "",
-      image_url: p.image_url ?? "", is_featured: p.is_featured,
+      image_url: p.image_url ?? "", is_featured: p.is_featured, is_available: p.is_available ?? true,
     });
     setOpen(true);
   };
@@ -90,6 +90,7 @@ const Products = () => {
       prep_time_minutes: form.prep_time_minutes ? Number(form.prep_time_minutes) : null,
       image_url: form.image_url || null,
       is_featured: form.is_featured,
+      is_available: form.is_available,
     };
     const { error } = editing
       ? await supabase.from("products").update(payload).eq("id", editing.id)
@@ -191,8 +192,8 @@ const Products = () => {
               <div><Label>Tempo (min)</Label><Input type="number" value={form.prep_time_minutes} onChange={(e) => setForm({ ...form, prep_time_minutes: e.target.value })} /></div>
             </div>
             <div className="flex items-center gap-2">
-              <Switch checked={form.is_featured} onCheckedChange={(v) => setForm({ ...form, is_featured: v })} />
-              <Label>Destaque</Label>
+              <Switch checked={form.is_available} onCheckedChange={(v) => setForm({ ...form, is_available: v })} />
+              <Label>Disponível (em estoque)</Label>
             </div>
             <Button variant="hero" className="w-full" onClick={save} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
