@@ -5,7 +5,7 @@ import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 export const SubscriptionGuard = () => {
   const location = useLocation();
   const ctx = useOutletContext();
-  const { loading, accessState, isPlatformAdmin } = useSubscriptionStatus();
+  const { loading, accessState, isPlatformAdmin, profile } = useSubscriptionStatus() as any;
 
   if (loading) {
     return (
