@@ -90,8 +90,8 @@ const AppLayout = () => {
           ))}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3">
-          <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={handleSignOut}>
+        <div className="border-t border-border p-3">
+          <Button variant="ghost" className="w-full justify-start rounded-none hover:bg-destructive/10 hover:text-destructive" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" /> Sair
           </Button>
         </div>
