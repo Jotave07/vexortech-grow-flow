@@ -12,16 +12,22 @@ type BrandMarkProps = {
 
 export const BrandMark = ({ animated, compact, className, to }: BrandMarkProps) => {
   const classes = cn(
-    "brand-mark",
+    "brand-mark inline-flex items-center",
     compact && "brand-mark--compact",
     animated && "brand-mark--animated",
     className,
   );
 
   const content = (
-    <span className={cn("brand-logo-frame", compact && "brand-logo-frame--compact")}>
-      <img src={vexorLogo} alt={PRODUCT_NAME} className="brand-logo-image" />
-    </span>
+    <div className={cn("brand-logo-frame", compact && "brand-logo-frame--compact")}>
+      <img 
+        src={vexorLogo} 
+        alt={PRODUCT_NAME} 
+        className="brand-logo-image"
+        loading="eager"
+        decoding="async"
+      />
+    </div>
   );
 
   if (to) {
