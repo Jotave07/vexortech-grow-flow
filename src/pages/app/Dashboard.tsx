@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ShoppingBag, DollarSign, TrendingUp, Clock, Loader2 } from "lucide-react";
+import { ShoppingBag, DollarSign, TrendingUp, Clock, Loader2, AlertTriangle, ArrowRight } from "lucide-react";
+import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 
 type Stats = {
   todayOrders: number;
