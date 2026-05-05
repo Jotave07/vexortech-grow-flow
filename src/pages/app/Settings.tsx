@@ -753,22 +753,63 @@ const Settings = () => {
               <SectionHeader
                 icon={Settings2}
                 title="Configuração Asaas (Automático)"
-                description="Insira sua chave de API do Asaas para processar pagamentos PIX automaticamente."
+                description="Processamento automático de pagamentos PIX com baixa instantânea."
               />
-              <div className="mt-4 grid grid-cols-1 gap-4">
-                <Field>
-                  <Label htmlFor="asaas-api-key">API Key (Produção ou Sandbox)</Label>
-                  <Input
-                    id="asaas-api-key"
-                    type="password"
-                    value={(storeSettings as any).asaas_api_key ?? ""}
-                    onChange={(e) => setStoreSettings({ ...storeSettings, asaas_api_key: e.target.value } as any)}
-                    placeholder="Sua chave de acesso do Asaas"
-                  />
-                </Field>
-                <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  URL do Webhook: https://[SEU-SUPABASE-URL]/functions/v1/asaas-webhook
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field>
+                    <Label htmlFor="asaas-api-key">API Key (Produção ou Sandbox)</Label>
+                    <Input
+                      id="asaas-api-key"
+                      type="password"
+                      value={(storeSettings as any).asaas_api_key ?? ""}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, asaas_api_key: e.target.value } as any)}
+                      placeholder="Sua chave de acesso do Asaas"
+                    />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="asaas-wallet-id">ID da Carteira (Opcional)</Label>
+                    <Input
+                      id="asaas-wallet-id"
+                      value={(storeSettings as any).asaas_wallet_id ?? ""}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, asaas_wallet_id: e.target.value } as any)}
+                      placeholder="Identificador da carteira"
+                    />
+                  </Field>
+                </div>
+                
+                <div className="rounded-lg border border-border bg-secondary/35 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Configuração do Webhook recomendada para baixa automática.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="bg-background px-2 py-1 rounded text-[10px] flex-1 truncate font-mono">
+                      https://lovable.dev/functions/v1/asaas-webhook
+                    </code>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8" 
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://lovable.dev/functions/v1/asaas-webhook");
+                        toast.success("URL copiada!");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
+                    Copie a URL acima e cole no painel do Asaas em Configurações &gt; Webhook.
+                  </p>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href="https://www.asaas.com" target="_blank" rel="noreferrer">
+                      Acessar Painel Asaas <ExternalLink className="ml-2 h-3 w-3" />
+                    </a>
+                  </Button>
                 </div>
               </div>
             </div>
