@@ -58,6 +58,7 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
       plan: currentPlan,
       isPlatformAdmin: isAdmin,
       storeSuspended: Boolean(currentStore?.is_suspended),
+      isExempt: Boolean(profile?.is_exempt),
     });
 
     setIsPlatformAdmin(isAdmin);
