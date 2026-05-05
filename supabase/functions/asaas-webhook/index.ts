@@ -34,18 +34,15 @@ serve(async (req) => {
 
     if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
       
-      // 1. Process Subscription
-      // We also check for payment.subscription or externalReference (which we set to storeId in some cases)
-      // but the most reliable for recurring is payment.subscription
-      const subscriptionId = payment.subscription || payment.externalReference
-
+      // 1. Process Subscription (Platform Owner Account)
+      // Check if externalReference is a storeId for subscriptions
       const { data: subscription, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
-        .or(`external_subscription_id.eq.${payment.subscription},id.eq.${payment.externalReference}`)
+        .or(`external_subscription_id.eq.${payment.subscription},store_id.eq.${payment.externalReference}`)
         .maybeSingle()
 
-      if (subscription && (payment.subscription || subscription.store_id === payment.externalReference)) {
+      if (subscription) {
         await supabase
           .from('subscriptions')
           .update({ 
@@ -57,12 +54,12 @@ serve(async (req) => {
         console.log(`Subscription ${subscription.id} updated to active`)
       }
 
-      // 2. Process Order Payment
-      // Identification by external_id (payment.id from Asaas) or externalReference (order.id)
+      // 2. Process Store Customer Payment (Individual Store Account)
+      // Identification by order_id (externalReference)
       const { data: orderPayment, error: payError } = await supabase
         .from('payments')
         .select('*, orders(*)')
-        .or(`external_id.eq.${payment.id},order_id.eq.${payment.externalReference}`)
+        .eq('order_id', payment.externalReference)
         .maybeSingle()
 
       if (orderPayment) {
@@ -71,16 +68,19 @@ serve(async (req) => {
           .update({ 
             status: 'pago', 
             paid_at: new Date().toISOString(),
-            external_id: payment.id // Ensure we have the ID for future reference
+            external_id: payment.id
           })
           .eq('id', orderPayment.id)
 
         await supabase
           .from('orders')
-          .update({ status: 'pago' })
+          .update({ 
+            status: 'confirmado', // Move from 'novo' or 'pendente' to 'confirmado'
+            payment_status: 'pago' 
+          })
           .eq('id', orderPayment.order_id)
           
-        console.log(`Order ${orderPayment.order_id} updated to paid`)
+        console.log(`Order ${orderPayment.order_id} updated to paid/confirmed`)
       }
     }
 
