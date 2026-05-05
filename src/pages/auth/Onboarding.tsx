@@ -81,8 +81,13 @@ const Onboarding = () => {
 
     setLoading(false);
     await refreshProfile();
-    toast.success("Loja criada! Agora escolha seu plano.");
-    navigate("/app/assinatura", { replace: true });
+    toast.success("Loja criada!");
+    
+    if (profile?.is_exempt) {
+      navigate("/app", { replace: true });
+    } else {
+      navigate("/app/assinatura", { replace: true });
+    }
   };
 
   if (authLoading) {
