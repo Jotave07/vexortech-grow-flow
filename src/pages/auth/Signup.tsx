@@ -16,7 +16,6 @@ const schema = z.object({
   full_name: z.string().trim().min(2, "Informe seu nome").max(100),
   email: z.string().trim().email("E-mail invalido").max(255),
   password: z.string().min(6, "Minimo 6 caracteres").max(100),
-  plan_id: z.string().min(1, "Escolha um plano para ativar sua loja."),
 });
 
 const Signup = () => {
