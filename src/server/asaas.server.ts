@@ -87,5 +87,9 @@ export const asaas = {
 
   async getPixQrCode(storeApiKey: string, paymentId: string) {
     return asaasRequest(`/payments/${paymentId}/pixQrCode`, 'GET', storeApiKey);
+  },
+
+  async getPayment(storeApiKey: string, paymentId: string) {
+    return asaasRequest(`/payments/${paymentId}`, 'GET', storeApiKey);
   }
 };
