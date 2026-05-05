@@ -72,7 +72,7 @@ const Onboarding = () => {
 
     await Promise.all([
       supabase.from("store_settings").insert({ store_id: store.id }),
-      supabase.from("profiles").update({ store_id: store.id, full_name: profile?.full_name ?? null }).eq("user_id", user.id),
+      supabase.from("profiles").update({ store_id: store.id, full_name: profile?.full_name ?? null, role: "store_owner" as any }).eq("user_id", user.id),
       supabase.from("user_roles").insert({ user_id: user.id, role: "store_owner", store_id: store.id }),
     ]);
 
