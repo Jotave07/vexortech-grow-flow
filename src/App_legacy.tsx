@@ -35,6 +35,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminStores from "./pages/admin/AdminStores";
 import AdminPlans from "./pages/admin/AdminPlans";
+import CustomerDashboard from "./pages/public/CustomerDashboard";
 
 const queryClient = new QueryClient();
 
