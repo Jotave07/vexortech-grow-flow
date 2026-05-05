@@ -28,32 +28,8 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", city: "", state: "" });
-  const [plans, setPlans] = useState<any[]>([]);
-  const [plansLoading, setPlansLoading] = useState(true);
-  const initialPlanId = searchParams.get("plan") || sessionStorage.getItem("selected_plan_id") || "";
-  const [selectedPlanId, setSelectedPlanId] = useState(initialPlanId);
   const [loading, setLoading] = useState(false);
   const publicBaseUrl = `${window.location.host}/loja/`;
-
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("plans")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-
-      if (error) {
-        toast.error("Nao foi possivel carregar os planos.");
-        setPlansLoading(false);
-        return;
-      }
-
-      setPlans(data ?? []);
-      setSelectedPlanId((current) => current || data?.[0]?.id || "");
-      setPlansLoading(false);
-    })();
-  }, []);
 
   useEffect(() => {
     if (!authLoading && profile?.store_id) navigate("/app", { replace: true });
@@ -63,15 +39,9 @@ const Onboarding = () => {
     if (form.name && !form.slug) setForm((f) => ({ ...f, slug: slugify(form.name) }));
   }, [form.name, form.slug]);
 
-  const selectedPlan = useMemo(
-    () => plans.find((plan) => plan.id === selectedPlanId) ?? null,
-    [plans, selectedPlanId],
-  );
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!selectedPlanId) return toast.error("Escolha um plano para ativar sua loja.");
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
 
