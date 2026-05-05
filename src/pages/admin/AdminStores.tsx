@@ -66,7 +66,7 @@ const AdminStores = () => {
       }
       // Also update the store's plan_id to keep it in sync
       if (targetPlanId) {
-        await supabase.from("stores").update({ plan_id: targetPlanId }).eq("id", store.id);
+        await supabase.from("stores").update({ plan_id: targetPlanId, is_active: true }).eq("id", store.id);
       }
       toast.success("Plano Cortesia ativado");
     } else {
@@ -76,7 +76,7 @@ const AdminStores = () => {
       } else {
         await supabase.from("subscriptions").insert({ store_id: store.id, plan_id: planId, status: "ativa" });
       }
-      await supabase.from("stores").update({ plan_id: planId }).eq("id", store.id);
+      await supabase.from("stores").update({ plan_id: planId, is_active: true }).eq("id", store.id);
       toast.success("Plano alterado");
     }
     load();
