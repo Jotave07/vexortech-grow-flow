@@ -54,10 +54,10 @@ export const Hero = () => {
               className="flex flex-col gap-3 sm:flex-row"
             >
               <Button variant="hero" size="xl" className="group" asChild>
-                <Link to="/cadastrar">
-                  Criar minha loja
+                <a href="https://wa.me/5527999999999?text=Olá! Gostaria de saber mais sobre como ter minha própria loja no HYPE Delivery." target="_blank" rel="noreferrer">
+                  Seja um Parceiro
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Link>
+                </a>
               </Button>
               <Button variant="outline" size="xl" className="border-black/15 bg-black/5 text-black hover:border-primary hover:bg-black/10" asChild>
                 <a href="#como-funciona">
