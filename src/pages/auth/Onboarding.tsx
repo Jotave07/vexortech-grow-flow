@@ -124,7 +124,7 @@ const Onboarding = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <Label htmlFor="city">Cidade *</Label>
-              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
+              <Input id="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value.toUpperCase() })} required />
             </div>
             <div>
               <Label htmlFor="state">UF *</Label>
