@@ -184,6 +184,12 @@ const PublicCheckout = () => {
 
     setSubmitting(true);
     try {
+      // Security check: ensure user is NOT a store owner trying to buy as customer
+      if (profile?.role === 'store_owner') {
+        setSubmitting(false);
+        return toast.error("Lojistas não podem realizar compras usando a conta de administrador da loja. Por favor, saia e entre com uma conta de cliente.");
+      }
+
       const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id || "").maybeSingle();
       let customerId = existingCustomer?.id as string | undefined;
       

@@ -71,7 +71,7 @@ const Login = () => {
       <BrandMark to="/" className="mb-8" />
       <Card className="auth-card">
         <h1 className="mb-2 text-2xl font-bold">Entrar na sua conta</h1>
-        <p className="mb-6 text-sm text-muted-foreground">Acesse o painel da sua loja</p>
+        <p className="mb-6 text-sm text-muted-foreground">Acesse sua conta para continuar</p>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <Label htmlFor="email">E-mail</Label>

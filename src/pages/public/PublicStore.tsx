@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, MapPin, Clock, ShoppingBag, Search } from "lucide-react";
+import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,14 @@ import { formatBRL } from "@/lib/format";
 import { ProductDialog } from "@/components/public/ProductDialog";
 import { CartDrawer } from "@/components/public/CartDrawer";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { isStoreOpen } from "@/lib/opening-hours";
+import { toast } from "sonner";
 
 const PublicStore = () => {
   const { slug } = useParams<{ slug: string }>();
   const { setStoreSlug, count, subtotal } = useCart();
+  const { user, profile, signOut } = useAuth();
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
@@ -96,6 +99,45 @@ const PublicStore = () => {
 
   return (
     <div className="min-h-screen bg-background pb-32">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border py-3">
+        <div className="container mx-auto px-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {store.logo_url && <img src={store.logo_url} alt="" className="h-8 w-8 object-contain" />}
+            <span className="font-black uppercase tracking-tighter text-sm italic">{publicStoreName}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" asChild className="hidden sm:flex gap-2 font-bold uppercase text-[10px] tracking-widest border border-black/5">
+                  <Link to="/meu-painel">
+                    <User className="h-3 w-3" />
+                    {profile?.full_name?.split(' ')[0] || 'Minha Conta'}
+                  </Link>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={async () => {
+                    await signOut();
+                    toast.success("Você saiu da conta.");
+                  }}
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5"
+                  title="Sair"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button variant="hero" size="sm" asChild className="font-black uppercase text-[10px] tracking-widest px-4">
+                <Link to={`/entrar?redirect=${encodeURIComponent(window.location.pathname)}`}>
+                  Entrar / Cadastrar
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
       <section className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-hero" />
         <div className="absolute inset-0 opacity-80 [background:linear-gradient(135deg,transparent_0_16%,hsl(333_100%_50%_/_0.08)_16%_17%,transparent_17%_100%),linear-gradient(315deg,transparent_0_82%,hsl(17_100%_50%_/_0.08)_82%_83%,transparent_83%_100%),linear-gradient(90deg,transparent_0_72%,hsl(188_100%_50%_/_0.08)_72%_73%,transparent_73%_100%)]" />
@@ -108,7 +150,7 @@ const PublicStore = () => {
                     <img src={store.cover_url} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full min-h-[12rem] items-end bg-[linear-gradient(135deg,hsl(333_100%_50%_/_0.22),transparent_58%),linear-gradient(315deg,hsl(188_100%_50%_/_0.18),transparent_62%),linear-gradient(180deg,hsl(0_0%_7%),hsl(0_0%_5%))] p-5 text-xs uppercase tracking-[0.18em] text-white/60">
-                      Interface VexorTech
+                      {publicStoreName}
                     </div>
                   )}
                 </div>
@@ -277,7 +319,7 @@ const PublicStore = () => {
                               <img src={product.image_url} alt="" className="h-full w-full object-cover transition-smooth group-hover:scale-[1.03]" />
                             ) : (
                               <div className="flex h-full items-end justify-start bg-[linear-gradient(180deg,hsl(188_100%_50%_/_0.15),transparent_50%),linear-gradient(135deg,hsl(333_100%_50%_/_0.14),transparent_54%),linear-gradient(180deg,hsl(0_0%_10%),hsl(0_0%_7%))] p-3 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                                Produto
+                                {product.name}
                               </div>
                             )}
                           </div>
