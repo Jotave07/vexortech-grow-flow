@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Search } from "lucide-react";
 import { toast } from "sonner";
-import { formatBRL, onlyDigits } from "@/lib/format";
+import { formatBRL, onlyDigits, formatCEP, formatPhone } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment } from "@/server/asaas.functions";
+import { fetchAddressByCep } from "@/services/viacep";
 
 type Zone = { id: string; neighborhood: string; city: string | null; fee: number; min_order: number; estimated_minutes: number };
 
@@ -34,16 +35,19 @@ const PublicCheckout = () => {
   const [phone, setPhone] = useState("");
   const [orderType, setOrderType] = useState<"entrega" | "retirada">("entrega");
   const [zoneId, setZoneId] = useState<string>("");
+  const [zipCode, setZipCode] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "cartao_entrega">("pix");
   const [changeFor, setChangeFor] = useState("");
   const [notes, setNotes] = useState("");
-  const [couponCode, setCouponCode] = useState("");
   const [coupon, setCoupon] = useState<any>(null);
-  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -61,46 +65,93 @@ const PublicCheckout = () => {
     })();
   }, [slug]);
 
+  const handleCepLookup = async () => {
+    const cleanCep = onlyDigits(zipCode);
+    if (cleanCep.length !== 8) return;
+    setLoadingCep(true);
+    try {
+      const addr = await fetchAddressByCep(cleanCep);
+      setStreet(addr.street);
+      setNeighborhood(addr.neighborhood);
+      setCity(addr.city);
+      setState(addr.state);
+      
+      const matchingZone = zones.find(z => 
+        z.neighborhood.toLowerCase().trim() === addr.neighborhood.toLowerCase().trim()
+      );
+      if (matchingZone) {
+        setZoneId(matchingZone.id);
+      } else {
+        setZoneId("");
+        toast.info("Bairro não encontrado na lista de entregas. Selecione manualmente a região mais próxima.");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao buscar CEP");
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
   const zone = zones.find((z) => z.id === zoneId);
-  const deliveryFee = orderType === "entrega" ? Number(zone?.fee ?? 0) : 0;
+  const deliveryFee = orderType === "entrega" ? Number(zone?.fee ?? settings?.delivery_base_fee ?? 0) : 0;
   const discount = useMemo(() => {
     if (!coupon) return 0;
     if (coupon.discount_type === "percentual") return (subtotal * Number(coupon.discount_value)) / 100;
     return Math.min(Number(coupon.discount_value), subtotal);
   }, [coupon, subtotal]);
-  const total = Math.max(0, subtotal + deliveryFee - discount);
+  
+  // Free delivery logic
+  const actualDeliveryFee = useMemo(() => {
+    if (settings?.free_delivery_above && subtotal >= Number(settings.free_delivery_above)) return 0;
+    return deliveryFee;
+  }, [deliveryFee, settings?.free_delivery_above, subtotal]);
+
+  const total = Math.max(0, subtotal + actualDeliveryFee - discount);
 
   const submit = async () => {
     if (!store || !settings) return;
     
     if (!isStoreOpen(settings.business_hours, settings.is_open) && !settings.accept_orders_when_closed) {
-      return toast.error("A loja está fechada no momento e não aceita pedidos.");
+      return toast.error(`A loja está fechada no momento. Próxima abertura às ${settings.next_opening_time || 'breve'}`);
     }
 
     if (!name.trim() || name.trim().length < 2) return toast.error("Informe seu nome");
     const phoneDigits = onlyDigits(phone);
     if (phoneDigits.length < 10) return toast.error("Telefone inválido");
+    
     if (orderType === "entrega") {
       if (!settings.allow_delivery) return toast.error("Loja não faz entrega");
-      if (!zoneId) return toast.error("Escolha a região");
-      if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
-    } else if (!settings.allow_pickup) return toast.error("Loja não permite retirada");
-    if (settings.min_order_value && subtotal < Number(settings.min_order_value)) return toast.error(`Pedido mínimo ${formatBRL(settings.min_order_value)}`);
-    if (paymentMethod === "pix" && !settings.accept_pix) return toast.error("Pix não aceito");
-    if (paymentMethod === "dinheiro" && !settings.accept_cash) return toast.error("Dinheiro não aceito");
-    if (paymentMethod === "cartao_entrega" && !settings.accept_card_on_delivery) return toast.error("Cartão na entrega não aceito");
+      if (!zoneId) return toast.error("Escolha a região de entrega");
+      if (!street.trim() || !number.trim() || !neighborhood.trim()) return toast.error("Endereço incompleto");
+      if (zone && zone.min_order > 0 && subtotal < zone.min_order) {
+        return toast.error(`Pedido mínimo para ${zone.neighborhood} é ${formatBRL(zone.min_order)}`);
+      }
+    } else if (!settings.allow_pickup) {
+      return toast.error("Loja não permite retirada");
+    }
+
+    if (settings.min_order_value && subtotal < Number(settings.min_order_value)) {
+      return toast.error(`Pedido mínimo da loja é ${formatBRL(settings.min_order_value)}`);
+    }
 
     setSubmitting(true);
     try {
       const { data: existingCustomer } = await supabase.from("customers").select("id").eq("store_id", store.id).eq("phone", phoneDigits).maybeSingle();
       let customerId = existingCustomer?.id as string | undefined;
       if (!customerId) {
-        const { data: newC, error: cErr } = await supabase.from("customers").insert({ store_id: store.id, name: name.trim(), phone: phoneDigits }).select("id").single();
+        const { data: newC, error: cErr } = await supabase.from("customers").insert({ 
+          store_id: store.id, 
+          name: name.trim(), 
+          phone: phoneDigits 
+        }).select("id").single();
         if (cErr) throw cErr;
         customerId = newC.id;
       }
 
-      const deliveryAddress = orderType === "entrega" ? `${street.trim()}, ${number.trim()}${complement ? ` - ${complement}` : ""}` : null;
+      const deliveryAddress = orderType === "entrega" 
+        ? `${street.trim()}, ${number.trim()}${complement ? ` - ${complement}` : ""}${zipCode ? ` - CEP ${formatCEP(zipCode)}` : ""}` 
+        : null;
+
       const { data: order, error: oErr } = await supabase.from("orders").insert({
         store_id: store.id,
         customer_id: customerId,
@@ -109,10 +160,10 @@ const PublicCheckout = () => {
         order_type: orderType,
         status: "novo",
         delivery_address: deliveryAddress,
-        delivery_neighborhood: orderType === "entrega" ? zone?.neighborhood : null,
+        delivery_neighborhood: orderType === "entrega" ? (neighborhood || zone?.neighborhood) : null,
         delivery_reference: reference || null,
         delivery_zone_id: orderType === "entrega" ? zoneId : null,
-        delivery_fee: deliveryFee,
+        delivery_fee: actualDeliveryFee,
         subtotal,
         discount,
         total,
@@ -123,6 +174,7 @@ const PublicCheckout = () => {
         notes: notes.trim() || null,
         estimated_minutes: orderType === "entrega" ? (zone?.estimated_minutes ?? settings.avg_prep_time_minutes) : settings.avg_prep_time_minutes,
       }).select("id, public_token, order_number").single();
+      
       if (oErr) throw oErr;
 
       for (const it of items) {
@@ -177,100 +229,167 @@ const PublicCheckout = () => {
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-4">
-        <Card className="p-5 border-border">
+        <Card className="p-5 border-border shadow-elegant">
           <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight">Seus dados</h2>
+            <h2 className="font-bold text-lg uppercase tracking-tight italic">Seus dados</h2>
             <div className="h-1 w-12 bg-primary mt-1"></div>
           </div>
           <div className="space-y-4">
-            <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nome *</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="border-border focus:ring-0" /></div>
-            <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" maxLength={15} className="border-border focus:ring-0" /></div>
+            <div>
+              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nome *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
+            </div>
+            <div>
+              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
+              <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" maxLength={15} className="border-border focus:ring-0" />
+            </div>
           </div>
         </Card>
 
-        <Card className="p-5 border-border">
+        <Card className="p-5 border-border shadow-elegant">
           <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight">Tipo de pedido</h2>
+            <h2 className="font-bold text-lg uppercase tracking-tight italic">Tipo de pedido</h2>
             <div className="h-1 w-12 bg-primary mt-1"></div>
           </div>
           <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="grid grid-cols-2 gap-4">
             {settings.allow_delivery && (
-              <div className="flex items-center space-x-2 border p-3 rounded-sm">
+              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${orderType === 'entrega' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
                 <RadioGroupItem value="entrega" id="entrega" />
-                <Label htmlFor="entrega">Entrega</Label>
+                <Label htmlFor="entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer">Entrega</Label>
               </div>
             )}
             {settings.allow_pickup && (
-              <div className="flex items-center space-x-2 border p-3 rounded-sm">
+              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${orderType === 'retirada' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
                 <RadioGroupItem value="retirada" id="retirada" />
-                <Label htmlFor="retirada">Retirada</Label>
+                <Label htmlFor="retirada" className="font-black uppercase text-xs tracking-widest cursor-pointer">Retirada</Label>
               </div>
             )}
           </RadioGroup>
         </Card>
 
         {orderType === "entrega" && (
-          <Card className="p-5 border-border">
+          <Card className="p-5 border-border shadow-elegant">
             <div className="mb-4">
-              <h2 className="font-bold text-lg uppercase tracking-tight">Endereço</h2>
+              <h2 className="font-bold text-lg uppercase tracking-tight italic">Endereço</h2>
               <div className="h-1 w-12 bg-primary mt-1"></div>
             </div>
             <div className="space-y-4">
               <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Região *</Label>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CEP *</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={formatCEP(zipCode)} 
+                    onChange={(e) => setZipCode(e.target.value)} 
+                    placeholder="00000-000" 
+                    maxLength={9}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="hero" 
+                    size="icon" 
+                    onClick={handleCepLookup}
+                    disabled={loadingCep || onlyDigits(zipCode).length !== 8}
+                  >
+                    {loadingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Região de entrega *</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a região" /></SelectTrigger>
+                  <SelectTrigger className="rounded-none border-2 border-black"><SelectValue placeholder="Selecione a região" /></SelectTrigger>
                   <SelectContent>
                     {zones.map(z => <SelectItem key={z.id} value={z.id}>{z.neighborhood} - {formatBRL(z.fee)}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {zones.length === 0 && <p className="text-[10px] text-destructive mt-1 uppercase font-bold">Nenhuma região de entrega configurada.</p>}
               </div>
+
               <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2"><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label><Input value={street} onChange={(e) => setStreet(e.target.value)} /></div>
-                <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label><Input value={number} onChange={(e) => setNumber(e.target.value)} /></div>
+                <div className="col-span-2">
+                  <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label>
+                  <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Ex: Av. Brasil" />
+                </div>
+                <div>
+                  <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label>
+                  <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="123" />
+                </div>
               </div>
-              <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label><Input value={complement} onChange={(e) => setComplement(e.target.value)} /></div>
-              <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label><Input value={reference} onChange={(e) => setReference(e.target.value)} /></div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Bairro *</Label>
+                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Ex: Centro" />
+              </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label>
+                <Input value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, Bloco..." />
+              </div>
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label>
+                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Próximo a..." />
+              </div>
             </div>
           </Card>
         )}
 
-        <Card className="p-5 border-border">
+        <Card className="p-5 border-border shadow-elegant">
           <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight">Pagamento</h2>
+            <h2 className="font-bold text-lg uppercase tracking-tight italic">Pagamento</h2>
             <div className="h-1 w-12 bg-primary mt-1"></div>
           </div>
-          <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="space-y-2">
-            {settings.accept_pix && <div className="flex items-center space-x-2 border p-3 rounded-sm"><RadioGroupItem value="pix" id="pix" /><Label htmlFor="pix">PIX</Label></div>}
-            {settings.accept_cash && <div className="flex items-center space-x-2 border p-3 rounded-sm"><RadioGroupItem value="dinheiro" id="dinheiro" /><Label htmlFor="dinheiro">Dinheiro</Label></div>}
-            {settings.accept_card_on_delivery && <div className="flex items-center space-x-2 border p-3 rounded-sm"><RadioGroupItem value="cartao_entrega" id="cartao_entrega" /><Label htmlFor="cartao_entrega">Cartão na entrega</Label></div>}
+          <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="space-y-3">
+            {settings.accept_pix && (
+              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${paymentMethod === 'pix' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
+                <RadioGroupItem value="pix" id="pix" />
+                <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer">PIX (Online)</Label>
+              </div>
+            )}
+            {settings.accept_cash && (
+              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${paymentMethod === 'dinheiro' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
+                <RadioGroupItem value="dinheiro" id="dinheiro" />
+                <Label htmlFor="dinheiro" className="font-black uppercase text-xs tracking-widest cursor-pointer">Dinheiro</Label>
+              </div>
+            )}
+            {settings.accept_card_on_delivery && (
+              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${paymentMethod === 'cartao_entrega' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
+                <RadioGroupItem value="cartao_entrega" id="cartao_entrega" />
+                <Label htmlFor="cartao_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer">Cartão na entrega</Label>
+              </div>
+            )}
           </RadioGroup>
           {paymentMethod === "dinheiro" && (
-            <div className="mt-4"><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Troco para quanto?</Label><Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} placeholder="Ex: 50" /></div>
+            <div className="mt-4 animate-fade-in">
+              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Troco para quanto?</Label>
+              <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} placeholder="Ex: 50" type="number" />
+            </div>
           )}
         </Card>
 
-        <Card className="p-5 border-border">
+        <Card className="p-5 border-border shadow-elegant">
           <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight">Observações</h2>
+            <h2 className="font-bold text-lg uppercase tracking-tight italic">Observações</h2>
             <div className="h-1 w-12 bg-primary mt-1"></div>
           </div>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Alguma observação para o pedido?" />
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Alguma observação para o pedido?" className="rounded-none border-2 border-black" />
         </Card>
         
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-card border-t border-border z-30">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t-4 border-black z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
           <div className="container max-w-xl mx-auto flex items-center justify-between gap-4">
             <div>
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest leading-none mb-1">Total a pagar</div>
-              <div className="text-2xl font-black text-primary">{formatBRL(total)}</div>
+              <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1 italic">Total a pagar</div>
+              <div className="text-2xl font-black text-primary tracking-tighter">{formatBRL(total)}</div>
+              {actualDeliveryFee === 0 && orderType === 'entrega' && <div className="text-[10px] text-green-600 font-black uppercase">Entrega Grátis!</div>}
             </div>
             <Button 
               onClick={submit} 
               disabled={submitting || count === 0} 
               size="lg" 
+              variant="hero"
               className="px-10 h-14 font-black uppercase tracking-tighter text-lg"
             >
-              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Enviar Pedido"}
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finalizar Pedido"}
             </Button>
           </div>
         </div>
