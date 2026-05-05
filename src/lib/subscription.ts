@@ -280,8 +280,11 @@ export const getPlanUsageProgress = (usage: number, limit: number | null | undef
   };
 };
 
-export const isPaidPlan = (plan: (Partial<PlanRecord> & { priceMonthly?: number }) | null | undefined) =>
-  Number(plan?.price_monthly ?? plan?.priceMonthly ?? 0) > 0;
+export const isPaidPlan = (plan: (Partial<PlanRecord> & { priceMonthly?: number }) | null | undefined) => {
+  if (!plan) return false;
+  const isPremiumCourtesy = plan.slug && PREMIUM_PLAN_SLUGS.includes(plan.slug);
+  return Number(plan?.price_monthly ?? plan?.priceMonthly ?? 0) > 0 || isPremiumCourtesy;
+};
 
 export const getSubscriptionAccessState = ({
   subscription,
