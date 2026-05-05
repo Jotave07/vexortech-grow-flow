@@ -58,7 +58,7 @@ const PublicCheckout = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       toast.info("Você precisa estar logado para finalizar o pedido.");
-      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
     }
   }, [user, authLoading, navigate, location.pathname]);
 
