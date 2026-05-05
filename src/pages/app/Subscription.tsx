@@ -43,12 +43,12 @@ const Subscription = () => {
 
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
-    const { data, error } = await supabase
-      .from("plans")
+    const { data, error } = await (supabase
+      .from("plans" as any)
       .select("*")
       .eq("is_active", true)
       .gt("price_monthly", 0)
-      .order("sort_order");
+      .order("sort_order") as any);
 
     if (error) {
       toast.error("Nao foi possivel carregar os planos pagos.");
@@ -111,10 +111,10 @@ const Subscription = () => {
       last_payment_status: "pending",
     };
 
-    const storeUpdate = await supabase
-      .from("stores")
+    const storeUpdate = await (supabase
+      .from("stores" as any)
       .update({ plan_id: selectedPlanId })
-      .eq("id", store.id);
+      .eq("id", store.id) as any);
 
     if (storeUpdate.error) {
       setSubmittingPlanId(null);
@@ -123,11 +123,11 @@ const Subscription = () => {
     }
 
     const subscriptionMutation = subscription
-      ? supabase.from("subscriptions").update(updatePayload).eq("id", subscription.id)
-      : supabase.from("subscriptions").insert({
+      ? (supabase.from("subscriptions" as any).update(updatePayload).eq("id", subscription.id) as any)
+      : (supabase.from("subscriptions" as any).insert({
         ...updatePayload,
         store_id: store.id,
-      });
+      }) as any);
 
     const { error: subscriptionError } = await subscriptionMutation;
 
@@ -138,7 +138,7 @@ const Subscription = () => {
     }
 
     try {
-      const { data: profileData } = await supabase.from("profiles").select("*").eq("user_id", store.owner_user_id).single();
+      const { data: profileData } = await (supabase.from("profiles" as any).select("*").eq("user_id", store.owner_user_id).single() as any);
       
       if (!store.document) {
         toast.error("Por favor, preencha o CPF/CNPJ da sua loja nas configurações antes de assinar.");
