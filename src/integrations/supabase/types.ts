@@ -62,7 +62,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           max_discount_amount: number | null
-          min_purchase_amount: number | null
+          min_order_value: number | null
           store_id: string
           usage_count: number | null
           usage_limit: number | null
@@ -76,7 +76,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_discount_amount?: number | null
-          min_purchase_amount?: number | null
+          min_order_value?: number | null
           store_id: string
           usage_count?: number | null
           usage_limit?: number | null
@@ -90,7 +90,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_discount_amount?: number | null
-          min_purchase_amount?: number | null
+          min_order_value?: number | null
           store_id?: string
           usage_count?: number | null
           usage_limit?: number | null
@@ -112,6 +112,8 @@ export type Database = {
           id: string
           phone: string
           store_id: string
+          total_orders: number | null
+          total_spent: number | null
         }
         Insert: {
           created_at?: string | null
@@ -119,6 +121,8 @@ export type Database = {
           id?: string
           phone: string
           store_id: string
+          total_orders?: number | null
+          total_spent?: number | null
         }
         Update: {
           created_at?: string | null
@@ -126,6 +130,8 @@ export type Database = {
           id?: string
           phone?: string
           store_id?: string
+          total_orders?: number | null
+          total_spent?: number | null
         }
         Relationships: [
           {
@@ -214,6 +220,7 @@ export type Database = {
           order_id: string
           product_id: string | null
           quantity: number
+          store_id: string | null
           unit_price: number
         }
         Insert: {
@@ -222,6 +229,7 @@ export type Database = {
           order_id: string
           product_id?: string | null
           quantity: number
+          store_id?: string | null
           unit_price: number
         }
         Update: {
@@ -230,6 +238,7 @@ export type Database = {
           order_id?: string
           product_id?: string | null
           quantity?: number
+          store_id?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -245,6 +254,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -297,6 +313,7 @@ export type Database = {
           customer_id: string | null
           delivery_type: string | null
           id: string
+          is_seen: boolean | null
           notes: string | null
           payment_method: string | null
           status: string | null
@@ -308,6 +325,7 @@ export type Database = {
           customer_id?: string | null
           delivery_type?: string | null
           id?: string
+          is_seen?: boolean | null
           notes?: string | null
           payment_method?: string | null
           status?: string | null
@@ -319,6 +337,7 @@ export type Database = {
           customer_id?: string | null
           delivery_type?: string | null
           id?: string
+          is_seen?: boolean | null
           notes?: string | null
           payment_method?: string | null
           status?: string | null
@@ -389,6 +408,10 @@ export type Database = {
       }
       plans: {
         Row: {
+          allows_advanced_reports: boolean | null
+          allows_coupons: boolean | null
+          allows_custom_branding: boolean | null
+          allows_custom_domain: boolean | null
           created_at: string | null
           description: string | null
           features: Json | null
@@ -400,6 +423,10 @@ export type Database = {
           slug: string | null
         }
         Insert: {
+          allows_advanced_reports?: boolean | null
+          allows_coupons?: boolean | null
+          allows_custom_branding?: boolean | null
+          allows_custom_domain?: boolean | null
           created_at?: string | null
           description?: string | null
           features?: Json | null
@@ -411,6 +438,10 @@ export type Database = {
           slug?: string | null
         }
         Update: {
+          allows_advanced_reports?: boolean | null
+          allows_coupons?: boolean | null
+          allows_custom_branding?: boolean | null
+          allows_custom_domain?: boolean | null
           created_at?: string | null
           description?: string | null
           features?: Json | null
@@ -504,8 +535,11 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_featured: boolean | null
           name: string
+          prep_time_minutes: number | null
           price: number
+          promo_price: number | null
           sort_order: number | null
           store_id: string
         }
@@ -516,8 +550,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_featured?: boolean | null
           name: string
+          prep_time_minutes?: number | null
           price: number
+          promo_price?: number | null
           sort_order?: number | null
           store_id: string
         }
@@ -528,8 +565,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_featured?: boolean | null
           name?: string
+          prep_time_minutes?: number | null
           price?: number
+          promo_price?: number | null
           sort_order?: number | null
           store_id?: string
         }
@@ -597,7 +637,9 @@ export type Database = {
           address: string | null
           business_hours: Json | null
           created_at: string | null
+          delivery_distance_rules: Json | null
           delivery_fee: number | null
+          excluded_neighborhoods: Json | null
           id: string
           min_order_amount: number | null
           payment_methods: Json | null
@@ -608,7 +650,9 @@ export type Database = {
           address?: string | null
           business_hours?: Json | null
           created_at?: string | null
+          delivery_distance_rules?: Json | null
           delivery_fee?: number | null
+          excluded_neighborhoods?: Json | null
           id?: string
           min_order_amount?: number | null
           payment_methods?: Json | null
@@ -619,7 +663,9 @@ export type Database = {
           address?: string | null
           business_hours?: Json | null
           created_at?: string | null
+          delivery_distance_rules?: Json | null
           delivery_fee?: number | null
+          excluded_neighborhoods?: Json | null
           id?: string
           min_order_amount?: number | null
           payment_methods?: Json | null
@@ -649,6 +695,7 @@ export type Database = {
           slug: string
           status: string | null
           updated_at: string | null
+          zip_code: string | null
         }
         Insert: {
           created_at?: string | null
@@ -662,6 +709,7 @@ export type Database = {
           slug: string
           status?: string | null
           updated_at?: string | null
+          zip_code?: string | null
         }
         Update: {
           created_at?: string | null
@@ -675,6 +723,7 @@ export type Database = {
           slug?: string
           status?: string | null
           updated_at?: string | null
+          zip_code?: string | null
         }
         Relationships: [
           {
