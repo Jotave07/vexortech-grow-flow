@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { BrandMark } from "@/components/BrandMark";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { slugify } from "@/lib/format";
+import { slugify, formatPhone, formatDoc } from "@/lib/format";
 import { z } from "zod";
 
 const schema = z.object({
