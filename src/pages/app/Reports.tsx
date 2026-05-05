@@ -81,6 +81,7 @@ const Reports = () => {
   }, [valid]);
 
   const exportCSV = () => {
+    if (typeof document === "undefined") return;
     const headers = ["data", "pedidos", "faturamento"];
     const rows = byDay.map((d) => [d.date, d.count, d.revenue.toFixed(2)]);
     const csv = [headers, ...rows].map((r) => r.join(";")).join("\n");
