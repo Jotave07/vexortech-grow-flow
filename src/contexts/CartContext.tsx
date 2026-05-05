@@ -36,8 +36,17 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 const STORAGE_PREFIX = "vexor_cart_";
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [storeSlug, setStoreSlugState] = useState<string | null>(null);
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [storeSlug, setStoreSlugState] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("vexor_active_store_slug");
+  });
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    const slug = localStorage.getItem("vexor_active_store_slug");
+    if (!slug) return [];
+    const raw = localStorage.getItem(STORAGE_PREFIX + slug);
+    return raw ? JSON.parse(raw) : [];
+  });
 
   useEffect(() => {
     if (!storeSlug || typeof window === "undefined") return;
@@ -55,7 +64,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(STORAGE_PREFIX + storeSlug, JSON.stringify(items));
   }, [items, storeSlug]);
 
-  const setStoreSlug = (slug: string) => setStoreSlugState(slug);
+  const setStoreSlug = (slug: string) => {
+    setStoreSlugState(slug);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vexor_active_store_slug", slug);
+    }
+  };
 
   const addItem: CartContextValue["addItem"] = (item) => {
     setItems((prev) => [...prev, { ...item, uid: crypto.randomUUID() }]);
