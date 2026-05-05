@@ -88,7 +88,7 @@ const PublicStore = () => {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loja nao encontrada</div>;
   }
 
-  const isOpen = settings?.is_open;
+  const isOpen = isStoreOpen(settings?.business_hours, settings?.is_open);
   const acceptOrders = isOpen || settings?.accept_orders_when_closed;
   const publicStoreName = store.public_name || store.name;
 
