@@ -198,8 +198,10 @@ const PublicCheckout = () => {
         order_id: order.id, store_id: store.id, method: paymentMethod, status: "pendente", amount: total,
       });
 
-      if (paymentMethod === "pix" && settings.asaas_api_key) {
+      if (paymentMethod === "pix" && (settings.asaas_api_key || (settings as any).pix_enabled)) {
         try {
+          // The creation of payment in the store's Asaas account happens via a secure server function.
+          // The asaas_api_key is only used on the server.
           await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
         } catch (error: any) {
           console.error("Asaas PIX error:", error);
