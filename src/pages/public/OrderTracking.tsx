@@ -49,7 +49,27 @@ const OrderTracking = () => {
 
   useEffect(() => {
     void load();
+    const interval = setInterval(load, 15000); // Poll every 15s for status updates
+    return () => clearInterval(interval);
   }, [load]);
+
+  useEffect(() => {
+    if (order?.status !== "aguardando_pagamento") return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id } });
+        if (result.status === "paid") {
+          toast.success("Pagamento confirmado!");
+          void load();
+        }
+      } catch (e) {
+        console.error("Sync error:", e);
+      }
+    }, 5000); // Check payment every 5s
+    
+    return () => clearInterval(interval);
+  }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load]);
 
   const copyPix = () => {
     if (pixInfo?.pixCode) {
