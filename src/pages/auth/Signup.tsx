@@ -86,6 +86,10 @@ const Signup = () => {
             <Input id="full_name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required />
           </div>
           <div>
+            <Label htmlFor="document">CPF ou CNPJ</Label>
+            <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} required placeholder="000.000.000-00" />
+          </div>
+          <div>
             <Label htmlFor="email">E-mail</Label>
             <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           </div>
