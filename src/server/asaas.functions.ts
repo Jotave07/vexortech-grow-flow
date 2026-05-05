@@ -95,3 +95,33 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       invoiceUrl: payment.invoiceUrl,
     };
   });
+
+export const getOrderPaymentInfo = createServerFn({ method: "GET" })
+  .inputValidator(z.object({
+    orderId: z.string().uuid(),
+    storeId: z.string().uuid(),
+  }))
+  .handler(async ({ data }) => {
+    const { data: storeSettings } = await supabaseAdmin
+      .from("store_settings")
+      .select("asaas_api_key")
+      .eq("store_id", data.storeId)
+      .single() as any;
+
+    if (!storeSettings?.asaas_api_key) throw new Error("Configuração ausente");
+
+    const { data: payment } = await supabaseAdmin
+      .from("payments")
+      .select("external_id")
+      .eq("order_id", data.orderId)
+      .single();
+
+    if (!payment?.external_id) return null;
+
+    const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.external_id);
+
+    return {
+      pixCode: qrCode.payload,
+      qrCodeUrl: qrCode.encodedImage,
+    };
+  });
