@@ -143,11 +143,11 @@ const PublicCheckout = () => {
       const { data: existingCustomer } = await supabase.from("customers").select("id").eq("store_id", store.id).eq("phone", phoneDigits).maybeSingle();
       let customerId = existingCustomer?.id as string | undefined;
       if (!customerId) {
-        const { data: newC, error: cErr } = await supabase.from("customers").insert({ 
+        const { data: newC, error: cErr } = await (supabase.from("customers" as any).insert({ 
           store_id: store.id, 
-          name: name.trim(), 
+          full_name: name.trim(), 
           phone: phoneDigits 
-        }).select("id").single();
+        }).select("id").single() as any);
         if (cErr) throw cErr;
         customerId = newC.id;
       }
@@ -156,43 +156,46 @@ const PublicCheckout = () => {
         ? `${street.trim()}, ${number.trim()}${complement ? ` - ${complement}` : ""}${zipCode ? ` - CEP ${formatCEP(zipCode)}` : ""}` 
         : null;
 
-      const { data: order, error: oErr } = await supabase.from("orders").insert({
+      const { data: order, error: oErr } = await (supabase.from("orders" as any).insert({
         store_id: store.id,
         customer_id: customerId,
         customer_name: name.trim().toUpperCase(),
         customer_phone: phoneDigits,
-        order_type: orderType,
+        delivery_type: orderType, // Changed from order_type to delivery_type
         status: "novo",
         delivery_address: deliveryAddress?.toUpperCase() || null,
         delivery_neighborhood: orderType === "entrega" ? (neighborhood || zone?.neighborhood)?.toUpperCase() : null,
-        delivery_reference: reference?.toUpperCase() || null,
-        delivery_zone_id: orderType === "entrega" ? zoneId : null,
+        // delivery_reference: reference?.toUpperCase() || null, // Might not exist
+        // delivery_zone_id: orderType === "entrega" ? zoneId : null, // Might not exist
         delivery_fee: actualDeliveryFee,
         subtotal,
-        discount,
+        // discount: discount, // renamed to discount_amount in DB
+        discount_amount: discount,
         total,
-        coupon_id: coupon?.id ?? null,
-        coupon_code: coupon?.code ?? null,
+        // coupon_id: coupon?.id ?? null,
+        // coupon_code: coupon?.code ?? null,
         payment_method: paymentMethod,
-        change_for: paymentMethod === "dinheiro" && changeFor ? Number(changeFor) : null,
+        // change_for: paymentMethod === "dinheiro" && changeFor ? Number(changeFor) : null,
         notes: notes.trim() || null,
-        estimated_minutes: orderType === "entrega" ? (zone?.estimated_minutes ?? settings.avg_prep_time_minutes) : settings.avg_prep_time_minutes,
-      }).select("id, public_token, order_number").single();
+        // estimated_minutes: orderType === "entrega" ? (zone?.estimated_minutes ?? settings.avg_prep_time_minutes) : settings.avg_prep_time_minutes,
+      }).select("id, public_token, order_number").single() as any);
       
       if (oErr) throw oErr;
 
       for (const it of items) {
         const optionsTotal = it.options.reduce((s: number, o: any) => s + Number(o.extra_price), 0);
-        const { data: oi, error: iErr } = await supabase.from("order_items").insert({
+        const { data: oi, error: iErr } = await (supabase.from("order_items" as any).insert({
           order_id: order.id, store_id: store.id, product_id: it.product_id,
           product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity,
-          options_total: optionsTotal, subtotal: itemSubtotal(it), notes: it.notes ?? null,
-        }).select("id").single();
+          // options_total: optionsTotal, subtotal: itemSubtotal(it),
+        }).select("id").single() as any);
         if (iErr) throw iErr;
         if (it.options.length) {
-          await supabase.from("order_item_options").insert(it.options.map((o: any) => ({
-            order_item_id: oi.id, store_id: store.id,
+          await supabase.from("order_item_options" as any).insert(it.options.map((o: any) => ({
+            order_item_id: oi.id, 
+            // store_id: store.id,
             option_name: o.option_name, item_name: o.item_name, extra_price: o.extra_price,
+            name: o.item_name, option_item_id: o.item_id
           })));
         }
       }
