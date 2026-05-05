@@ -55,7 +55,7 @@ const AdminStores = () => {
         await supabase.from("subscriptions").update({ 
           plan_id: targetPlanId, 
           status: "ativa",
-          trial_ends_at: null // Remove trial if any
+          trial_ends_at: null
         }).eq("store_id", store.id);
       } else {
         await supabase.from("subscriptions").insert({ 
@@ -63,6 +63,10 @@ const AdminStores = () => {
           plan_id: targetPlanId, 
           status: "ativa" 
         });
+      }
+      // Also update the store's plan_id to keep it in sync
+      if (targetPlanId) {
+        await supabase.from("stores").update({ plan_id: targetPlanId }).eq("id", store.id);
       }
       toast.success("Plano Cortesia ativado");
     } else {
