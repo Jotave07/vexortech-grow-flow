@@ -148,26 +148,35 @@ export type Database = {
       }
       delivery_zones: {
         Row: {
+          city: string | null
           created_at: string | null
+          estimated_minutes: number | null
           fee: number | null
           id: string
           is_active: boolean | null
+          min_order: number | null
           neighborhood: string
           store_id: string
         }
         Insert: {
+          city?: string | null
           created_at?: string | null
+          estimated_minutes?: number | null
           fee?: number | null
           id?: string
           is_active?: boolean | null
+          min_order?: number | null
           neighborhood: string
           store_id: string
         }
         Update: {
+          city?: string | null
           created_at?: string | null
+          estimated_minutes?: number | null
           fee?: number | null
           id?: string
           is_active?: boolean | null
+          min_order?: number | null
           neighborhood?: string
           store_id?: string
         }
@@ -314,6 +323,7 @@ export type Database = {
         Row: {
           created_at: string | null
           customer_id: string | null
+          customer_phone: string | null
           delivery_type: string | null
           id: string
           is_seen: boolean | null
@@ -326,6 +336,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           customer_id?: string | null
+          customer_phone?: string | null
           delivery_type?: string | null
           id?: string
           is_seen?: boolean | null
@@ -338,6 +349,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           customer_id?: string | null
+          customer_phone?: string | null
           delivery_type?: string | null
           id?: string
           is_seen?: boolean | null
@@ -644,6 +656,7 @@ export type Database = {
       store_settings: {
         Row: {
           accept_card_on_delivery: boolean | null
+          accept_card_online: boolean | null
           accept_cash: boolean | null
           accept_orders_when_closed: boolean | null
           accept_pix: boolean | null
@@ -672,6 +685,7 @@ export type Database = {
         }
         Insert: {
           accept_card_on_delivery?: boolean | null
+          accept_card_online?: boolean | null
           accept_cash?: boolean | null
           accept_orders_when_closed?: boolean | null
           accept_pix?: boolean | null
@@ -700,6 +714,7 @@ export type Database = {
         }
         Update: {
           accept_card_on_delivery?: boolean | null
+          accept_card_online?: boolean | null
           accept_cash?: boolean | null
           accept_orders_when_closed?: boolean | null
           accept_pix?: boolean | null
@@ -859,6 +874,7 @@ export type Database = {
           id: string
           last_payment_status: string | null
           plan_id: string | null
+          provider: string | null
           status: string | null
           store_id: string
           trial_ends_at: string | null
@@ -872,6 +888,7 @@ export type Database = {
           id?: string
           last_payment_status?: string | null
           plan_id?: string | null
+          provider?: string | null
           status?: string | null
           store_id: string
           trial_ends_at?: string | null
@@ -885,6 +902,7 @@ export type Database = {
           id?: string
           last_payment_status?: string | null
           plan_id?: string | null
+          provider?: string | null
           status?: string | null
           store_id?: string
           trial_ends_at?: string | null
@@ -951,6 +969,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_public_order: {
+        Args: { _order_id: string }
+        Returns: {
+          created_at: string
+          delivery_type: string
+          id: string
+          notes: string
+          payment_method: string
+          status: string
+          store_name: string
+          total: number
+        }[]
+      }
+      get_public_order_items: {
+        Args: { _order_id: string }
+        Returns: {
+          id: string
+          product_name: string
+          quantity: number
+          unit_price: number
+        }[]
+      }
+      get_public_order_status_history: {
+        Args: { _order_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          notes: string
+          status: string
+        }[]
+      }
       is_vexor_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
