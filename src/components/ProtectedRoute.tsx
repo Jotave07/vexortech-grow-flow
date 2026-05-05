@@ -14,7 +14,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user) {
+  if (!user && typeof window !== "undefined") {
     return <Navigate to="/entrar" state={{ from: location.pathname }} replace />;
   }
 
