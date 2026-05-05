@@ -190,16 +190,16 @@ const Settings = () => {
 
     setSaving(true);
     const baseStorePayload = {
-      name: storeForm.name,
+      name: storeForm.name?.toUpperCase(),
       description: nullableText(storeForm.description),
       logo_url: nullableText(storeForm.logo_url),
       cover_url: nullableText(storeForm.cover_url),
-      phone: nullableText(storeForm.phone),
-      whatsapp: nullableText(storeForm.whatsapp),
+      phone: nullableText(storeForm.phone?.replace(/\D/g, "")),
+      whatsapp: nullableText(storeForm.whatsapp?.replace(/\D/g, "")),
       email: nullableText(storeForm.email),
-      document: nullableText(storeForm.document),
-      address: nullableText(storeForm.address),
-      city: nullableText(storeForm.city),
+      document: nullableText(storeForm.document?.replace(/\D/g, "")),
+      address: nullableText(storeForm.address?.toUpperCase()),
+      city: nullableText(storeForm.city?.toUpperCase()),
       state: nullableText(storeForm.state)?.toUpperCase() ?? null,
       zip_code: nullableText(storeForm.zip_code ? normalizeCep(storeForm.zip_code) : null),
       primary_color: nullableText(storeForm.primary_color),
