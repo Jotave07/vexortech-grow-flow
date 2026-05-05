@@ -30,17 +30,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId: string, userEmail?: string) => {
-    const { data } = await supabase.from("profiles" as any).select("*").eq("user_id", userId).maybeSingle();
-    
-    let profileData = data as any;
-    
-    // Auto-assign super_admin role for jvieira@vexortech.com.br
-    // Since 'role' might not exist in the DB schema yet, we handle it gracefully
-    if (userEmail === "jvieira@vexortech.com.br") {
-      profileData = { ...profileData, role: "super_admin" };
+    try {
+      const { data, error } = await supabase.from("profiles" as any).select("*").eq("user_id", userId).maybeSingle();
+      if (error) throw error;
+      
+      let profileData = data as any;
+      
+      // Auto-assign super_admin role for jvieira@vexortech.com.br
+      if (userEmail === "jvieira@vexortech.com.br") {
+        profileData = { ...profileData, role: "super_admin" };
+      }
+      
+      setProfile(profileData as Profile | null);
+    } catch (err) {
+      console.error("Error loading profile:", err);
+      setProfile(null);
     }
-    
-    setProfile(profileData as Profile | null);
   };
 
   useEffect(() => {

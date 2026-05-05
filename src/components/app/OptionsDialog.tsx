@@ -17,11 +17,11 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: g } = await supabase.from("product_options").select("*").eq("product_id", product.id).order("sort_order");
+    const { data: g } = await supabase.from("product_options" as any).select("*").eq("product_id", product.id).order("sort_order");
     const groupsData = g ?? [];
     setGroups(groupsData);
     if (groupsData.length) {
-      const { data: itemsData } = await supabase.from("product_option_items").select("*").in("option_id", groupsData.map((x: any) => x.id)).order("sort_order");
+      const { data: itemsData } = await supabase.from("product_option_items" as any).select("*").in("option_id", groupsData.map((x: any) => x.id)).order("sort_order");
       const map: Record<string, any[]> = {};
       groupsData.forEach((gr: any) => { map[gr.id] = (itemsData ?? []).filter((it: any) => it.option_id === gr.id); });
       setItems(map);
@@ -38,17 +38,17 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
   const addGroup = async () => {
     const name = prompt("Nome do grupo (ex.: Adicionais):");
     if (!name?.trim()) return;
-    const { error } = await supabase.from("product_options").insert({ product_id: product.id, store_id: storeId, name: name.trim(), sort_order: groups.length });
+    const { error } = await supabase.from("product_options" as any).insert({ product_id: product.id, store_id: storeId, name: name.trim(), sort_order: groups.length });
     if (error) return toast.error(error.message);
     load();
   };
   const removeGroup = async (id: string) => {
     if (!confirm("Excluir este grupo de adicionais?")) return;
-    await supabase.from("product_options").delete().eq("id", id);
+    await supabase.from("product_options" as any).delete().eq("id", id);
     load();
   };
   const updateGroup = async (id: string, patch: any) => {
-    await supabase.from("product_options").update(patch).eq("id", id); load();
+    await supabase.from("product_options" as any).update(patch).eq("id", id); load();
   };
   const addItem = async (groupId: string) => {
     const name = prompt("Nome do item:");
@@ -56,11 +56,11 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
     const priceStr = prompt("Preço extra (R$):", "0");
     const price = Number(priceStr);
     if (isNaN(price) || price < 0) return toast.error("Preço inválido");
-    await supabase.from("product_option_items").insert({ option_id: groupId, store_id: storeId, name: name.trim(), extra_price: price, sort_order: (items[groupId]?.length ?? 0) });
+    await supabase.from("product_option_items" as any).insert({ option_id: groupId, store_id: storeId, name: name.trim(), extra_price: price, sort_order: (items[groupId]?.length ?? 0) });
     load();
   };
   const removeItem = async (id: string) => {
-    await supabase.from("product_option_items").delete().eq("id", id); load();
+    await supabase.from("product_option_items" as any).delete().eq("id", id); load();
   };
 
   return (
