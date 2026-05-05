@@ -265,53 +265,153 @@ const CustomerDashboard = () => {
         </Tabs>
       </main>
 
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="border-2 border-black rounded-none max-w-md">
+      <Dialog open={editModalOpen} onOpenChange={isProfileComplete ? setEditModalOpen : () => {}}>
+        <DialogContent className="border-2 border-black rounded-none max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase italic italic tracking-tighter">Editar Perfil</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">
+              {!isProfileComplete ? "Complete seu Cadastro" : "Editar Perfil"}
+            </DialogTitle>
             <DialogDescription className="font-bold text-xs uppercase tracking-widest text-muted-foreground">
-              Mantenha seus dados atualizados para facilitar seus pedidos.
+              {!isProfileComplete 
+                ? "Para acessar seu painel e realizar compras, precisamos de alguns dados obrigatórios." 
+                : "Mantenha seus dados atualizados para facilitar seus pedidos."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUpdateProfile} className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name" className="text-[10px] font-black uppercase tracking-widest">Nome Completo</Label>
-              <Input 
-                id="full_name" 
-                value={formData.full_name} 
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="border-2 border-black rounded-none h-12 font-bold"
-                required
-              />
+          <form onSubmit={handleUpdateProfile} className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="full_name" className="text-[10px] font-black uppercase tracking-widest">Nome Completo</Label>
+                <Input 
+                  id="full_name" 
+                  value={formData.full_name} 
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="document" className="text-[10px] font-black uppercase tracking-widest">CPF ou CNPJ</Label>
+                <Input 
+                  id="document" 
+                  value={formData.document} 
+                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                  placeholder="000.000.000-00"
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-[10px] font-black uppercase tracking-widest">WhatsApp / Celular</Label>
+                <Input 
+                  id="phone" 
+                  value={formData.phone} 
+                  onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                  placeholder="(00) 00000-0000"
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zip_code" className="text-[10px] font-black uppercase tracking-widest">CEP</Label>
+                <Input 
+                  id="zip_code" 
+                  value={formData.zip_code} 
+                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                  placeholder="00000-000"
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-[10px] font-black uppercase tracking-widest">WhatsApp / Celular</Label>
-              <Input 
-                id="phone" 
-                value={formData.phone} 
-                onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                placeholder="(00) 00000-0000"
-                className="border-2 border-black rounded-none h-12 font-bold"
-                required
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-3 space-y-2">
+                <Label htmlFor="street" className="text-[10px] font-black uppercase tracking-widest">Rua / Logradouro</Label>
+                <Input 
+                  id="street" 
+                  value={formData.street} 
+                  onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="number" className="text-[10px] font-black uppercase tracking-widest">Número</Label>
+                <Input 
+                  id="number" 
+                  value={formData.number} 
+                  onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
             </div>
-            <DialogFooter className="pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setEditModalOpen(false)}
-                className="border-2 border-black rounded-none font-black uppercase tracking-widest text-xs h-12"
-              >
-                Cancelar
-              </Button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="complement" className="text-[10px] font-black uppercase tracking-widest">Complemento (opcional)</Label>
+                <Input 
+                  id="complement" 
+                  value={formData.complement} 
+                  onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="neighborhood" className="text-[10px] font-black uppercase tracking-widest">Bairro</Label>
+                <Input 
+                  id="neighborhood" 
+                  value={formData.neighborhood} 
+                  onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-3 space-y-2">
+                <Label htmlFor="city" className="text-[10px] font-black uppercase tracking-widest">Cidade</Label>
+                <Input 
+                  id="city" 
+                  value={formData.city} 
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state" className="text-[10px] font-black uppercase tracking-widest">UF</Label>
+                <Input 
+                  id="state" 
+                  value={formData.state} 
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+                  maxLength={2}
+                  className="border-2 border-black rounded-none h-11 font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-6">
+              {isProfileComplete && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setEditModalOpen(false)}
+                  className="border-2 border-black rounded-none font-black uppercase tracking-widest text-xs h-12"
+                >
+                  Cancelar
+                </Button>
+              )}
               <Button 
                 type="submit" 
                 variant="hero" 
                 disabled={saving}
-                className="font-black uppercase tracking-widest text-xs h-12"
+                className="font-black uppercase tracking-widest text-xs h-12 flex-1"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                Salvar Alterações
+                {!isProfileComplete ? "Finalizar Cadastro" : "Salvar Alterações"}
               </Button>
             </DialogFooter>
           </form>
