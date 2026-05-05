@@ -8,7 +8,7 @@ export function useStoreStatus(storeId?: string) {
       if (!storeId) return null;
 
       const { data: store, error: storeError } = await supabase
-        .from("stores")
+        .from("stores" as any)
         .select("is_active, is_suspended, plan_id")
         .eq("id", storeId)
         .single();
@@ -16,7 +16,7 @@ export function useStoreStatus(storeId?: string) {
       if (storeError) throw storeError;
 
       const { data: subscription, error: subError } = await supabase
-        .from("subscriptions")
+        .from("subscriptions" as any)
         .select("status, current_period_end")
         .eq("store_id", storeId)
         .order("created_at", { ascending: false })
