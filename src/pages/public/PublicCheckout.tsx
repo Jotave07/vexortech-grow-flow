@@ -85,13 +85,6 @@ const PublicCheckout = () => {
     }
   }, [profile, zones]);
   const createOrderPaymentFn = useServerFn(createOrderPayment);
-  const [state, setState] = useState("");
-  const [reference, setReference] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "cartao_entrega">("pix");
-  const [changeFor, setChangeFor] = useState("");
-  const [notes, setNotes] = useState("");
-  const [coupon, setCoupon] = useState<any>(null);
-  const [loadingCep, setLoadingCep] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
