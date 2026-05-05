@@ -96,7 +96,18 @@ const CustomerDashboard = () => {
             <h1 className="text-3xl font-black uppercase tracking-tighter italic">Meu Painel</h1>
             <p className="text-white/60 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
           </div>
-          <User className="h-10 w-10 text-primary" />
+          <div className="flex items-center gap-4">
+            <User className="h-10 w-10 text-primary" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10" 
+              onClick={() => signOut()}
+              title="Sair"
+            >
+              <LogOut className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
       </header>
 
