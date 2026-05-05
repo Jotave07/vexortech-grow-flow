@@ -1,1 +1,3 @@
-{ "imports": { "std/": "https://deno.land/std@0.168.0/" } }
+{
+  "importMap": "../import_map.json"
+}
