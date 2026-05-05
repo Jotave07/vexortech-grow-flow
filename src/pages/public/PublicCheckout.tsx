@@ -162,6 +162,11 @@ const PublicCheckout = () => {
     const phoneDigits = onlyDigits(phone);
     if (phoneDigits.length < 10) return toast.error("Telefone inválido");
     
+    const docDigits = onlyDigits(document);
+    if (docDigits.length !== 11 && docDigits.length !== 14) {
+      return toast.error("CPF ou CNPJ inválido. O Asaas exige este documento para gerar o pagamento.");
+    }
+    
     if (orderType === "entrega") {
       if (!settings.allow_delivery) return toast.error("Loja não faz entrega");
       if (!zoneId) return toast.error("Escolha a região de entrega");
