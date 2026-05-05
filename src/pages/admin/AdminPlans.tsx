@@ -101,7 +101,7 @@ const AdminPlans = () => {
               <div><Label>Preço/mês</Label><Input type="number" step="0.01" value={form.price_monthly} onChange={(e) => setForm({ ...form, price_monthly: e.target.value })} /></div>
               <div><Label>Máx. produtos</Label><Input type="number" value={form.max_products} onChange={(e) => setForm({ ...form, max_products: e.target.value })} placeholder="∞" /></div>
             </div>
-            {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["allows_custom_domain", "Domínio próprio"], ["is_active", "Ativo"]].map(([k, l]) => (
+            {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["allows_custom_domain", "Domínio próprio"], ["is_active", "Público"]].map(([k, l]) => (
               <div key={k} className="flex items-center justify-between"><Label>{l}</Label><Switch checked={!!form[k]} onCheckedChange={(v) => setForm({ ...form, [k]: v })} /></div>
             ))}
             <Button variant="hero" className="w-full" onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
