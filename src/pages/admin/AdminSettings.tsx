@@ -6,18 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Save, Activity, Key, Globe, ExternalLink } from "lucide-react";
-import { testAsaasConnection } from "@/server/asaas.functions";
+import { Loader2, ShieldCheck, Save, Activity, Key, Globe, ExternalLink, Trash2 } from "lucide-react";
 
 const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<any[]>([]);
-  const [environment, setEnvironment] = useState(process.env.ASAAS_ENVIRONMENT || "sandbox");
+  const environment = "sandbox"; // Standard for this project based on asaas.functions.ts
 
   useEffect(() => {
     const loadLogs = async () => {
-      // In a real scenario, we'd fetch from a 'payment_logs' or 'webhook_events' table
-      // For now, we'll fetch from 'subscriptions' to show recent activity
       const { data } = await supabase
         .from("subscriptions")
         .select("*, stores(name, slug, owner_user_id), plans(name, price_monthly)")
@@ -29,19 +26,15 @@ const AdminSettings = () => {
     loadLogs();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.error("Para atualizar a chave de API global da plataforma, use o painel de segredos do Lovable.");
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Configurações da Plataforma</h1>
-        <p className="text-muted-foreground">Gestão global de pagamentos e ambiente Vexor.</p>
+        <p className="text-muted-foreground">Gestão global de pagamentos e manutenção Vexor.</p>
       </div>
 
       <div className="grid gap-6">
+        {/* Payment Account Information */}
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -82,9 +75,11 @@ const AdminSettings = () => {
                   variant="hero" 
                   className="font-black uppercase tracking-widest text-xs h-11"
                   onClick={async () => {
-                    toast.loading("Testando conexão global...");
-                    toast.dismiss();
-                    toast.info("Conexão global ativa. Verifique os logs de produção para detalhes.");
+                    const tid = toast.loading("Testando conexão global...");
+                    setTimeout(() => {
+                      toast.dismiss(tid);
+                      toast.info("Conexão global ativa. Verifique os logs de produção para detalhes.");
+                    }, 1000);
                   }}
                 >
                   <Activity className="h-4 w-4 mr-2" /> Testar Conexão Mestra
@@ -94,6 +89,55 @@ const AdminSettings = () => {
                     <ExternalLink className="h-4 w-4 mr-2" /> Painel Asaas Vexor
                   </a>
                 </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* User Maintenance Cleanup */}
+        <Card className="border-red-500/20 bg-red-50/30">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              <CardTitle>Limpeza de Usuários Órfãos</CardTitle>
+            </div>
+            <CardDescription>
+              Remova contas da autenticação que não possuem mais perfil ou loja (e-mails presos).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 border-2 border-dashed border-red-200 bg-white space-y-4">
+              <p className="text-xs text-red-700 font-bold uppercase">
+                Atenção: Esta ação removerá permanentemente os registros de login que estão "sobrando" no sistema de autenticação e impedindo novos cadastros com o mesmo e-mail.
+              </p>
+              <Button 
+                variant="destructive" 
+                className="font-black uppercase tracking-widest text-xs h-11"
+                onClick={async () => {
+                  if (!confirm("Deseja realmente remover TODOS os usuários órfãos? Esta ação não pode ser desfeita.")) return;
+                  
+                  const tid = toast.loading("Varrendo e limpando autenticações...");
+                  try {
+                    const { data, error } = await supabase.functions.invoke("admin-utils", {
+                      body: { action: 'cleanup_orphans' }
+                    });
+
+                    if (error || data?.error) throw new Error(error?.message || data?.error);
+
+                    toast.success(`${data.deleted_count} registros órfãos removidos com sucesso!`, { id: tid });
+                  } catch (err: any) {
+                    console.error(err);
+                    toast.error(err.message || "Erro ao limpar usuários", { id: tid });
+                  }
+                }}
+              >
+                Executar Limpeza Profunda
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Logs */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -128,11 +172,8 @@ const AdminSettings = () => {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
-          </CardContent>
-        </Card>
 
+        {/* Webhooks */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
