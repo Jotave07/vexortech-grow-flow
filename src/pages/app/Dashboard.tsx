@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { ShoppingBag, DollarSign, TrendingUp, Clock, Loader2 } from "lucide-react";
 
 type Stats = {
