@@ -502,6 +502,7 @@ export type Database = {
           name: string
           price_monthly: number
           slug: string | null
+          sort_order: number | null
         }
         Insert: {
           allows_advanced_reports?: boolean | null
@@ -517,6 +518,7 @@ export type Database = {
           name: string
           price_monthly: number
           slug?: string | null
+          sort_order?: number | null
         }
         Update: {
           allows_advanced_reports?: boolean | null
@@ -532,6 +534,7 @@ export type Database = {
           name?: string
           price_monthly?: number
           slug?: string | null
+          sort_order?: number | null
         }
         Relationships: []
       }
