@@ -177,7 +177,7 @@ const PublicCheckout = () => {
 
     setSubmitting(true);
     try {
-      const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("phone", phoneDigits).maybeSingle();
+      const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id).maybeSingle();
       let customerId = existingCustomer?.id as string | undefined;
       
       const customerData = {
