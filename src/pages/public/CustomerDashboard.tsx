@@ -14,10 +14,16 @@ import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppL
 import { toast } from "sonner";
 
 const CustomerDashboard = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: "",
+    phone: "",
+  });
 
   useEffect(() => {
     if (authLoading) return;
@@ -27,7 +33,9 @@ const CustomerDashboard = () => {
     }
 
     const loadOrders = async () => {
-      // Find orders by phone or user_id (if we had a relation, but for now we search by phone in profiles)
+      // Find orders by phone or user_id
+      // Priority 1: profile.phone
+      // Priority 2: user.id (if we start linking orders to user_id in the future)
       if (profile?.phone) {
         const { data } = await supabase
           .from("orders")
@@ -39,8 +47,42 @@ const CustomerDashboard = () => {
       setLoading(false);
     };
 
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || "",
+        phone: profile.phone || "",
+      });
+    }
+
     loadOrders();
   }, [user, profile, authLoading, navigate]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.full_name,
+          phone: formData.phone.replace(/\D/g, ""),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await refreshProfile();
+      toast.success("Perfil atualizado com sucesso!");
+      setEditModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar perfil");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
