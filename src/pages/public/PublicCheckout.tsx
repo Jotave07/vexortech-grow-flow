@@ -324,7 +324,7 @@ const PublicCheckout = () => {
                         .from("customers")
                         .select("*")
                         .eq("store_id", store.id)
-                        .eq("phone", digits)
+                        .eq("user_id", user?.id || "")
                         .maybeSingle();
                       
                       if (data) {
