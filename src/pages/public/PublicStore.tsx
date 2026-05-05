@@ -319,7 +319,7 @@ const PublicStore = () => {
                               <img src={product.image_url} alt="" className="h-full w-full object-cover transition-smooth group-hover:scale-[1.03]" />
                             ) : (
                               <div className="flex h-full items-end justify-start bg-[linear-gradient(180deg,hsl(188_100%_50%_/_0.15),transparent_50%),linear-gradient(135deg,hsl(333_100%_50%_/_0.14),transparent_54%),linear-gradient(180deg,hsl(0_0%_10%),hsl(0_0%_7%))] p-3 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                                Produto
+                                {product.name}
                               </div>
                             )}
                           </div>
