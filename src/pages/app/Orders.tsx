@@ -69,8 +69,15 @@ const Orders = () => {
     const ch = supabase.channel(`orders-${store.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, (payload) => {
         if (payload.eventType === "INSERT") {
-          toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 8000 });
-          playNotificationSound();
+          if ((payload.new as any).status === "novo") {
+            toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 8000 });
+            playNotificationSound();
+          }
+        } else if (payload.eventType === "UPDATE") {
+          if ((payload.old as any).status === "aguardando_pagamento" && (payload.new as any).status === "novo") {
+            toast.success(`✅ Pagamento confirmado! Pedido #${(payload.new as any).order_number}`, { duration: 8000 });
+            playNotificationSound();
+          }
         }
         load();
       }).subscribe();
