@@ -732,6 +732,8 @@ export type Database = {
           address: string | null
           allow_delivery: boolean
           allow_pickup: boolean
+          asaas_api_key: string | null
+          asaas_wallet_id: string | null
           avg_prep_time_minutes: number | null
           business_hours: Json | null
           created_at: string | null
@@ -762,6 +764,8 @@ export type Database = {
           address?: string | null
           allow_delivery?: boolean
           allow_pickup?: boolean
+          asaas_api_key?: string | null
+          asaas_wallet_id?: string | null
           avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
@@ -792,6 +796,8 @@ export type Database = {
           address?: string | null
           allow_delivery?: boolean
           allow_pickup?: boolean
+          asaas_api_key?: string | null
+          asaas_wallet_id?: string | null
           avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
