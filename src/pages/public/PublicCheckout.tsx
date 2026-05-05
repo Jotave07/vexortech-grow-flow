@@ -325,6 +325,16 @@ const PublicCheckout = () => {
               <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
             </div>
             <div>
+              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CPF ou CNPJ *</Label>
+              <Input 
+                value={formatDoc(document)} 
+                onChange={(e) => setDocument(e.target.value)} 
+                maxLength={18} 
+                className="border-border focus:ring-0" 
+                placeholder="000.000.000-00" 
+              />
+            </div>
+            <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
               <div className="flex gap-2">
                 <Input 
