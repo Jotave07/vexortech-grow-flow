@@ -140,13 +140,19 @@ const Subscription = () => {
     try {
       const { data: profileData } = await supabase.from("profiles").select("*").eq("user_id", store.owner_user_id).single();
       
+      if (!store.document) {
+        toast.error("Por favor, preencha o CPF/CNPJ da sua loja nas configurações antes de assinar.");
+        setSubmittingPlanId(null);
+        return;
+      }
+
       const checkout = await createSubscriptionCheckout({
         planId: selectedPlanId,
         storeId: store.id,
         customerData: {
           name: profileData?.full_name || "Lojista",
           email: user?.email || "",
-          cpfCnpj: "", // Lojista preencherá no Asaas se necessário
+          cpfCnpj: store.document,
           mobilePhone: store.whatsapp || "",
         }
       });

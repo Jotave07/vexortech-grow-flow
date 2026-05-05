@@ -3,7 +3,10 @@
  */
 
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
-const ASAAS_URL = 'https://www.asaas.com/api/v3';
+const ASAAS_ENVIRONMENT = process.env.ASAAS_ENVIRONMENT || 'production';
+const ASAAS_URL = ASAAS_ENVIRONMENT === 'sandbox' 
+  ? 'https://sandbox.asaas.com/api/v3' 
+  : 'https://www.asaas.com/api/v3';
 
 interface AsaasCustomer {
   name: string;
