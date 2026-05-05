@@ -40,7 +40,7 @@ const Zones = () => {
     const fee = Number(form.fee);
     if (isNaN(fee) || fee < 0) return toast.error("Taxa inválida");
     setSaving(true);
-    const payload = { store_id: store.id, neighborhood: form.neighborhood.trim(), city: form.city || null, fee, min_order: Number(form.min_order) || 0, estimated_minutes: Number(form.estimated_minutes) || 45 };
+    const payload = { store_id: store.id, neighborhood: form.neighborhood.trim().toUpperCase(), city: form.city?.toUpperCase() || null, fee, min_order: Number(form.min_order) || 0, estimated_minutes: Number(form.estimated_minutes) || 45 };
     const { error } = editing
       ? await supabase.from("delivery_zones").update(payload).eq("id", editing.id)
       : await supabase.from("delivery_zones").insert(payload);
