@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +23,9 @@ type Zone = { id: string; neighborhood: string; city: string | null; fee: number
 const PublicCheckout = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
-
-  useEffect(() => {
-    if (slug) setStoreSlug(slug);
-  }, [slug, setStoreSlug]);
-  const createOrderPaymentFn = useServerFn(createOrderPayment);
+  const { user, profile, loading: authLoading } = useAuth();
 
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -52,6 +50,41 @@ const PublicCheckout = () => {
   const [notes, setNotes] = useState("");
   const [coupon, setCoupon] = useState<any>(null);
   const [loadingCep, setLoadingCep] = useState(false);
+
+  useEffect(() => {
+    if (slug) setStoreSlug(slug);
+  }, [slug, setStoreSlug]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.info("Você precisa estar logado para finalizar o pedido.");
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
+    }
+  }, [user, authLoading, navigate, location.pathname]);
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name || "");
+      setPhone(profile.phone || "");
+      setZipCode((profile as any).zip_code || "");
+      setStreet((profile as any).street || "");
+      setNumber((profile as any).number || "");
+      setComplement((profile as any).complement || "");
+      setNeighborhood((profile as any).neighborhood || "");
+      setCity((profile as any).city || "");
+      setState((profile as any).state || "");
+      
+      const neighborhoodVal = (profile as any).neighborhood;
+      if (neighborhoodVal && zones.length > 0) {
+        const neighborhoodLower = neighborhoodVal.toLowerCase().trim();
+        const matchingZone = zones.find(z => 
+          z.neighborhood.toLowerCase().trim() === neighborhoodLower
+        );
+        if (matchingZone) setZoneId(matchingZone.id);
+      }
+    }
+  }, [profile, zones]);
+  const createOrderPaymentFn = useServerFn(createOrderPayment);
 
   useEffect(() => {
     if (!slug) return;
@@ -158,7 +191,8 @@ const PublicCheckout = () => {
         neighborhood: neighborhood.trim(),
         city: city.trim(),
         state: state.trim(),
-        registration_completed: true
+        registration_completed: true,
+        user_id: user?.id
       };
 
       if (!customerId) {
@@ -169,6 +203,21 @@ const PublicCheckout = () => {
         // Update existing customer info
         const { error: uErr } = await supabase.from("customers").update(customerData).eq("id", customerId);
         if (uErr) throw uErr;
+      }
+
+      // Also update the main profile if it's missing info
+      if (user) {
+        await supabase.from("profiles").update({
+          full_name: name.trim(),
+          phone: phoneDigits,
+          zip_code: zipCode,
+          street: street.trim(),
+          number: number.trim(),
+          complement: complement.trim(),
+          neighborhood: neighborhood.trim(),
+          city: city.trim(),
+          state: state.trim()
+        } as any).eq("user_id", user.id);
       }
 
       const deliveryAddress = orderType === "entrega" 
