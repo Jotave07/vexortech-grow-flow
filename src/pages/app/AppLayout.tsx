@@ -34,7 +34,13 @@ const AppLayout = () => {
       navigate("/onboarding", { replace: true });
       return;
     }
-    supabase.from("stores").select("*").eq("id", profile.store_id).maybeSingle().then(({ data }) => setStore(data));
+    supabase.from("stores" as any).select("*").eq("id", profile.store_id).maybeSingle().then(({ data, error }) => {
+      if (error) {
+        console.error("Error fetching store:", error);
+        return;
+      }
+      setStore(data);
+    });
   }, [loading, profile, navigate]);
 
   const handleSignOut = async () => {
