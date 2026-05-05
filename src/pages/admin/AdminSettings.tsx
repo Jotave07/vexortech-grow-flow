@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +10,24 @@ import { Loader2, ShieldCheck, Save, Activity, Key, Globe, ExternalLink } from "
 import { testAsaasConnection } from "@/server/asaas.functions";
 
 const AdminSettings = () => {
-  const [platformKey, setPlatformKey] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<any[]>([]);
   const [environment, setEnvironment] = useState(process.env.ASAAS_ENVIRONMENT || "sandbox");
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      // In a real scenario, we'd fetch from a 'payment_logs' or 'webhook_events' table
+      // For now, we'll fetch from 'subscriptions' to show recent activity
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("*, stores(name, slug, owner_user_id), plans(name, price_monthly)")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+      setLogs(data ?? []);
+      setLoading(false);
+    };
+    loadLogs();
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,8 +94,42 @@ const AdminSettings = () => {
                     <ExternalLink className="h-4 w-4 mr-2" /> Painel Asaas Vexor
                   </a>
                 </Button>
-              </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              <CardTitle>Logs de Assinaturas (MRR)</CardTitle>
             </div>
+            <CardDescription>
+              Atividade recente de cobranças e atualizações de planos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : logs.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic text-center py-4">Nenhum log de assinatura encontrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {logs.map((log) => (
+                  <div key={log.id} className="flex items-center justify-between p-3 border-2 border-black/5 bg-white text-xs">
+                    <div className="space-y-1">
+                      <div className="font-black uppercase">{log.stores?.name || 'LOJA DESCONHECIDA'}</div>
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                        PLANO: {log.plans?.name} · {new Date(log.updated_at).toLocaleString("pt-BR")}
+                      </div>
+                    </div>
+                    <Badge variant={log.status === 'ativa' ? 'default' : 'secondary'} className="rounded-none font-black uppercase text-[9px]">
+                      {log.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
           </CardContent>
         </Card>
 

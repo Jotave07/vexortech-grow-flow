@@ -111,6 +111,10 @@ const PublicCheckout = () => {
   const submit = async () => {
     if (!store || !settings) return;
     
+    if (store.is_suspended) {
+      return toast.error("Esta loja está com as vendas suspensas temporariamente.");
+    }
+
     if (!isStoreOpen(settings.business_hours, settings.is_open) && !settings.accept_orders_when_closed) {
       return toast.error(`A loja está fechada no momento. Próxima abertura às ${settings.next_opening_time || 'breve'}`);
     }
