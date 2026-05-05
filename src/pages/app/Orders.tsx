@@ -21,6 +21,7 @@ const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: st
 
 const Orders = () => {
   const { store } = useOutletContext<{ store: any }>();
+  const { accessState, message } = useSubscriptionStatus();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
