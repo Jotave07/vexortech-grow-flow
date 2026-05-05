@@ -293,13 +293,15 @@ export const getSubscriptionAccessState = ({
   plan,
   isPlatformAdmin = false,
   storeSuspended = false,
+  isExempt = false,
 }: {
   subscription: Pick<SubscriptionRecord, "status" | "last_payment_status"> | null | undefined;
   plan: Partial<PlanRecord> | null | undefined;
   isPlatformAdmin?: boolean;
   storeSuspended?: boolean;
+  isExempt?: boolean;
 }): SubscriptionAccessState => {
-  if (isPlatformAdmin) return "active";
+  if (isPlatformAdmin || isExempt) return "active";
   if (storeSuspended) return "blocked";
   if (!subscription || !plan || !isPaidPlan(plan)) return "no_plan";
 
