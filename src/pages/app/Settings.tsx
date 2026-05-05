@@ -348,14 +348,14 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field>
                 <Label htmlFor="store-name">Nome da loja</Label>
-                <Input id="store-name" value={storeForm.name ?? ""} onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })} />
+                <Input id="store-name" value={storeForm.name ?? ""} onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value.toUpperCase() })} />
               </Field>
               <Field>
                 <Label htmlFor="store-public-name">Nome publico</Label>
                 <Input
                   id="store-public-name"
                   value={storeForm.public_name ?? ""}
-                  onChange={(e) => setStoreForm({ ...storeForm, public_name: e.target.value })}
+                  onChange={(e) => setStoreForm({ ...storeForm, public_name: e.target.value.toUpperCase() })}
                   placeholder="Como a loja aparece para clientes"
                 />
               </Field>
