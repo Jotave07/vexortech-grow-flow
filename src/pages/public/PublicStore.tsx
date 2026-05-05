@@ -215,7 +215,7 @@ const PublicStore = () => {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {section.items.map((product) => (
+                  {section.items.map((product: any) => (
                     <button
                       key={product.id}
                       type="button"
