@@ -16,6 +16,7 @@ export const CartDrawer = ({
   slug: string;
 }) => {
   const { items, itemSubtotal, subtotal, updateQty, removeItem, count } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
