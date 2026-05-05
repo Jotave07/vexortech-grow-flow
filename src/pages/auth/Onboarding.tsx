@@ -31,7 +31,14 @@ const Onboarding = () => {
   const publicBaseUrl = `${window.location.host}/loja/`;
 
   useEffect(() => {
-    if (!authLoading && profile?.store_id) navigate("/app", { replace: true });
+    if (!authLoading) {
+      const isStoreOwner = profile?.role === "store_owner";
+      if (profile?.store_id && isStoreOwner) {
+        navigate("/app", { replace: true });
+      } else if (profile?.role === "customer") {
+        navigate("/meu-painel", { replace: true });
+      }
+    }
   }, [authLoading, profile, navigate]);
 
   useEffect(() => {
