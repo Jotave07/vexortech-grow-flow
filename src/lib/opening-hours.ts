@@ -1,4 +1,4 @@
-import { format, parse, isWithinInterval, getDay } from "date-fns";
+import { format, getDay } from "date-fns";
 
 export type BusinessHours = {
   [key: string]: {
@@ -20,6 +20,7 @@ const DAYS_MAP: { [key: number]: string } = {
 
 export function isStoreOpen(businessHours: BusinessHours, manualStatus?: boolean): boolean {
   if (manualStatus === false) return false;
+  if (!businessHours) return false;
   
   const now = new Date();
   const dayName = DAYS_MAP[getDay(now)];
@@ -31,7 +32,6 @@ export function isStoreOpen(businessHours: BusinessHours, manualStatus?: boolean
   const openTime = config.open;
   const closeTime = config.close;
 
-  // Handle midnight wrap (e.g., 18:00 to 02:00)
   if (closeTime < openTime) {
     return currentTimeStr >= openTime || currentTimeStr <= closeTime;
   }
@@ -40,6 +40,8 @@ export function isStoreOpen(businessHours: BusinessHours, manualStatus?: boolean
 }
 
 export function getNextOpeningTime(businessHours: BusinessHours): string {
+  if (!businessHours) return "Indisponível";
+  
   const now = new Date();
   const currentDay = getDay(now);
 

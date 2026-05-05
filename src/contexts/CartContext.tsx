@@ -40,7 +40,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
-    if (!storeSlug) return;
+    if (!storeSlug || typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + storeSlug);
       if (raw) setItems(JSON.parse(raw));
@@ -51,7 +51,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [storeSlug]);
 
   useEffect(() => {
-    if (!storeSlug) return;
+    if (!storeSlug || typeof window === "undefined") return;
     localStorage.setItem(STORAGE_PREFIX + storeSlug, JSON.stringify(items));
   }, [items, storeSlug]);
 

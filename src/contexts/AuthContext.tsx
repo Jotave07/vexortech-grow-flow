@@ -34,6 +34,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      setLoading(false);
+      return;
+    }
+
     // Set up listener FIRST
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       setSession(sess);

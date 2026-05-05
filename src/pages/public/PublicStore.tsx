@@ -10,9 +10,10 @@ import { formatBRL } from "@/lib/format";
 import { ProductDialog } from "@/components/public/ProductDialog";
 import { CartDrawer } from "@/components/public/CartDrawer";
 import { useCart } from "@/contexts/CartContext";
+import { isStoreOpen } from "@/lib/opening-hours";
 
 const PublicStore = () => {
-  const { slug } = useParams();
+  const { slug } = useParams<{ slug: string }>();
   const { setStoreSlug, count, subtotal } = useCart();
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -88,7 +89,7 @@ const PublicStore = () => {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loja nao encontrada</div>;
   }
 
-  const isOpen = settings?.is_open;
+  const isOpen = settings ? isStoreOpen(settings.business_hours, settings.is_open) : false;
   const acceptOrders = isOpen || settings?.accept_orders_when_closed;
   const publicStoreName = store.public_name || store.name;
 
