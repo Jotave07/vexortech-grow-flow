@@ -42,13 +42,22 @@ const Login = () => {
     }
 
     // Check role for redirection
-    const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
+    let role = "customer";
+    if (user?.email === "jvieira@vexortech.com.br") {
+      role = "super_admin";
+    } else {
+      const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
+      if ((roleData as any)?.role) {
+        role = (roleData as any).role;
+      }
+    }
+    
     setLoading(false);
     toast.success("Bem-vindo!");
     
-    if (user?.email === "jvieira@vexortech.com.br" || (roleData as any)?.role === "super_admin") {
+    if (role === "super_admin") {
       navigate("/admin", { replace: true });
-    } else if ((roleData as any)?.role === "store_owner") {
+    } else if (role === "store_owner" || role === "admin") {
       navigate(safeFrom, { replace: true });
     } else {
       navigate("/meu-painel", { replace: true });
