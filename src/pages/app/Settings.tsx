@@ -747,8 +747,28 @@ const Settings = () => {
               </div>
             )}
 
-            <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground">
-              O sistema continua apenas registrando o metodo escolhido. Nao foi implementado gateway de cartao nem coleta de dados de pagamento.
+            <div className="pt-4 border-t border-border/50">
+              <SectionHeader
+                icon={Settings2}
+                title="Configuração Asaas (Automático)"
+                description="Insira sua chave de API do Asaas para processar pagamentos PIX automaticamente."
+              />
+              <div className="mt-4 grid grid-cols-1 gap-4">
+                <Field>
+                  <Label htmlFor="asaas-api-key">API Key (Produção ou Sandbox)</Label>
+                  <Input
+                    id="asaas-api-key"
+                    type="password"
+                    value={(storeSettings as any).asaas_api_key ?? ""}
+                    onChange={(e) => setStoreSettings({ ...storeSettings, asaas_api_key: e.target.value } as any)}
+                    placeholder="Sua chave de acesso do Asaas"
+                  />
+                </Field>
+                <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  URL do Webhook: https://[SEU-SUPABASE-URL]/functions/v1/asaas-webhook
+                </div>
+              </div>
             </div>
           </Card>
         </TabsContent>
