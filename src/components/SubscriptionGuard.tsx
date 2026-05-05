@@ -15,7 +15,7 @@ export const SubscriptionGuard = () => {
     );
   }
 
-  if (accessState !== "active" && !isPlatformAdmin) {
+  if (accessState !== "active" && !isPlatformAdmin && !profile?.is_exempt) {
     const redirect = encodeURIComponent(location.pathname);
     return <Navigate to={`/app/assinatura?state=${accessState}&redirect=${redirect}`} replace />;
   }
