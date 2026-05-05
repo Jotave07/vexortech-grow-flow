@@ -130,9 +130,9 @@ const Onboarding = () => {
   return (
     <div className="auth-shell py-8">
       <BrandMark className="mb-8" />
-      <Card className="w-full max-w-xl p-8 shadow-card">
-        <h1 className="mb-2 text-2xl font-bold">Vamos criar sua loja</h1>
-        <p className="mb-6 text-sm text-muted-foreground">Defina o plano pago e configure os dados iniciais da sua operacao.</p>
+      <Card className="auth-card max-w-xl">
+        <h1 className="mb-2 text-2xl font-bold">Configuração da sua loja</h1>
+        <p className="mb-6 text-sm text-muted-foreground">Sua loja será criada e você poderá gerenciar tudo após ativar sua assinatura.</p>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-3">
             <Label>Plano escolhido</Label>

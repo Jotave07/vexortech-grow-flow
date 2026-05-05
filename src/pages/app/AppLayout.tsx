@@ -59,15 +59,15 @@ const AppLayout = () => {
       {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-foreground/35 md:hidden" onClick={() => setOpen(false)} />}
 
       <aside className={cn(
-        "dark fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-elegant transition-transform md:sticky md:translate-x-0",
+        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-white transition-transform md:sticky md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="border-b border-sidebar-border p-5">
+        <div className="border-b border-border p-5">
           <BrandMark compact className="mb-5" />
-          <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/65 p-3">
-            <div className="truncate text-sm font-semibold">{store.name}</div>
-            <a href={`/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-sidebar-primary hover:underline">
-              Abrir loja <ExternalLink className="h-3 w-3" />
+          <div className="rounded-none border-2 border-black bg-muted/30 p-3">
+            <div className="truncate text-xs font-black uppercase tracking-tight">{store.name}</div>
+            <a href={`/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary hover:underline">
+              Visualizar loja <ExternalLink className="h-3 w-3" />
             </a>
           </div>
         </div>
@@ -80,8 +80,8 @@ const AppLayout = () => {
               end={item.end}
               onClick={() => setOpen(false)}
               className={({ isActive }) => cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-smooth",
-                isActive ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold" : "text-sidebar-foreground/74 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                "flex items-center gap-3 rounded-none px-3 py-2.5 text-sm transition-smooth font-medium",
+                isActive ? "bg-black text-white font-bold" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -90,8 +90,8 @@ const AppLayout = () => {
           ))}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3">
-          <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={handleSignOut}>
+        <div className="border-t border-border p-3">
+          <Button variant="ghost" className="w-full justify-start rounded-none hover:bg-destructive/10 hover:text-destructive" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" /> Sair
           </Button>
         </div>

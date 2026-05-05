@@ -67,7 +67,7 @@ const OrderTracking = () => {
   return (
     <div className="min-h-screen bg-background pb-10">
       <header className="bg-primary text-primary-foreground p-8 text-center border-b-4 border-black">
-        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-none mb-3 object-cover bg-white border-2 border-black" />}
+        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border-2 border-black" />}
         <h1 className="font-black text-xl uppercase tracking-tighter">{order.store_name}</h1>
         <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Pedido #{order.order_number}</div>
       </header>

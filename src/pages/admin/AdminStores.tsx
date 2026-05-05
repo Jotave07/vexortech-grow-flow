@@ -82,7 +82,7 @@ const AdminStores = () => {
           return (
             <Card key={s.id} className="p-4 flex items-center gap-4 cursor-pointer hover:border-primary/50" onClick={() => setSelected(s)}>
               <div className="h-12 w-12 rounded-lg bg-muted overflow-hidden shrink-0">
-                {s.logo_url && <img src={s.logo_url} alt="" className="w-full h-full object-cover" />}
+                {s.logo_url && <img src={s.logo_url} alt="" className="w-full h-full object-contain" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

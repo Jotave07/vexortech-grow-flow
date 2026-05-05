@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/BrandMark";
 import { BarChart3, Building2, CreditCard, Loader2, LogOut, Menu, ShieldAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,11 @@ const AdminLayout = () => {
       return;
     }
     (async () => {
+      // Manual check for the requested admin email
+      if (user.email === "jvieira@vexortech.com.br") {
+        setIsAdmin(true);
+        return;
+      }
       const { data } = await supabase.rpc("is_vexor_admin", { _user_id: user.id });
       setIsAdmin(!!data);
     })();
@@ -61,12 +67,14 @@ const AdminLayout = () => {
       {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-foreground/35 md:hidden" onClick={() => setOpen(false)} />}
 
       <aside className={cn(
-        "dark fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform md:sticky md:translate-x-0",
+        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-white transition-transform md:sticky md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="border-b border-sidebar-border p-5">
+        <div className="flex flex-col items-center border-b border-border p-6">
           <BrandMark compact />
-          <div className="mt-2 text-xs uppercase text-sidebar-foreground/55">Admin</div>
+          <Badge variant="outline" className="mt-4 rounded-none border-black text-[10px] font-black uppercase tracking-widest bg-black text-white">
+            ADMIN PANEL
+          </Badge>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {menu.map((item) => (

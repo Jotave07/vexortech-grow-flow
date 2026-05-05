@@ -32,11 +32,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+
+  --shadow-card: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-elegant: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -3px rgba(0, 0, 0, 0.04);
+  --shadow-panel: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
 :root {
@@ -92,10 +91,64 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    outline-color: var(--color-ring);
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    font-style: italic;
+    shape-margin: 0.75rem;
+    vertical-align: middle;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+}
+
+@layer components {
+  .brand-logo-frame {
+    @apply flex items-center justify-center overflow-hidden transition-all duration-300;
+    width: clamp(140px, 15vw, 180px);
+    height: auto;
+    aspect-ratio: 3.5 / 1;
+  }
+
+  .brand-logo-frame--compact {
+    width: clamp(100px, 10vw, 120px);
+  }
+
+  .brand-logo-image {
+    @apply w-full h-full object-contain filter drop-shadow-sm;
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  .vexor-panel {
+    @apply bg-white border-2 border-black transition-all duration-200;
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  }
+
+  .vexor-panel:hover {
+    box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 1);
+    transform: translate(-1px, -1px);
+  }
+
+  .auth-shell {
+    @apply min-h-screen flex flex-col items-center justify-center p-4 bg-muted/30;
+  }
+
+  .auth-card {
+    @apply w-full max-w-md p-8 border-2 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .transition-smooth {
+    @apply transition-all duration-200 ease-in-out;
   }
 }
