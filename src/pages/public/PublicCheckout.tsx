@@ -272,10 +272,13 @@ const PublicCheckout = () => {
 
       if (paymentMethod === "pix" && settings.accept_pix) {
         try {
-          await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
+          const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
+          if (!pixResult || !pixResult.pixCode) {
+             throw new Error("Não foi possível gerar o código PIX.");
+          }
         } catch (error: any) {
           console.error("Asaas PIX error:", error);
-          toast.error("Aviso: Houve um problema ao gerar seu QR Code PIX. Por favor, entre em contato com a loja.");
+          toast.error("Houve um problema ao gerar seu QR Code PIX. O pedido foi registrado mas o pagamento precisa ser verificado.");
         }
       }
 

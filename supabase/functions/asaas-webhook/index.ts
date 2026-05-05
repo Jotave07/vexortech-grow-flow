@@ -35,11 +35,10 @@ serve(async (req) => {
     if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
       
       // 1. Process Subscription (Platform Owner Account)
-      // Check if externalReference is a storeId for subscriptions
-      const { data: subscription, error: subError } = await supabase
+      const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
-        .or(`external_subscription_id.eq.${payment.subscription},store_id.eq.${payment.externalReference}`)
+        .or(`asaas_subscription_id.eq.${payment.subscription},store_id.eq.${payment.externalReference}`)
         .maybeSingle()
 
       if (subscription) {
@@ -55,11 +54,10 @@ serve(async (req) => {
       }
 
       // 2. Process Store Customer Payment (Individual Store Account)
-      // Identification by order_id (externalReference)
-      const { data: orderPayment, error: payError } = await supabase
+      const { data: orderPayment } = await supabase
         .from('payments')
         .select('*, orders(*)')
-        .eq('order_id', payment.externalReference)
+        .or(`external_id.eq.${payment.id},order_id.eq.${payment.externalReference}`)
         .maybeSingle()
 
       if (orderPayment) {
@@ -75,12 +73,19 @@ serve(async (req) => {
         await supabase
           .from('orders')
           .update({ 
-            status: 'confirmado', // Move from 'novo' or 'pendente' to 'confirmado'
+            status: 'novo', // Move from 'aguardando_pagamento' to 'novo' (Novos Pedidos)
             payment_status: 'pago' 
           })
           .eq('id', orderPayment.order_id)
           
-        console.log(`Order ${orderPayment.order_id} updated to paid/confirmed`)
+        await supabase.from('order_status_history').insert({
+          order_id: orderPayment.order_id,
+          store_id: orderPayment.store_id,
+          status: 'novo',
+          notes: 'Pagamento PIX confirmado via Webhook'
+        })
+          
+        console.log(`Order ${orderPayment.order_id} updated to paid/new`)
       }
     }
 

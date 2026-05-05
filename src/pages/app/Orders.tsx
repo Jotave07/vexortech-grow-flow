@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
-import { syncPaymentStatus } from "@/server/asaas.functions";
+import { syncPaymentStatus, refundOrderPayment } from "@/server/asaas.functions";
 import { useServerFn } from "@tanstack/react-start";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
@@ -31,6 +31,7 @@ const Orders = () => {
   const [items, setItems] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
+  const refundOrderPaymentFn = useServerFn(refundOrderPayment);
 
   const load = async () => {
     const { data } = await supabase.from("orders").select("*").eq("store_id", store.id)
@@ -119,7 +120,22 @@ const Orders = () => {
   };
 
   const cancelOrder = async (orderId: string) => {
-    if (!confirm("Cancelar este pedido?")) return;
+    if (!confirm("Cancelar este pedido? Isso irá estornar o PIX automaticamente se já estiver pago.")) return;
+    
+    const order = orders.find(o => o.id === orderId);
+    if (order?.payment_method === "pix") {
+      try {
+        const refundRes = await refundOrderPaymentFn({ data: { orderId, storeId: store.id } });
+        if (refundRes.success) {
+          toast.success("Pagamento PIX estornado com sucesso");
+        }
+      } catch (e: any) {
+        console.error("Erro no estorno:", e);
+        // We continue with cancellation even if refund fails, but inform the user
+        toast.error("Aviso: O estorno automático falhou. Verifique no painel do Asaas.");
+      }
+    }
+    
     await updateStatus(orderId, "cancelado", "Cancelado pela loja");
   };
 

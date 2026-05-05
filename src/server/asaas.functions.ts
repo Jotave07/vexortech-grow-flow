@@ -224,3 +224,45 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
 
     return { status: "pending", asaasStatus: asaasPayment.status };
   });
+
+export const refundOrderPayment = createServerFn({ method: "POST" })
+  .inputValidator(z.object({
+    orderId: z.string().uuid(),
+    storeId: z.string().uuid(),
+  }))
+  .handler(async ({ data }) => {
+    const { data: storeSettings } = await supabaseAdmin
+      .from("store_settings")
+      .select("asaas_api_key")
+      .eq("store_id", data.storeId)
+      .single() as any;
+
+    if (!storeSettings?.asaas_api_key) throw new Error("Gateway não configurado");
+
+    const { data: payment } = await supabaseAdmin
+      .from("payments")
+      .select("*")
+      .eq("order_id", data.orderId)
+      .single();
+
+    if (!payment?.external_id || payment.status !== "pago") {
+      return { success: false, message: "Pagamento não encontrado ou não está pago" };
+    }
+
+    const { data: order } = await supabaseAdmin.from("orders").select("total").eq("id", data.orderId).single();
+
+    const refund = await asaas.refundPayment(
+      storeSettings.asaas_api_key, 
+      payment.external_id, 
+      Number(order?.total || 0),
+      "Pedido cancelado pela loja"
+    );
+
+    if (refund.errors) {
+      throw new Error(`Erro Asaas no estorno: ${refund.errors[0].description}`);
+    }
+
+    await supabaseAdmin.from("payments").update({ status: "estornado" }).eq("id", payment.id);
+
+    return { success: true };
+  });
