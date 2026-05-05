@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
-import { BarChart3, CreditCard, ExternalLink, LayoutDashboard, Loader2, LogOut, Menu, Settings, ShoppingBag, Tags, Ticket, Truck, UserCog, Users, UtensilsCrossed, X } from "lucide-react";
+import { BarChart3, CreditCard, ExternalLink, LayoutDashboard, Loader2, LogOut, Menu, Settings, ShoppingBag, Tags, Ticket, Truck, UserCog, Users, UtensilsCrossed, X, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menu = [
@@ -19,6 +19,7 @@ const menu = [
   { to: "/app/configuracoes", icon: Settings, label: "Configuracoes" },
   { to: "/app/assinatura", icon: CreditCard, label: "Assinatura" },
   { to: "/app/usuarios", icon: UserCog, label: "Usuarios" },
+  { to: "/admin", icon: ShieldCheck, label: "Global Admin", superAdminOnly: true },
 ];
 
 const AppLayout = () => {
@@ -73,7 +74,7 @@ const AppLayout = () => {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {menu.map((item) => (
+          {menu.filter(item => !item.superAdminOnly || profile?.role === "super_admin").map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
