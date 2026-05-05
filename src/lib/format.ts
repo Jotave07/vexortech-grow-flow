@@ -76,6 +76,7 @@ export const buildWhatsAppLink = (phone: string, message: string) => {
 
 export const STATUS_LABELS: Record<string, string> = {
   novo: "Novo",
+  aguardando_pagamento: "Aguardando Pagamento",
   confirmado: "Confirmado",
   em_preparo: "Em preparo",
   saiu_para_entrega: "Saiu para entrega",
@@ -86,6 +87,7 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const STATUS_COLORS: Record<string, string> = {
   novo: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  aguardando_pagamento: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   confirmado: "bg-purple-500/10 text-purple-500 border-purple-500/20",
   em_preparo: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   saiu_para_entrega: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
