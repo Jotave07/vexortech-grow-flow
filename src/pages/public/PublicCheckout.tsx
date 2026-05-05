@@ -450,6 +450,39 @@ const PublicCheckout = () => {
 
         <Card className="p-5 border-border shadow-elegant">
           <div className="mb-4">
+            <h2 className="font-bold text-lg uppercase tracking-tight italic">Resumo do pedido</h2>
+            <div className="h-1 w-12 bg-primary mt-1"></div>
+          </div>
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.uid} className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{item.quantity}x {item.product_name}</span>
+                <span className="font-medium">{formatBRL(itemSubtotal(item))}</span>
+              </div>
+            ))}
+            <div className="pt-2 border-t border-dashed border-border space-y-1">
+              <div className="flex justify-between text-xs uppercase font-bold text-muted-foreground">
+                <span>Subtotal</span>
+                <span>{formatBRL(subtotal)}</span>
+              </div>
+              {orderType === "entrega" && (
+                <div className="flex justify-between text-xs uppercase font-bold text-muted-foreground">
+                  <span>Taxa de entrega</span>
+                  <span>{actualDeliveryFee === 0 ? "Grátis" : formatBRL(actualDeliveryFee)}</span>
+                </div>
+              )}
+              {discount > 0 && (
+                <div className="flex justify-between text-xs uppercase font-bold text-green-600">
+                  <span>Desconto</span>
+                  <span>- {formatBRL(discount)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5 border-border shadow-elegant">
+          <div className="mb-4">
             <h2 className="font-bold text-lg uppercase tracking-tight italic">Pagamento</h2>
             <div className="h-1 w-12 bg-primary mt-1"></div>
           </div>
