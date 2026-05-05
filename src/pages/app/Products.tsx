@@ -191,9 +191,15 @@ const Products = () => {
               </div>
               <div><Label>Tempo (min)</Label><Input type="number" value={form.prep_time_minutes} onChange={(e) => setForm({ ...form, prep_time_minutes: e.target.value })} /></div>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.is_available} onCheckedChange={(v) => setForm({ ...form, is_available: v })} />
-              <Label>Disponível (em estoque)</Label>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Switch checked={form.is_featured} onCheckedChange={(v) => setForm({ ...form, is_featured: v })} />
+                <Label>Destaque</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={form.is_available} onCheckedChange={(v) => setForm({ ...form, is_available: v })} />
+                <Label>Disponível</Label>
+              </div>
             </div>
             <Button variant="hero" className="w-full" onClick={save} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
