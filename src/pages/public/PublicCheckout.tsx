@@ -311,7 +311,7 @@ const PublicCheckout = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
                   <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label>
-                  <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Ex: Av. Brasil" />
+                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} placeholder="Ex: Av. Brasil" />
                 </div>
                 <div>
                   <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label>
