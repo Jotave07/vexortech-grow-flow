@@ -36,6 +36,7 @@ const Subscription = () => {
     plan,
     store,
     isPlatformAdmin,
+    user,
     refresh,
   } = useSubscriptionStatus();
   const [selectedPlanId, setSelectedPlanId] = useState("");
