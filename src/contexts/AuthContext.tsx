@@ -10,6 +10,7 @@ type Profile = {
   email: string | null;
   phone: string | null;
   role?: "super_admin" | "store_owner" | "customer" | null;
+  is_exempt?: boolean;
 };
 
 type AuthContextValue = {

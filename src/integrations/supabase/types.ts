@@ -682,6 +682,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          is_exempt: boolean | null
           last_login: string | null
           phone: string | null
           role: string | null
@@ -696,6 +697,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          is_exempt?: boolean | null
           last_login?: string | null
           phone?: string | null
           role?: string | null
@@ -710,6 +712,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          is_exempt?: boolean | null
           last_login?: string | null
           phone?: string | null
           role?: string | null

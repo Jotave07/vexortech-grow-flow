@@ -5,7 +5,7 @@ import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 export const SubscriptionGuard = () => {
   const location = useLocation();
   const ctx = useOutletContext();
-  const { loading, accessState, isPlatformAdmin } = useSubscriptionStatus();
+  const { loading, accessState, isPlatformAdmin, profile } = useSubscriptionStatus() as any;
 
   if (loading) {
     return (
@@ -15,7 +15,7 @@ export const SubscriptionGuard = () => {
     );
   }
 
-  if (accessState !== "active" && !isPlatformAdmin) {
+  if (accessState !== "active" && !isPlatformAdmin && !profile?.is_exempt) {
     const redirect = encodeURIComponent(location.pathname);
     return <Navigate to={`/app/assinatura?state=${accessState}&redirect=${redirect}`} replace />;
   }

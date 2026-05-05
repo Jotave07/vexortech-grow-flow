@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Search, ExternalLink, Pause, Play, Trash2 } from "lucide-react";
+import { Loader2, Search, ExternalLink, Pause, Play, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/format";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const AdminStores = () => {
   const [stores, setStores] = useState<any[]>([]);
@@ -19,11 +21,19 @@ const AdminStores = () => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: s }, { data: p }] = await Promise.all([
+    const [{ data: s }, { data: p }, { data: profilesData }] = await Promise.all([
       supabase.from("stores").select("*, subscriptions(status, plan_id, plans(name, price_monthly))").order("created_at", { ascending: false }),
       supabase.from("plans").select("*").order("sort_order"),
+      supabase.from("profiles").select("id, store_id, is_exempt").eq("role", "store_owner")
     ]);
-    setStores(s ?? []);
+    
+    // Attach is_exempt from owner profile to store
+    const storesWithExempt = (s ?? []).map(store => {
+      const ownerProfile = (profilesData ?? []).find(prof => prof.store_id === store.id);
+      return { ...store, is_exempt: ownerProfile?.is_exempt || false, owner_profile_id: ownerProfile?.id };
+    });
+
+    setStores(storesWithExempt);
     setPlans(p ?? []);
     setLoading(false);
   };
@@ -39,6 +49,17 @@ const AdminStores = () => {
     const { error } = await supabase.from("stores").update({ is_suspended: !store.is_suspended }).eq("id", store.id);
     if (error) return toast.error(error.message);
     toast.success(store.is_suspended ? "Loja reativada" : "Loja suspensa");
+    load();
+  };
+
+  const toggleExempt = async (store: any) => {
+    if (!store.owner_profile_id) {
+      return toast.error("Dono da loja não encontrado no sistema de perfis.");
+    }
+    const newValue = !store.is_exempt;
+    const { error } = await supabase.from("profiles").update({ is_exempt: newValue }).eq("id", store.owner_profile_id);
+    if (error) return toast.error(error.message);
+    toast.success(newValue ? "Loja marcada como Isenta (Acesso Total)" : "Isenção removida");
     load();
   };
 
@@ -125,6 +146,7 @@ const AdminStores = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="font-medium truncate">{s.name}</div>
+                  {s.is_exempt && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200"><ShieldCheck className="h-3 w-3 mr-1" /> Isenta</Badge>}
                   {s.is_suspended && <Badge variant="destructive">Suspensa</Badge>}
                   {!s.is_active && <Badge variant="secondary">Inativa</Badge>}
                 </div>
@@ -153,8 +175,22 @@ const AdminStores = () => {
                 <div>Criada em: {new Date(selected.created_at).toLocaleDateString("pt-BR")}</div>
               </div>
 
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                <div className="space-y-0.5">
+                  <Label htmlFor="exempt-mode" className="text-sm font-medium flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-green-600" /> Usuário Isento
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">Bypassa todas as travas de assinatura e pagamento.</p>
+                </div>
+                <Switch 
+                  id="exempt-mode" 
+                  checked={selected.is_exempt} 
+                  onCheckedChange={() => toggleExempt(selected)} 
+                />
+              </div>
+
               <div>
-                <label className="text-xs font-medium">Plano</label>
+                <label className="text-xs font-medium">Plano de Referência</label>
                 <Select value={selected.subscriptions?.[0]?.plan_id || (selected.subscriptions?.[0]?.status === 'ativa' && !selected.subscriptions?.[0]?.plan_id ? 'cortesia' : '')} onValueChange={(v) => changePlan(selected, v)}>
                   <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>
