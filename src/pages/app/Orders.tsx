@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2, Phone, MapPin, Clock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
   { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Confirmar" },
