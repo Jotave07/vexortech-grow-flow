@@ -598,6 +598,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          last_login: string | null
           phone: string | null
           role: string | null
           store_id: string | null
@@ -611,6 +612,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          last_login?: string | null
           phone?: string | null
           role?: string | null
           store_id?: string | null
@@ -624,6 +626,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          last_login?: string | null
           phone?: string | null
           role?: string | null
           store_id?: string | null
@@ -635,39 +638,60 @@ export type Database = {
       store_settings: {
         Row: {
           address: string | null
+          allow_delivery: boolean | null
+          allow_pickup: boolean | null
+          avg_prep_time_minutes: number | null
           business_hours: Json | null
           created_at: string | null
           delivery_distance_rules: Json | null
           delivery_fee: number | null
+          delivery_fee_per_km: number | null
+          delivery_message: string | null
+          delivery_radius_km: number | null
           excluded_neighborhoods: Json | null
           id: string
           min_order_amount: number | null
+          min_order_value: number | null
           payment_methods: Json | null
           store_id: string
           whatsapp_number: string | null
         }
         Insert: {
           address?: string | null
+          allow_delivery?: boolean | null
+          allow_pickup?: boolean | null
+          avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
           delivery_distance_rules?: Json | null
           delivery_fee?: number | null
+          delivery_fee_per_km?: number | null
+          delivery_message?: string | null
+          delivery_radius_km?: number | null
           excluded_neighborhoods?: Json | null
           id?: string
           min_order_amount?: number | null
+          min_order_value?: number | null
           payment_methods?: Json | null
           store_id: string
           whatsapp_number?: string | null
         }
         Update: {
           address?: string | null
+          allow_delivery?: boolean | null
+          allow_pickup?: boolean | null
+          avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
           delivery_distance_rules?: Json | null
           delivery_fee?: number | null
+          delivery_fee_per_km?: number | null
+          delivery_message?: string | null
+          delivery_radius_km?: number | null
           excluded_neighborhoods?: Json | null
           id?: string
           min_order_amount?: number | null
+          min_order_value?: number | null
           payment_methods?: Json | null
           store_id?: string
           whatsapp_number?: string | null
@@ -684,45 +708,87 @@ export type Database = {
       }
       stores: {
         Row: {
+          address: string | null
+          address_complement: string | null
+          city: string | null
+          cover_url: string | null
           created_at: string | null
+          description: string | null
+          document: string | null
+          email: string | null
+          font_family: string | null
           id: string
           is_active: boolean | null
           is_suspended: boolean | null
           logo_url: string | null
           name: string
+          neighborhood: string | null
           owner_user_id: string
+          phone: string | null
           plan_id: string | null
+          primary_color: string | null
+          secondary_color: string | null
           slug: string
+          state: string | null
           status: string | null
           updated_at: string | null
+          whatsapp: string | null
           zip_code: string | null
         }
         Insert: {
+          address?: string | null
+          address_complement?: string | null
+          city?: string | null
+          cover_url?: string | null
           created_at?: string | null
+          description?: string | null
+          document?: string | null
+          email?: string | null
+          font_family?: string | null
           id?: string
           is_active?: boolean | null
           is_suspended?: boolean | null
           logo_url?: string | null
           name: string
+          neighborhood?: string | null
           owner_user_id: string
+          phone?: string | null
           plan_id?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
           slug: string
+          state?: string | null
           status?: string | null
           updated_at?: string | null
+          whatsapp?: string | null
           zip_code?: string | null
         }
         Update: {
+          address?: string | null
+          address_complement?: string | null
+          city?: string | null
+          cover_url?: string | null
           created_at?: string | null
+          description?: string | null
+          document?: string | null
+          email?: string | null
+          font_family?: string | null
           id?: string
           is_active?: boolean | null
           is_suspended?: boolean | null
           logo_url?: string | null
           name?: string
+          neighborhood?: string | null
           owner_user_id?: string
+          phone?: string | null
           plan_id?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
           slug?: string
+          state?: string | null
           status?: string | null
           updated_at?: string | null
+          whatsapp?: string | null
           zip_code?: string | null
         }
         Relationships: [
