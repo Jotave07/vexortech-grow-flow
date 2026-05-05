@@ -41,14 +41,14 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
 
     setLoading(true);
     const [adminRes, storeRes] = await Promise.all([
-      user.email === "jvieira@vexortech.com.br" ? Promise.resolve({ data: true }) : supabase.rpc("is_vexor_admin", { _user_id: user.id }),
-      profile?.store_id ? supabase.from("stores").select("*").eq("id", profile.store_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      user.email === "jvieira@vexortech.com.br" ? Promise.resolve({ data: true }) : supabase.rpc("is_vexor_admin" as any, { _user_id: user.id }),
+      profile?.store_id ? supabase.from("stores" as any).select("*").eq("id", profile.store_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
 
     const isAdmin = Boolean(adminRes.data);
     const currentStore = (storeRes as { data: StoreRow | null }).data ?? null;
     const subscriptionRes = currentStore
-      ? await supabase.from("subscriptions").select("*, plans(*)").eq("store_id", currentStore.id).maybeSingle()
+      ? await supabase.from("subscriptions" as any).select("*, plans(*)").eq("store_id", currentStore.id).maybeSingle()
       : { data: null, error: null };
 
     const currentSubscription = (subscriptionRes.data as SubscriptionRow | null) ?? null;
