@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/BrandMark";
 import { BarChart3, Building2, CreditCard, Loader2, LogOut, Menu, ShieldAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
