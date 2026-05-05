@@ -60,6 +60,7 @@ const App = () => (
               <Route path="/pedido/:token" element={<OrderTracking />} />
               <Route path="/pedido/:token/sucesso" element={<PaymentSuccess />} />
               <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
+              <Route path="/meu-painel" element={<ProtectedRoute><CustomerDashboard /></ProtectedRoute>} />
 
               <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="assinatura" element={<Subscription />} />
