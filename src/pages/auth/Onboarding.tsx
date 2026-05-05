@@ -26,7 +26,7 @@ const schema = z.object({
 const Onboarding = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
-  const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", city: "", state: "" });
+  const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", document: "", city: "", state: "" });
   const [loading, setLoading] = useState(false);
   const publicBaseUrl = `${window.location.host}/loja/`;
 
