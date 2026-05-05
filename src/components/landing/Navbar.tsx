@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Navbar = () => {
   return (
