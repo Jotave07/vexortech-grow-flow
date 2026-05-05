@@ -19,7 +19,10 @@ export const testAsaasConnection = createServerFn({ method: "POST" })
     // If it's not a 401/403, the key is likely valid (even if creation fails for other reasons like CPF)
     // Actually, a better way is to just use a GET request to /customers?limit=1
     const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'}/customers?limit=1`, {
-      headers: { 'access_token': data.apiKey }
+      headers: { 
+        'access_token': data.apiKey,
+        'User-Agent': 'VexorDelivery/1.0'
+      }
     });
 
     if (response.ok) {

@@ -37,6 +37,7 @@ async function asaasRequest(endpoint: string, method: string, apiKey: string, bo
       headers: {
         'Content-Type': 'application/json',
         'access_token': apiKey,
+        'User-Agent': 'VexorDelivery/1.0',
       },
       body: body ? JSON.stringify(body) : undefined,
     });
