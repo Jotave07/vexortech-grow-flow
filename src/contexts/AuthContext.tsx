@@ -11,6 +11,13 @@ type Profile = {
   phone: string | null;
   role?: "super_admin" | "store_owner" | "customer" | null;
   is_exempt?: boolean;
+  zip_code?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
 };
 
 type AuthContextValue = {

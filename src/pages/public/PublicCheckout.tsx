@@ -42,16 +42,17 @@ const PublicCheckout = () => {
     if (profile) {
       setName(profile.full_name || "");
       setPhone(profile.phone || "");
-      setZipCode(profile.zip_code || "");
-      setStreet(profile.street || "");
-      setNumber(profile.number || "");
-      setComplement(profile.complement || "");
-      setNeighborhood(profile.neighborhood || "");
-      setCity(profile.city || "");
-      setState(profile.state || "");
+      setZipCode((profile as any).zip_code || "");
+      setStreet((profile as any).street || "");
+      setNumber((profile as any).number || "");
+      setComplement((profile as any).complement || "");
+      setNeighborhood((profile as any).neighborhood || "");
+      setCity((profile as any).city || "");
+      setState((profile as any).state || "");
       
-      if (profile.neighborhood && zones.length > 0) {
-        const neighborhoodLower = profile.neighborhood.toLowerCase().trim();
+      const neighborhood = (profile as any).neighborhood;
+      if (neighborhood && zones.length > 0) {
+        const neighborhoodLower = neighborhood.toLowerCase().trim();
         const matchingZone = zones.find(z => 
           z.neighborhood.toLowerCase().trim() === neighborhoodLower
         );
@@ -190,7 +191,8 @@ const PublicCheckout = () => {
         neighborhood: neighborhood.trim(),
         city: city.trim(),
         state: state.trim(),
-        registration_completed: true
+        registration_completed: true,
+        user_id: user?.id
       };
 
       if (!customerId) {
@@ -201,6 +203,21 @@ const PublicCheckout = () => {
         // Update existing customer info
         const { error: uErr } = await supabase.from("customers").update(customerData).eq("id", customerId);
         if (uErr) throw uErr;
+      }
+
+      // Also update the main profile if it's missing info
+      if (user) {
+        await supabase.from("profiles").update({
+          full_name: name.trim(),
+          phone: phoneDigits,
+          zip_code: zipCode,
+          street: street.trim(),
+          number: number.trim(),
+          complement: complement.trim(),
+          neighborhood: neighborhood.trim(),
+          city: city.trim(),
+          state: state.trim()
+        } as any).eq("user_id", user.id);
       }
 
       const deliveryAddress = orderType === "entrega" 

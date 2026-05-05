@@ -207,8 +207,8 @@ const CustomerDashboard = () => {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Endereço Principal</label>
                   <p className="font-bold text-sm">
-                    {profile?.street ? (
-                      `${profile.street}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} | ${profile.neighborhood} - ${profile.city}/${profile.state}`
+                    {(profile as any)?.street ? (
+                      `${(profile as any).street}, ${(profile as any).number}${(profile as any).complement ? ` - ${(profile as any).complement}` : ''} | ${(profile as any).neighborhood} - ${(profile as any).city}/${(profile as any).state}`
                     ) : 'Endereço não cadastrado'}
                   </p>
                 </div>
