@@ -30,6 +30,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "VexorTech Delivery" },
+      { name: "theme-color", content: "#000000" },
       { name: "description", content: "Lovable Generated Project" },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Lovable App" },
