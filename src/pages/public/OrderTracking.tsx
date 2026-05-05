@@ -144,20 +144,45 @@ const OrderTracking = () => {
         <Card className="p-6 border-2 border-black rounded-none space-y-4">
           <h3 className="font-black uppercase tracking-tighter italic text-sm">Resumo da Compra</h3>
           <ul className="space-y-3">
-            {items.map((it) => (
-              <li key={it.item_id} className="flex justify-between gap-4 border-b border-dashed border-border pb-2">
-                <div className="flex-1">
-                  <div className="font-bold text-sm uppercase tracking-tight">{it.quantity}× {it.product_name}</div>
-                  {it.notes && <div className="text-[10px] text-muted-foreground italic font-medium leading-tight mt-1">"{it.notes}"</div>}
-                </div>
-                <div className="font-black text-sm">{formatBRL(it.subtotal)}</div>
-              </li>
-            ))}
+            {items.map((it) => {
+              const itemOptionsSum = it.options?.reduce((acc: number, opt: any) => acc + Number(opt.extra_price || 0), 0) || 0;
+              const itemTotal = (Number(it.unit_price) + itemOptionsSum) * it.quantity;
+              
+              return (
+                <li key={it.id} className="flex flex-col gap-1 border-b border-dashed border-border pb-2">
+                  <div className="flex justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="font-bold text-sm uppercase tracking-tight">{it.quantity}× {it.product_name}</div>
+                      {it.notes && <div className="text-[10px] text-muted-foreground italic font-medium leading-tight mt-1">"{it.notes}"</div>}
+                    </div>
+                    <div className="font-black text-sm">{formatBRL(itemTotal)}</div>
+                  </div>
+                  {it.options && it.options.length > 0 && (
+                    <ul className="text-[10px] text-muted-foreground uppercase font-medium">
+                      {it.options.map((opt: any, idx: number) => (
+                        <li key={idx}>+ {opt.name} {Number(opt.extra_price) > 0 && `(${formatBRL(opt.extra_price)})`}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           <div className="pt-2 space-y-1">
-            <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground"><span>Subtotal</span><span>{formatBRL(order.subtotal)}</span></div>
-            {order.order_type === "entrega" && <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground"><span>Entrega</span><span>{Number(order.delivery_fee) === 0 ? "Grátis" : formatBRL(order.delivery_fee)}</span></div>}
-            <div className="flex justify-between font-black text-xl border-t-2 border-black pt-3 mt-3 uppercase tracking-tighter"><span>Total</span><span className="text-primary">{formatBRL(order.total)}</span></div>
+            <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <span>Subtotal</span>
+              <span>{formatBRL(order.subtotal || 0)}</span>
+            </div>
+            {order.delivery_type === "entrega" && (
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <span>Entrega</span>
+                <span>{Number(order.delivery_fee || 0) === 0 ? "Grátis" : formatBRL(order.delivery_fee)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-black text-xl border-t-2 border-black pt-3 mt-3 uppercase tracking-tighter">
+              <span>Total</span>
+              <span className="text-primary">{formatBRL(order.total || 0)}</span>
+            </div>
           </div>
         </Card>
 
