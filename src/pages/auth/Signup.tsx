@@ -31,7 +31,7 @@ const Signup = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -39,6 +39,13 @@ const Signup = () => {
         data: { full_name: parsed.data.full_name },
       },
     });
+
+    if (!error && signUpData.user) {
+      await supabase.from("user_roles").insert({
+        user_id: signUpData.user.id,
+        role: "store_owner"
+      });
+    }
     setLoading(false);
     if (error) {
       if (error.message.includes("already")) {

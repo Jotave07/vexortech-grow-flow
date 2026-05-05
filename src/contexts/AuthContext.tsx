@@ -9,6 +9,7 @@ type Profile = {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  role?: "super_admin" | "store_owner" | "customer" | null;
 };
 
 type AuthContextValue = {
@@ -28,9 +29,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string, userEmail?: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
-    setProfile(data as Profile | null);
+    
+    let profileData = data as any;
+    
+    // Auto-assign super_admin role for jvieira@vexortech.com.br
+    // Since 'role' might not exist in the DB schema yet, we handle it gracefully
+    if (userEmail === "jvieira@vexortech.com.br") {
+      profileData = { ...profileData, role: "super_admin" };
+    }
+    
+    setProfile(profileData as Profile | null);
   };
 
   useEffect(() => {
@@ -45,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(sess?.user ?? null);
       if (sess?.user) {
         // Defer to avoid deadlock
-        setTimeout(() => loadProfile(sess.user.id), 0);
+        setTimeout(() => loadProfile(sess.user.id, sess.user.email), 0);
       } else {
         setProfile(null);
       }
@@ -55,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) loadProfile(s.user.id).finally(() => setLoading(false));
+      if (s?.user) loadProfile(s.user.id, s.user.email).finally(() => setLoading(false));
       else setLoading(false);
     });
 
@@ -68,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshProfile = async () => {
-    if (user) await loadProfile(user.id);
+    if (user) await loadProfile(user.id, user.email);
   };
 
   return (

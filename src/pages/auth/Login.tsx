@@ -46,7 +46,9 @@ const Login = () => {
     setLoading(false);
     toast.success("Bem-vindo!");
     
-    if (roleData?.role === "store_owner") {
+    if (user?.email === "jvieira@vexortech.com.br" || (roleData as any)?.role === "super_admin") {
+      navigate("/admin", { replace: true });
+    } else if ((roleData as any)?.role === "store_owner") {
       navigate(safeFrom, { replace: true });
     } else {
       navigate("/meu-painel", { replace: true });

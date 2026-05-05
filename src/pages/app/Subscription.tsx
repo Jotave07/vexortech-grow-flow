@@ -106,7 +106,7 @@ const Subscription = () => {
 
     const updatePayload = {
       plan_id: selectedPlanId,
-      provider: "stripe",
+      provider: "asaas",
       status: "pendente_pagamento" as const,
       last_payment_status: "pending",
     };
