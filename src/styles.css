@@ -152,3 +152,7 @@
     @apply transition-all duration-200 ease-in-out;
   }
 }
+
+#lovable-badge {
+  display: none !important;
+}
