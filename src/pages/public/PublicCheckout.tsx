@@ -34,6 +34,7 @@ const PublicCheckout = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [name, setName] = useState("");
+  const [document, setDocument] = useState("");
   const [phone, setPhone] = useState("");
   const [orderType, setOrderType] = useState<"entrega" | "retirada">("entrega");
   const [zoneId, setZoneId] = useState<string>("");
