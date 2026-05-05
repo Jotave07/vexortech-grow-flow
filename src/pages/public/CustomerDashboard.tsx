@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut } from "lucide-react";
-import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone } from "@/lib/format";
+import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone, formatDoc } from "@/lib/format";
 import { toast } from "sonner";
 
 const CustomerDashboard = () => {
