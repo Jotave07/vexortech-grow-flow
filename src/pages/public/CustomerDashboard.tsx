@@ -1,19 +1,29 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink } from "lucide-react";
-import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut } from "lucide-react";
+import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone } from "@/lib/format";
+import { toast } from "sonner";
 
 const CustomerDashboard = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: "",
+    phone: "",
+  });
 
   useEffect(() => {
     if (authLoading) return;
@@ -23,7 +33,9 @@ const CustomerDashboard = () => {
     }
 
     const loadOrders = async () => {
-      // Find orders by phone or user_id (if we had a relation, but for now we search by phone in profiles)
+      // Find orders by phone or user_id
+      // Priority 1: profile.phone
+      // Priority 2: user.id (if we start linking orders to user_id in the future)
       if (profile?.phone) {
         const { data } = await supabase
           .from("orders")
@@ -35,8 +47,42 @@ const CustomerDashboard = () => {
       setLoading(false);
     };
 
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || "",
+        phone: profile.phone || "",
+      });
+    }
+
     loadOrders();
   }, [user, profile, authLoading, navigate]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.full_name,
+          phone: formData.phone.replace(/\D/g, ""),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await refreshProfile();
+      toast.success("Perfil atualizado com sucesso!");
+      setEditModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar perfil");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -50,7 +96,18 @@ const CustomerDashboard = () => {
             <h1 className="text-3xl font-black uppercase tracking-tighter italic">Meu Painel</h1>
             <p className="text-white/60 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
           </div>
-          <User className="h-10 w-10 text-primary" />
+          <div className="flex items-center gap-4">
+            <User className="h-10 w-10 text-primary" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10" 
+              onClick={() => signOut()}
+              title="Sair"
+            >
+              <LogOut className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -71,7 +128,9 @@ const CustomerDashboard = () => {
                 <ShoppingBag className="h-12 w-12 mx-auto text-black/10 mb-4" />
                 <h3 className="font-black uppercase tracking-tight text-xl">Nenhum pedido ainda</h3>
                 <p className="text-muted-foreground text-sm">Seus pedidos aparecerão aqui assim que você realizar sua primeira compra.</p>
-                <Button className="mt-6 font-black uppercase" variant="hero" onClick={() => navigate('/')}>Ver lojas disponíveis</Button>
+                <Button className="mt-6 font-black uppercase" variant="hero" asChild>
+                  <Link to="/">Ver lojas disponíveis</Link>
+                </Button>
               </Card>
             ) : (
               orders.map((order) => (
@@ -137,14 +196,73 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">WhatsApp</label>
-                  <p className="font-bold text-lg">{profile?.phone || 'Não informado'}</p>
+                  <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'Não informado'}</p>
                 </div>
               </div>
-              <Button className="mt-8 font-black uppercase" variant="hero" disabled>Editar Perfil (Em Breve)</Button>
+              <Button 
+                className="mt-8 font-black uppercase" 
+                variant="hero" 
+                onClick={() => setEditModalOpen(true)}
+              >
+                Editar Perfil
+              </Button>
             </Card>
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="border-2 border-black rounded-none max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase italic italic tracking-tighter">Editar Perfil</DialogTitle>
+            <DialogDescription className="font-bold text-xs uppercase tracking-widest text-muted-foreground">
+              Mantenha seus dados atualizados para facilitar seus pedidos.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name" className="text-[10px] font-black uppercase tracking-widest">Nome Completo</Label>
+              <Input 
+                id="full_name" 
+                value={formData.full_name} 
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                className="border-2 border-black rounded-none h-12 font-bold"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-[10px] font-black uppercase tracking-widest">WhatsApp / Celular</Label>
+              <Input 
+                id="phone" 
+                value={formData.phone} 
+                onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                placeholder="(00) 00000-0000"
+                className="border-2 border-black rounded-none h-12 font-bold"
+                required
+              />
+            </div>
+            <DialogFooter className="pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditModalOpen(false)}
+                className="border-2 border-black rounded-none font-black uppercase tracking-widest text-xs h-12"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                variant="hero" 
+                disabled={saving}
+                className="font-black uppercase tracking-widest text-xs h-12"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
