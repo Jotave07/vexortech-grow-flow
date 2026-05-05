@@ -21,6 +21,7 @@ type Stats = {
 
 const Dashboard = () => {
   const { store } = useOutletContext<{ store: any }>();
+  const { accessState, message } = useSubscriptionStatus();
   const [stats, setStats] = useState<Stats | null>(null);
   const [topProducts, setTopProducts] = useState<{ name: string; qty: number }[]>([]);
   const [loading, setLoading] = useState(true);
