@@ -58,9 +58,11 @@ const Login = () => {
     if (role === "super_admin") {
       navigate("/admin", { replace: true });
     } else if (role === "store_owner" || role === "admin") {
-      navigate(safeFrom, { replace: true });
+      // If it's a store owner, they go to the store app panel
+      navigate(safeFrom === "/meu-painel" ? "/app" : safeFrom, { replace: true });
     } else {
-      navigate("/meu-painel", { replace: true });
+      // Customers always go to the customer panel
+      navigate(redirect || "/meu-painel", { replace: true });
     }
   };
 
