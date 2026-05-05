@@ -21,6 +21,7 @@ const OrderTracking = () => {
   const [loading, setLoading] = useState(true);
   const [pixInfo, setPixInfo] = useState<any>(null);
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
+  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
   const load = useCallback(async () => {
     if (!token) return;
