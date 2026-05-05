@@ -225,8 +225,8 @@ const Settings = () => {
       accept_card_on_delivery: storeSettings.accept_card_on_delivery,
       pix_key: nullableText(storeSettings.pix_key),
       pix_key_type: nullableText(storeSettings.pix_key_type),
-      asaas_api_key: nullableText((storeSettings as any).asaas_api_key),
-      asaas_wallet_id: nullableText((storeSettings as any).asaas_wallet_id),
+      asaas_api_key: (storeSettings as any).asaas_api_key || null,
+      asaas_wallet_id: (storeSettings as any).asaas_wallet_id || null,
       business_hours: businessHours as unknown as Json,
     };
     const extendedSettingsPayload = {
