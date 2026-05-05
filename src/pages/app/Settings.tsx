@@ -483,7 +483,7 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
                 <Label htmlFor="store-street">Rua</Label>
-                <Input id="store-street" value={storeForm.address ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value })} />
+                <Input id="store-street" value={storeForm.address?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value.toUpperCase() })} />
               </div>
               <Field>
                 <Label htmlFor="store-address-number">Numero</Label>
