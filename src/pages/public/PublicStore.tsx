@@ -90,7 +90,8 @@ const PublicStore = () => {
   }
 
   const isOpen = settings ? isStoreOpen(settings.business_hours, settings.is_open) : false;
-  const acceptOrders = isOpen || settings?.accept_orders_when_closed;
+  const isSuspended = store.is_suspended;
+  const acceptOrders = !isSuspended && (isOpen || settings?.accept_orders_when_closed);
   const publicStoreName = store.public_name || store.name;
 
   return (
