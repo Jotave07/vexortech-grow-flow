@@ -118,7 +118,7 @@ const AdminSettings = () => {
                   
                   const tid = toast.loading("Varrendo e limpando autenticações...");
                   try {
-                    const { data, error } = await supabase.functions.invoke("admin-utils", {
+                    const { data, error } = await supabase.functions.invoke("admin-delete-store", {
                       body: { action: 'cleanup_orphans' }
                     });
 
