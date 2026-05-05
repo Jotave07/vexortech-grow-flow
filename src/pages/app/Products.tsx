@@ -83,7 +83,7 @@ const Products = () => {
     const payload = {
       store_id: store.id,
       category_id: form.category_id || null,
-      name: form.name.trim(),
+      name: form.name.trim().toUpperCase(),
       description: form.description || null,
       price,
       promo_price: form.promo_price ? Number(form.promo_price) : null,
