@@ -95,7 +95,7 @@ const Signup = () => {
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Ja tem conta? <Link to="/entrar" className="text-primary hover:underline">Entrar</Link>
+          Ja tem conta? <Link to={redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar"} className="text-primary hover:underline">Entrar</Link>
         </p>
       </Card>
     </div>
