@@ -239,7 +239,7 @@ const PublicCheckout = () => {
           <div className="space-y-4">
             <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nome *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
+              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
             </div>
             <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
