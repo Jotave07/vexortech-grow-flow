@@ -369,19 +369,19 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field>
                 <Label htmlFor="store-whatsapp">WhatsApp</Label>
-                <Input id="store-whatsapp" value={storeForm.whatsapp ?? ""} onChange={(e) => setStoreForm({ ...storeForm, whatsapp: e.target.value })} />
+                <Input id="store-whatsapp" value={formatPhone(storeForm.whatsapp) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, whatsapp: e.target.value })} />
               </Field>
               <Field>
                 <Label htmlFor="store-phone">Telefone</Label>
-                <Input id="store-phone" value={storeForm.phone ?? ""} onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })} />
+                <Input id="store-phone" value={formatPhone(storeForm.phone) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })} />
               </Field>
               <Field>
                 <Label htmlFor="store-email">E-mail</Label>
-                <Input id="store-email" type="email" value={storeForm.email ?? ""} onChange={(e) => setStoreForm({ ...storeForm, email: e.target.value })} />
+                <Input id="store-email" type="email" value={storeForm.email ?? ""} onChange={(e) => setStoreForm({ ...storeForm, email: e.target.value.toLowerCase() })} />
               </Field>
               <Field>
                 <Label htmlFor="store-document">CNPJ ou CPF</Label>
-                <Input id="store-document" value={storeForm.document ?? ""} onChange={(e) => setStoreForm({ ...storeForm, document: e.target.value })} />
+                <Input id="store-document" value={formatDoc(storeForm.document) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, document: e.target.value })} />
               </Field>
             </div>
           </Card>
