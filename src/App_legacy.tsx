@@ -78,7 +78,7 @@ const App = () => (
                 </Route>
               </Route>
 
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin" element={<ProtectedRoute superAdminOnly><AdminLayout /></ProtectedRoute>}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="lojas" element={<AdminStores />} />
                 <Route path="planos" element={<AdminPlans />} />
