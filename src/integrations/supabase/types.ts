@@ -107,6 +107,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          asaas_id: string | null
           created_at: string | null
           full_name: string | null
           id: string
@@ -118,6 +119,7 @@ export type Database = {
           total_spent: number | null
         }
         Insert: {
+          asaas_id?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
@@ -129,6 +131,7 @@ export type Database = {
           total_spent?: number | null
         }
         Update: {
+          asaas_id?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
@@ -336,6 +339,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          coupon_code: string | null
+          coupon_id: string | null
           created_at: string | null
           customer_document: string | null
           customer_email: string | null
@@ -364,6 +369,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          coupon_code?: string | null
+          coupon_id?: string | null
           created_at?: string | null
           customer_document?: string | null
           customer_email?: string | null
@@ -392,6 +399,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          coupon_code?: string | null
+          coupon_id?: string | null
           created_at?: string | null
           customer_document?: string | null
           customer_email?: string | null
@@ -420,6 +429,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
@@ -732,6 +748,8 @@ export type Database = {
           address: string | null
           allow_delivery: boolean
           allow_pickup: boolean
+          asaas_api_key: string | null
+          asaas_wallet_id: string | null
           avg_prep_time_minutes: number | null
           business_hours: Json | null
           created_at: string | null
@@ -742,10 +760,12 @@ export type Database = {
           delivery_message: string | null
           delivery_radius_km: number | null
           excluded_neighborhoods: Json | null
+          free_delivery_above: number | null
           id: string
           is_open: boolean | null
           min_order_amount: number | null
           min_order_value: number | null
+          next_opening_time: string | null
           payment_methods: Json | null
           pix_key: string | null
           pix_key_type: string | null
@@ -762,6 +782,8 @@ export type Database = {
           address?: string | null
           allow_delivery?: boolean
           allow_pickup?: boolean
+          asaas_api_key?: string | null
+          asaas_wallet_id?: string | null
           avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
@@ -772,10 +794,12 @@ export type Database = {
           delivery_message?: string | null
           delivery_radius_km?: number | null
           excluded_neighborhoods?: Json | null
+          free_delivery_above?: number | null
           id?: string
           is_open?: boolean | null
           min_order_amount?: number | null
           min_order_value?: number | null
+          next_opening_time?: string | null
           payment_methods?: Json | null
           pix_key?: string | null
           pix_key_type?: string | null
@@ -792,6 +816,8 @@ export type Database = {
           address?: string | null
           allow_delivery?: boolean
           allow_pickup?: boolean
+          asaas_api_key?: string | null
+          asaas_wallet_id?: string | null
           avg_prep_time_minutes?: number | null
           business_hours?: Json | null
           created_at?: string | null
@@ -802,10 +828,12 @@ export type Database = {
           delivery_message?: string | null
           delivery_radius_km?: number | null
           excluded_neighborhoods?: Json | null
+          free_delivery_above?: number | null
           id?: string
           is_open?: boolean | null
           min_order_amount?: number | null
           min_order_value?: number | null
+          next_opening_time?: string | null
           payment_methods?: Json | null
           pix_key?: string | null
           pix_key_type?: string | null
