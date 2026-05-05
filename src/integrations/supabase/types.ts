@@ -1162,6 +1162,25 @@ export type Database = {
             }[]
           }
         | {
+            Args: { _token: string }
+            Returns: {
+              created_at: string
+              delivery_fee: number
+              delivery_type: string
+              id: string
+              notes: string
+              order_number: number
+              payment_method: string
+              payment_status: string
+              public_token: string
+              status: string
+              store_id: string
+              store_name: string
+              subtotal: number
+              total: number
+            }[]
+          }
+        | {
             Args: { _order_id?: string; _token: string }
             Returns: {
               created_at: string
@@ -1191,6 +1210,16 @@ export type Database = {
             Args: { _order_id: string; _token?: string }
             Returns: {
               id: string
+              product_name: string
+              quantity: number
+              unit_price: number
+            }[]
+          }
+        | {
+            Args: { _token: string }
+            Returns: {
+              id: string
+              options: Json
               product_name: string
               quantity: number
               unit_price: number
