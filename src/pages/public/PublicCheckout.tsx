@@ -251,20 +251,61 @@ const PublicCheckout = () => {
             </div>
             <div className="space-y-4">
               <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Região *</Label>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CEP *</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={formatCEP(zipCode)} 
+                    onChange={(e) => setZipCode(e.target.value)} 
+                    placeholder="00000-000" 
+                    maxLength={9}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={handleCepLookup}
+                    disabled={loadingCep || onlyDigits(zipCode).length !== 8}
+                  >
+                    {loadingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Região de entrega *</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>
                   <SelectTrigger><SelectValue placeholder="Selecione a região" /></SelectTrigger>
                   <SelectContent>
                     {zones.map(z => <SelectItem key={z.id} value={z.id}>{z.neighborhood} - {formatBRL(z.fee)}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {zones.length === 0 && <p className="text-[10px] text-destructive mt-1 uppercase font-bold">Nenhuma região de entrega configurada pela loja.</p>}
               </div>
+
               <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2"><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label><Input value={street} onChange={(e) => setStreet(e.target.value)} /></div>
-                <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label><Input value={number} onChange={(e) => setNumber(e.target.value)} /></div>
+                <div className="col-span-2">
+                  <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label>
+                  <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Av. Principal" />
+                </div>
+                <div>
+                  <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label>
+                  <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="123" />
+                </div>
               </div>
-              <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label><Input value={complement} onChange={(e) => setComplement(e.target.value)} /></div>
-              <div><Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label><Input value={reference} onChange={(e) => setReference(e.target.value)} /></div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Bairro *</Label>
+                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Nome do bairro" />
+              </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label>
+                <Input value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, Bloco..." />
+              </div>
+              <div>
+                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label>
+                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Perto de..." />
+              </div>
             </div>
           </Card>
         )}
