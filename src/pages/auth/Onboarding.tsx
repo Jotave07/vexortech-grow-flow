@@ -56,13 +56,14 @@ const Onboarding = () => {
       .insert({
         owner_user_id: user.id,
         slug: parsed.data.slug,
-        name: parsed.data.name,
-        description: parsed.data.description || null,
-        whatsapp: parsed.data.whatsapp,
-        phone: parsed.data.whatsapp,
-        document: parsed.data.document,
-        city: parsed.data.city,
-        state: parsed.data.state,
+        name: parsed.data.name.toUpperCase(),
+        description: parsed.data.description?.toUpperCase() || null,
+        whatsapp: parsed.data.whatsapp.replace(/\D/g, ""),
+        phone: parsed.data.whatsapp.replace(/\D/g, ""),
+        document: parsed.data.document.replace(/\D/g, ""),
+        city: parsed.data.city.toUpperCase(),
+        state: parsed.data.state.toUpperCase(),
+        email: user.email?.toUpperCase(),
       })
       .select()
       .single();
