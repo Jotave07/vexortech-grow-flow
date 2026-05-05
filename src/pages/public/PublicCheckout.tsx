@@ -13,6 +13,7 @@ import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, onlyDigits } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
+// Dummy change to force file update
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment } from "@/server/asaas.functions";
 
