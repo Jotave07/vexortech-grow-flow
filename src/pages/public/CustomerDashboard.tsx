@@ -37,11 +37,11 @@ const CustomerDashboard = () => {
       // Priority 1: profile.phone
       // Priority 2: user.id (if we start linking orders to user_id in the future)
       if (profile?.phone) {
-        const { data } = await supabase
-          .from("orders")
+        const { data } = await (supabase
+          .from("orders" as any)
           .select("*, stores(name, slug, whatsapp)")
           .eq("customer_phone", profile.phone.replace(/\D/g, ""))
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false }) as any);
         setOrders(data ?? []);
       }
       setLoading(false);
@@ -63,14 +63,14 @@ const CustomerDashboard = () => {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
+      const { error } = await (supabase
+        .from("profiles" as any)
         .update({
           full_name: formData.full_name,
           phone: formData.phone.replace(/\D/g, ""),
           updated_at: new Date().toISOString(),
         })
-        .eq("user_id", user.id);
+        .eq("user_id", user.id) as any);
 
       if (error) throw error;
 
