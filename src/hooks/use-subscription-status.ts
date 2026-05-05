@@ -16,6 +16,7 @@ type SubscriptionStatusResult = {
   plan: PlanRow | null;
   store: StoreRow | null;
   isPlatformAdmin: boolean;
+  user: any;
   refresh: () => Promise<void>;
 };
 
