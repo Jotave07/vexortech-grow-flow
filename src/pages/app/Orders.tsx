@@ -269,6 +269,33 @@ const Orders = () => {
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
+                {selected.status === "aguardando_pagamento" && (
+                  <Button 
+                    variant="hero" 
+                    size="sm" 
+                    onClick={async () => {
+                      setSyncing(true);
+                      try {
+                        const res = await syncPaymentStatusFn({ data: { orderId: selected.id, storeId: store.id } });
+                        if (res.status === "paid") {
+                          toast.success("Pagamento confirmado!");
+                          setSelected(null);
+                          load();
+                        } else {
+                          toast.info("Pagamento ainda não identificado.");
+                        }
+                      } catch (e) {
+                        toast.error("Erro ao verificar pagamento");
+                      } finally {
+                        setSyncing(false);
+                      }
+                    }} 
+                    disabled={syncing}
+                  >
+                    {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Verificar Pagamento PIX
+                  </Button>
+                )}
                 <Button asChild variant="outline" size="sm">
                   <a href={buildWhatsAppLink(selected.customer_phone, `Olá ${selected.customer_name}, sobre seu pedido #${selected.order_number}`)} target="_blank" rel="noreferrer">Chamar no WhatsApp</a>
                 </Button>
