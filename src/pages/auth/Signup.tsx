@@ -146,7 +146,7 @@ const Signup = () => {
                   <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 3 ? passwordStrength.color : 'bg-muted'}`} />
                   <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 5 ? passwordStrength.color : 'bg-muted'}`} />
                 </div>
-                <p className={`text-[10px] font-bold uppercase tracking-wider text-right`} style={{ color: passwordStrength.color.replace('bg-', '') === 'muted' ? 'inherit' : `var(--${passwordStrength.color.replace('bg-', '')})` }}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider text-right ${passwordStrength.color.replace('bg-', 'text-')}`}>
                   Senha {passwordStrength.label}
                 </p>
               </div>
