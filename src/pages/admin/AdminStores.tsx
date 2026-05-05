@@ -146,6 +146,7 @@ const AdminStores = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="font-medium truncate">{s.name}</div>
+                  {s.is_exempt && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200"><ShieldCheck className="h-3 w-3 mr-1" /> Isenta</Badge>}
                   {s.is_suspended && <Badge variant="destructive">Suspensa</Badge>}
                   {!s.is_active && <Badge variant="secondary">Inativa</Badge>}
                 </div>
