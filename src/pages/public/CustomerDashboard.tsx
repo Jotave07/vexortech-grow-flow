@@ -194,14 +194,73 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">WhatsApp</label>
-                  <p className="font-bold text-lg">{profile?.phone || 'Não informado'}</p>
+                  <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'Não informado'}</p>
                 </div>
               </div>
-              <Button className="mt-8 font-black uppercase" variant="hero" disabled>Editar Perfil (Em Breve)</Button>
+              <Button 
+                className="mt-8 font-black uppercase" 
+                variant="hero" 
+                onClick={() => setEditModalOpen(true)}
+              >
+                Editar Perfil
+              </Button>
             </Card>
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="border-2 border-black rounded-none max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase italic italic tracking-tighter">Editar Perfil</DialogTitle>
+            <DialogDescription className="font-bold text-xs uppercase tracking-widest text-muted-foreground">
+              Mantenha seus dados atualizados para facilitar seus pedidos.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name" className="text-[10px] font-black uppercase tracking-widest">Nome Completo</Label>
+              <Input 
+                id="full_name" 
+                value={formData.full_name} 
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                className="border-2 border-black rounded-none h-12 font-bold"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-[10px] font-black uppercase tracking-widest">WhatsApp / Celular</Label>
+              <Input 
+                id="phone" 
+                value={formData.phone} 
+                onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                placeholder="(00) 00000-0000"
+                className="border-2 border-black rounded-none h-12 font-bold"
+                required
+              />
+            </div>
+            <DialogFooter className="pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditModalOpen(false)}
+                className="border-2 border-black rounded-none font-black uppercase tracking-widest text-xs h-12"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                variant="hero" 
+                disabled={saving}
+                className="font-black uppercase tracking-widest text-xs h-12"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
