@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { getOrderPaymentInfo } from "@/server/asaas.functions";
+import { getOrderPaymentInfo, syncPaymentStatus } from "@/server/asaas.functions";
 import { toast } from "sonner";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
