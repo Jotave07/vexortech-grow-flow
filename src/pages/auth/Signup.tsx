@@ -14,6 +14,7 @@ import { formatBRL } from "@/lib/format";
 
 const schema = z.object({
   full_name: z.string().trim().min(2, "Informe seu nome").max(100),
+  document: z.string().trim().min(11, "Informe um CPF ou CNPJ válido").max(18),
   email: z.string().trim().email("E-mail invalido").max(255),
   password: z.string().min(6, "Minimo 6 caracteres").max(100),
 });
