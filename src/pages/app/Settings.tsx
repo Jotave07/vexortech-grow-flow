@@ -225,6 +225,7 @@ const Settings = () => {
       pix_key: nullableText(storeSettings.pix_key),
       pix_key_type: nullableText(storeSettings.pix_key_type),
       asaas_api_key: nullableText((storeSettings as any).asaas_api_key),
+      asaas_wallet_id: nullableText((storeSettings as any).asaas_wallet_id),
       business_hours: businessHours as unknown as Json,
     };
     const extendedSettingsPayload = {
