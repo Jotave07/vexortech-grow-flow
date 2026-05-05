@@ -81,6 +81,7 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
     plan,
     store,
     isPlatformAdmin,
+    user,
     refresh,
   };
 };
