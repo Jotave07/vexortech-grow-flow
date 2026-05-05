@@ -21,11 +21,19 @@ const AdminStores = () => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: s }, { data: p }] = await Promise.all([
+    const [{ data: s }, { data: p }, { data: profilesData }] = await Promise.all([
       supabase.from("stores").select("*, subscriptions(status, plan_id, plans(name, price_monthly))").order("created_at", { ascending: false }),
       supabase.from("plans").select("*").order("sort_order"),
+      supabase.from("profiles").select("id, store_id, is_exempt").eq("role", "store_owner")
     ]);
-    setStores(s ?? []);
+    
+    // Attach is_exempt from owner profile to store
+    const storesWithExempt = (s ?? []).map(store => {
+      const ownerProfile = (profilesData ?? []).find(prof => prof.store_id === store.id);
+      return { ...store, is_exempt: ownerProfile?.is_exempt || false, owner_profile_id: ownerProfile?.id };
+    });
+
+    setStores(storesWithExempt);
     setPlans(p ?? []);
     setLoading(false);
   };
