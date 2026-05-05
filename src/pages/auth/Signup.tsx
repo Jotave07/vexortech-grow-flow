@@ -99,7 +99,13 @@ const Signup = () => {
           </div>
           <div>
             <Label htmlFor="document">CPF ou CNPJ</Label>
-            <Input id="document" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} required placeholder="000.000.000-00" />
+            <Input 
+              id="document" 
+              value={formatDoc(form.document)} 
+              onChange={(e) => setForm({ ...form, document: e.target.value })} 
+              required 
+              placeholder="000.000.000-00" 
+            />
           </div>
           <div>
             <Label htmlFor="email">E-mail</Label>
