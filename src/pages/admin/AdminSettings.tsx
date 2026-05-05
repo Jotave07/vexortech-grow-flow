@@ -9,9 +9,24 @@ import { Loader2, ShieldCheck, Save, Activity, Key, Globe, ExternalLink } from "
 import { testAsaasConnection } from "@/server/asaas.functions";
 
 const AdminSettings = () => {
-  const [platformKey, setPlatformKey] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<any[]>([]);
   const [environment, setEnvironment] = useState(process.env.ASAAS_ENVIRONMENT || "sandbox");
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      // In a real scenario, we'd fetch from a 'payment_logs' or 'webhook_events' table
+      // For now, we'll fetch from 'subscriptions' to show recent activity
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("*, stores(name, slug, owner_user_id), plans(name, price_monthly)")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+      setLogs(data ?? []);
+      setLoading(false);
+    };
+    loadLogs();
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
