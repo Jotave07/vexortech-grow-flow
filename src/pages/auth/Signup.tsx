@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BrandMark } from "@/components/BrandMark";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatDoc } from "@/lib/format";
 
 const schema = z.object({
   full_name: z.string().trim().min(2, "Informe seu nome").max(100),
