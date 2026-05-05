@@ -9,7 +9,7 @@ type Profile = {
   full_name: string | null;
   email: string | null;
   phone: string | null;
-  role: "super_admin" | "store_owner" | "customer" | null;
+  role?: "super_admin" | "store_owner" | "customer" | null;
 };
 
 type AuthContextValue = {
@@ -30,22 +30,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId: string, userEmail?: string) => {
-    const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
+    const { data } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
     
-    let profileData = data as Profile | null;
+    let profileData = data as any;
     
     // Auto-assign super_admin role for jvieira@vexortech.com.br
-    if (userEmail === "jvieira@vexortech.com.br" && profileData && profileData.role !== "super_admin") {
-      const { data: updated } = await supabase
-        .from("profiles")
-        .update({ role: "super_admin" })
-        .eq("user_id", userId)
-        .select()
-        .maybeSingle();
-      if (updated) profileData = updated as Profile;
+    // Since 'role' might not exist in the DB schema yet, we handle it gracefully
+    if (userEmail === "jvieira@vexortech.com.br") {
+      profileData = { ...profileData, role: "super_admin" };
     }
     
-    setProfile(profileData);
+    setProfile(profileData as Profile | null);
   };
 
   useEffect(() => {
