@@ -94,7 +94,7 @@ const OrderTracking = () => {
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-4 -mt-6">
-        {order.payment_method === "pix" && order.status === "novo" && pixInfo && (
+        {order.payment_method === "pix" && order.status === "aguardando_pagamento" && pixInfo && (
           <Card className="p-6 border-4 border-primary bg-primary/5 text-center space-y-4">
             <div className="flex flex-col items-center gap-2">
               <QrCode className="h-12 w-12 text-primary" />
