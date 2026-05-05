@@ -27,6 +27,30 @@ const PublicCheckout = () => {
   const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
   const { user, profile, loading: authLoading } = useAuth();
 
+  const [store, setStore] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [orderType, setOrderType] = useState<"entrega" | "retirada">("entrega");
+  const [zoneId, setZoneId] = useState<string>("");
+  const [zipCode, setZipCode] = useState("");
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [reference, setReference] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "cartao_entrega">("pix");
+  const [changeFor, setChangeFor] = useState("");
+  const [notes, setNotes] = useState("");
+  const [coupon, setCoupon] = useState<any>(null);
+  const [loadingCep, setLoadingCep] = useState(false);
+
   useEffect(() => {
     if (slug) setStoreSlug(slug);
   }, [slug, setStoreSlug]);
@@ -50,9 +74,9 @@ const PublicCheckout = () => {
       setCity((profile as any).city || "");
       setState((profile as any).state || "");
       
-      const neighborhood = (profile as any).neighborhood;
-      if (neighborhood && zones.length > 0) {
-        const neighborhoodLower = neighborhood.toLowerCase().trim();
+      const neighborhoodVal = (profile as any).neighborhood;
+      if (neighborhoodVal && zones.length > 0) {
+        const neighborhoodLower = neighborhoodVal.toLowerCase().trim();
         const matchingZone = zones.find(z => 
           z.neighborhood.toLowerCase().trim() === neighborhoodLower
         );
@@ -61,23 +85,6 @@ const PublicCheckout = () => {
     }
   }, [profile, zones]);
   const createOrderPaymentFn = useServerFn(createOrderPayment);
-
-  const [store, setStore] = useState<any>(null);
-  const [settings, setSettings] = useState<any>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [orderType, setOrderType] = useState<"entrega" | "retirada">("entrega");
-  const [zoneId, setZoneId] = useState<string>("");
-  const [zipCode, setZipCode] = useState("");
-  const [street, setStreet] = useState("");
-  const [number, setNumber] = useState("");
-  const [complement, setComplement] = useState("");
-  const [neighborhood, setNeighborhood] = useState("");
-  const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "cartao_entrega">("pix");
