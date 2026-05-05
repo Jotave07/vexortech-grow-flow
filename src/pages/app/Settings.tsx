@@ -768,13 +768,13 @@ const Settings = () => {
                 <SwitchRow
                   label="Aceitar PIX Online"
                   description="Gera QR Code automático via Asaas."
-                  checked={storeSettings.accept_pix}
+                  checked={!!storeSettings.accept_pix}
                   onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_pix: val })}
                 />
                 <SwitchRow
                   label="Pagamento na Entrega"
                   description="Dinheiro ou Maquininha (Presencial)."
-                  checked={storeSettings.accept_cash || storeSettings.accept_card_on_delivery}
+                  checked={!!(storeSettings.accept_cash || storeSettings.accept_card_on_delivery)}
                   onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_cash: val, accept_card_on_delivery: val })}
                 />
               </div>
