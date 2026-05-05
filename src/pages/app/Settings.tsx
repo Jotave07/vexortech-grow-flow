@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Loader2, MapPin, Palette, Plus, Save, Search, Settings2, Store, TimerReset, Trash2, Truck, Upload, Wallet, Copy, ExternalLink, ShieldCheck, Activity } from "lucide-react";
 import { fetchAddressByCep, ViaCepError, buildAddressLabel, normalizeCep } from "@/services/viacep";
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
 import { testAsaasConnection } from "@/server/asaas.functions";
 
@@ -190,26 +190,26 @@ const Settings = () => {
 
     setSaving(true);
     const baseStorePayload = {
-      name: storeForm.name,
+      name: storeForm.name?.toUpperCase(),
       description: nullableText(storeForm.description),
       logo_url: nullableText(storeForm.logo_url),
       cover_url: nullableText(storeForm.cover_url),
-      phone: nullableText(storeForm.phone),
-      whatsapp: nullableText(storeForm.whatsapp),
+      phone: nullableText(storeForm.phone?.replace(/\D/g, "")),
+      whatsapp: nullableText(storeForm.whatsapp?.replace(/\D/g, "")),
       email: nullableText(storeForm.email),
-      document: nullableText(storeForm.document),
-      address: nullableText(storeForm.address),
-      city: nullableText(storeForm.city),
+      document: nullableText(storeForm.document?.replace(/\D/g, "")),
+      address: nullableText(storeForm.address?.toUpperCase()),
+      city: nullableText(storeForm.city?.toUpperCase()),
       state: nullableText(storeForm.state)?.toUpperCase() ?? null,
       zip_code: nullableText(storeForm.zip_code ? normalizeCep(storeForm.zip_code) : null),
       primary_color: nullableText(storeForm.primary_color),
       secondary_color: nullableText(storeForm.secondary_color),
     };
     const extendedStorePayload = {
-      public_name: nullableText(storeForm.public_name),
+      public_name: nullableText(storeForm.public_name?.toUpperCase()),
       address_number: nullableText(storeForm.address_number),
-      address_complement: nullableText(storeForm.address_complement),
-      neighborhood: nullableText(storeForm.neighborhood),
+      address_complement: nullableText(storeForm.address_complement?.toUpperCase()),
+      neighborhood: nullableText(storeForm.neighborhood?.toUpperCase()),
       latitude: toNullableNumber(storeForm.latitude),
       longitude: toNullableNumber(storeForm.longitude),
     };
@@ -348,14 +348,14 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field>
                 <Label htmlFor="store-name">Nome da loja</Label>
-                <Input id="store-name" value={storeForm.name ?? ""} onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })} />
+                <Input id="store-name" value={storeForm.name ?? ""} onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value.toUpperCase() })} />
               </Field>
               <Field>
                 <Label htmlFor="store-public-name">Nome publico</Label>
                 <Input
                   id="store-public-name"
                   value={storeForm.public_name ?? ""}
-                  onChange={(e) => setStoreForm({ ...storeForm, public_name: e.target.value })}
+                  onChange={(e) => setStoreForm({ ...storeForm, public_name: e.target.value.toUpperCase() })}
                   placeholder="Como a loja aparece para clientes"
                 />
               </Field>
@@ -369,19 +369,19 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field>
                 <Label htmlFor="store-whatsapp">WhatsApp</Label>
-                <Input id="store-whatsapp" value={storeForm.whatsapp ?? ""} onChange={(e) => setStoreForm({ ...storeForm, whatsapp: e.target.value })} />
+                <Input id="store-whatsapp" value={formatPhone(storeForm.whatsapp) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, whatsapp: e.target.value })} />
               </Field>
               <Field>
                 <Label htmlFor="store-phone">Telefone</Label>
-                <Input id="store-phone" value={storeForm.phone ?? ""} onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })} />
+                <Input id="store-phone" value={formatPhone(storeForm.phone) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })} />
               </Field>
               <Field>
                 <Label htmlFor="store-email">E-mail</Label>
-                <Input id="store-email" type="email" value={storeForm.email ?? ""} onChange={(e) => setStoreForm({ ...storeForm, email: e.target.value })} />
+                <Input id="store-email" type="email" value={storeForm.email ?? ""} onChange={(e) => setStoreForm({ ...storeForm, email: e.target.value.toLowerCase() })} />
               </Field>
               <Field>
                 <Label htmlFor="store-document">CNPJ ou CPF</Label>
-                <Input id="store-document" value={storeForm.document ?? ""} onChange={(e) => setStoreForm({ ...storeForm, document: e.target.value })} />
+                <Input id="store-document" value={formatDoc(storeForm.document) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, document: e.target.value })} />
               </Field>
             </div>
           </Card>
@@ -460,7 +460,7 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-[220px_auto] gap-3 items-end">
               <Field>
                 <Label htmlFor="store-zip-code">CEP</Label>
-                <Input id="store-zip-code" value={storeForm.zip_code ?? ""} onChange={(e) => setStoreForm({ ...storeForm, zip_code: e.target.value })} placeholder="00000-000" />
+                <Input id="store-zip-code" value={formatCEP(storeForm.zip_code) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, zip_code: e.target.value })} placeholder="00000-000" />
               </Field>
               <Button variant="outline" type="button" className="w-full md:w-auto" onClick={lookupCep} disabled={cepLookup.status === "loading"}>
                 {cepLookup.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -483,7 +483,7 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
                 <Label htmlFor="store-street">Rua</Label>
-                <Input id="store-street" value={storeForm.address ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value })} />
+                <Input id="store-street" value={storeForm.address?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value.toUpperCase() })} />
               </div>
               <Field>
                 <Label htmlFor="store-address-number">Numero</Label>
@@ -491,15 +491,15 @@ const Settings = () => {
               </Field>
               <Field>
                 <Label htmlFor="store-neighborhood">Bairro</Label>
-                <Input id="store-neighborhood" value={storeForm.neighborhood ?? ""} onChange={(e) => setStoreForm({ ...storeForm, neighborhood: e.target.value })} />
+                <Input id="store-neighborhood" value={storeForm.neighborhood?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, neighborhood: e.target.value.toUpperCase() })} />
               </Field>
               <div className="md:col-span-2">
                 <Label htmlFor="store-address-complement">Complemento</Label>
-                <Input id="store-address-complement" value={storeForm.address_complement ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address_complement: e.target.value })} />
+                <Input id="store-address-complement" value={storeForm.address_complement?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, address_complement: e.target.value.toUpperCase() })} />
               </div>
               <Field>
                 <Label htmlFor="store-city">Cidade</Label>
-                <Input id="store-city" value={storeForm.city ?? ""} onChange={(e) => setStoreForm({ ...storeForm, city: e.target.value })} />
+                <Input id="store-city" value={storeForm.city?.toUpperCase() ?? ""} onChange={(e) => setStoreForm({ ...storeForm, city: e.target.value.toUpperCase() })} />
               </Field>
               <Field>
                 <Label htmlFor="store-state">UF</Label>

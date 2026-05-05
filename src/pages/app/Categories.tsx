@@ -40,12 +40,12 @@ const Categories = () => {
     if (!form.name.trim()) return toast.error("Nome obrigatório");
     setSaving(true);
     if (editing) {
-      const { error } = await supabase.from("categories").update({ name: form.name.trim(), description: form.description || null, sort_order: form.sort_order }).eq("id", editing.id);
+      const { error } = await supabase.from("categories").update({ name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order }).eq("id", editing.id);
       setSaving(false);
       if (error) return toast.error(error.message);
       toast.success("Categoria atualizada");
     } else {
-      const { error } = await supabase.from("categories").insert({ store_id: store.id, name: form.name.trim(), description: form.description || null, sort_order: form.sort_order });
+      const { error } = await supabase.from("categories").insert({ store_id: store.id, name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order });
       setSaving(false);
       if (error) return toast.error(error.message);
       toast.success("Categoria criada");
@@ -105,7 +105,7 @@ const Categories = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Nova"} categoria</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+            <div><Label>Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value.toUpperCase() })} /></div>
             <div><Label>Descrição</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <div><Label>Ordem</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} /></div>
             <Button variant="hero" className="w-full" onClick={save} disabled={saving}>

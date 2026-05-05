@@ -155,13 +155,13 @@ const PublicCheckout = () => {
       const { data: order, error: oErr } = await supabase.from("orders").insert({
         store_id: store.id,
         customer_id: customerId,
-        customer_name: name.trim(),
+        customer_name: name.trim().toUpperCase(),
         customer_phone: phoneDigits,
         order_type: orderType,
         status: "novo",
-        delivery_address: deliveryAddress,
-        delivery_neighborhood: orderType === "entrega" ? (neighborhood || zone?.neighborhood) : null,
-        delivery_reference: reference || null,
+        delivery_address: deliveryAddress?.toUpperCase() || null,
+        delivery_neighborhood: orderType === "entrega" ? (neighborhood || zone?.neighborhood)?.toUpperCase() : null,
+        delivery_reference: reference?.toUpperCase() || null,
         delivery_zone_id: orderType === "entrega" ? zoneId : null,
         delivery_fee: actualDeliveryFee,
         subtotal,
@@ -239,7 +239,7 @@ const PublicCheckout = () => {
           <div className="space-y-4">
             <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nome *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
+              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
             </div>
             <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
@@ -311,7 +311,7 @@ const PublicCheckout = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
                   <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label>
-                  <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Ex: Av. Brasil" />
+                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} placeholder="Ex: Av. Brasil" />
                 </div>
                 <div>
                   <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label>
@@ -321,16 +321,16 @@ const PublicCheckout = () => {
 
               <div>
                 <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Bairro *</Label>
-                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Ex: Centro" />
+                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value.toUpperCase())} placeholder="Ex: Centro" />
               </div>
 
               <div>
                 <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label>
-                <Input value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, Bloco..." />
+                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} placeholder="Apto, Bloco..." />
               </div>
               <div>
                 <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label>
-                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Próximo a..." />
+                <Input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} placeholder="Próximo a..." />
               </div>
             </div>
           </Card>

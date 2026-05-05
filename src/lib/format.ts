@@ -32,6 +32,14 @@ export const formatCEP = (cep: string | null | undefined) => {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
 
+export const formatDoc = (doc: string | null | undefined) => {
+  if (!doc) return "";
+  const digits = doc.replace(/\D/g, "");
+  if (digits.length === 11) return formatCPF(digits);
+  if (digits.length === 14) return formatCNPJ(digits);
+  return doc;
+};
+
 export const formatCurrency = (value: number | string | null | undefined) => {
   const v = Number(value ?? 0);
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
