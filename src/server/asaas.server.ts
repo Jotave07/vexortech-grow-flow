@@ -26,12 +26,13 @@ export const asaas = {
   /**
    * Global (Platform) API calls
    */
-  async createCustomer(data: AsaasCustomer) {
+  async createCustomer(data: AsaasCustomer, apiKey?: string) {
+    const key = apiKey || ASAAS_API_KEY;
     const response = await fetch(`${ASAAS_URL}/customers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': ASAAS_API_KEY!,
+        'access_token': key!,
       },
       body: JSON.stringify(data),
     });

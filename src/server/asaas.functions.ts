@@ -68,16 +68,33 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     if (!order) throw new Error("Pedido não encontrado.");
 
-    // 3. Create PIX payment in store's Asaas
+    // 3. Create or get customer in store's Asaas
+    const asaasCustomer = await asaas.createCustomer({
+      name: order.customer_name,
+      email: order.customer_email || "",
+      cpfCnpj: "", // Note: Asaas may require this depending on account settings
+      mobilePhone: order.customer_phone,
+    }, storeSettings.asaas_api_key);
+
+    if (asaasCustomer.errors) {
+      console.error("Erro ao criar cliente no Asaas:", asaasCustomer.errors);
+      // If customer creation fails, we try to proceed or throw a better error
+      // Some Asaas accounts allow creating payments with just name/email if configured, 
+      // but usually they require a customerId.
+    }
+
+    // 4. Create PIX payment in store's Asaas
     const payment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
-      customer: order.customer_name, // Should ideally create a customer in Asaas too
+      customer: asaasCustomer.id,
       value: Number(order.total),
       dueDate: new Date().toISOString().split('T')[0],
       description: `Pedido #${order.order_number} - ${order.customer_name}`,
       externalReference: order.id,
     });
 
-    if (payment.errors) throw new Error(payment.errors[0].description);
+    if (payment.errors) {
+      throw new Error(`Erro Asaas: ${payment.errors[0].description}`);
+    }
 
     // 4. Get QR Code
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
