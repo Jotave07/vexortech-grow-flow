@@ -28,10 +28,11 @@ export const Footer = () => {
             </ul>
           </div>
           <div>
-            <h4 className="mb-4 text-sm font-semibold">Legal</h4>
+            <h4 className="mb-4 text-sm font-semibold text-black">Contato</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground">Termos de uso</a></li>
-              <li><a href="#" className="hover:text-foreground">Privacidade</a></li>
+              <li><a href="https://instagram.com/JVKRT" target="_blank" rel="noopener noreferrer" className="hover:text-black">Instagram: @JVKRT</a></li>
+              <li><a href="https://wa.me/5527995288081" target="_blank" rel="noopener noreferrer" className="hover:text-black">WhatsApp: (27) 99528-8081</a></li>
+              <li><a href="mailto:jvieira@vexortech.com.br" className="hover:text-black">jvieira@vexortech.com.br</a></li>
             </ul>
           </div>
         </div>
