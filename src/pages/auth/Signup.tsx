@@ -17,14 +17,39 @@ const schema = z.object({
   document: z.string().trim().min(11, "Informe um CPF ou CNPJ válido").max(18),
   email: z.string().trim().email("E-mail invalido").max(255),
   password: z.string().min(6, "Minimo 6 caracteres").max(100),
+  confirmPassword: z.string().min(6, "Confirme sua senha"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
 });
 
 const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirect = new URLSearchParams(location.search).get("redirect");
-  const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "" });
+  const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string }>({ score: 0, label: "", color: "" });
+
+  const checkPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: "", color: "" };
+    let score = 0;
+    if (pass.length >= 6) score++;
+    if (pass.length >= 10) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+
+    if (score <= 2) return { score, label: "Fraca", color: "bg-red-500" };
+    if (score <= 4) return { score, label: "Média", color: "bg-orange-500" };
+    return { score, label: "Forte", color: "bg-green-500" };
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pass = e.target.value;
+    setForm({ ...form, password: pass });
+    setPasswordStrength(checkPasswordStrength(pass));
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +138,23 @@ const Signup = () => {
           </div>
           <div>
             <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
+            <Input id="password" type="password" value={form.password} onChange={handlePasswordChange} required minLength={6} />
+            {form.password && (
+              <div className="mt-2 space-y-1">
+                <div className="flex gap-1 h-1.5">
+                  <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 1 ? passwordStrength.color : 'bg-muted'}`} />
+                  <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 3 ? passwordStrength.color : 'bg-muted'}`} />
+                  <div className={`h-full flex-1 rounded-full ${passwordStrength.score >= 5 ? passwordStrength.color : 'bg-muted'}`} />
+                </div>
+                <p className={`text-[10px] font-bold uppercase tracking-wider text-right`} style={{ color: passwordStrength.color.replace('bg-', '') === 'muted' ? 'inherit' : `var(--${passwordStrength.color.replace('bg-', '')})` }}>
+                  Senha {passwordStrength.label}
+                </p>
+              </div>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+            <Input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required minLength={6} />
           </div>
           <Button type="submit" variant="hero" className="w-full" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />} Criar minha conta
