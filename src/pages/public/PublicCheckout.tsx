@@ -294,8 +294,9 @@ const PublicCheckout = () => {
                         setState(data.state || "");
                         
                         if (data.neighborhood) {
+                          const neighborhoodLower = data.neighborhood.toLowerCase().trim();
                           const matchingZone = zones.find(z => 
-                            z.neighborhood.toLowerCase().trim() === data.neighborhood.toLowerCase().trim()
+                            z.neighborhood.toLowerCase().trim() === neighborhoodLower
                           );
                           if (matchingZone) setZoneId(matchingZone.id);
                         }
