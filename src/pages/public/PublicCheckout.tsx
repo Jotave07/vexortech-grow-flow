@@ -67,6 +67,7 @@ const PublicCheckout = () => {
     if (profile) {
       setName(profile.full_name || "");
       setPhone(profile.phone || "");
+      setDocument((profile as any).document || "");
       setZipCode((profile as any).zip_code || "");
       setStreet((profile as any).street || "");
       setNumber((profile as any).number || "");
