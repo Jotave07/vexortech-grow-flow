@@ -352,6 +352,7 @@ const PublicCheckout = () => {
                       
                       if (data) {
                         setName(data.full_name || "");
+                        setDocument(data.document || "");
                         setZipCode(data.zip_code || "");
                         setStreet(data.street || "");
                         setNumber(data.number || "");
