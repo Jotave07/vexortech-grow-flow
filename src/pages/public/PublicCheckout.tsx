@@ -238,6 +238,7 @@ const PublicCheckout = () => {
         customer_id: customerId,
         customer_name: name.trim().toUpperCase(),
         customer_phone: phoneDigits,
+        customer_document: docDigits,
         delivery_type: orderType,
         status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo",
         delivery_address: deliveryAddress?.toUpperCase() || null,
