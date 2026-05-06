@@ -51,21 +51,37 @@ const CustomerDashboard = () => {
     }
 
     const loadOrders = async () => {
-      if (profile?.phone || user?.id) {
+      if (!user?.id) return;
+      
+      try {
+        // First, get all customer records for this user across all stores
+        const { data: customerRecords } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("user_id", user.id);
+        
+        const customerIds = customerRecords?.map(c => c.id) || [];
+        const phoneDigits = profile?.phone?.replace(/\D/g, "") || 'none';
+        
         let query = supabase
           .from("orders" as any)
           .select("*, stores(name, slug, whatsapp)");
           
-        if (user?.id) {
-          query = query.or(`customer_id.in.(select id from customers where user_id.eq.${user.id}),customer_phone.eq.${profile?.phone?.replace(/\D/g, "") || 'none'}`);
+        if (customerIds.length > 0) {
+          query = query.or(`customer_id.in.(${customerIds.join(",")}),customer_phone.eq.${phoneDigits}`);
         } else {
-          query = query.eq("customer_phone", profile?.phone?.replace(/\D/g, "") || 'none');
+          query = query.eq("customer_phone", phoneDigits);
         }
 
-        const { data } = await (query.order("created_at", { ascending: false }) as any);
+        const { data, error } = await (query.order("created_at", { ascending: false }) as any);
+        if (error) throw error;
         setOrders(data ?? []);
+      } catch (error: any) {
+        console.error("Error loading orders:", error);
+        toast.error("Erro ao carregar seus pedidos");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     if (profile) {
