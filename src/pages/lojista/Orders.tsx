@@ -112,9 +112,13 @@ const Orders = () => {
         }
       });
 
+    // Polling fallback every 60s for lojista
+    const pollInterval = setInterval(load, 60000);
+
     return () => { 
       console.log("[Orders] Unsubscribing from realtime");
       void supabase.removeChannel(ch); 
+      clearInterval(pollInterval);
     };
     // eslint-disable-next-line
   }, [store?.id]);
