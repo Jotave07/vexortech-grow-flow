@@ -182,8 +182,30 @@ const OrderTracking = () => {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      <header className="bg-primary text-primary-foreground p-8 text-center border-b-4 border-black">
-        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border-2 border-black" />}
+      {isPaidSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+          <div className="text-center space-y-4 p-6 max-w-sm">
+            <div className="mx-auto w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+              <Check className="h-10 w-10 stroke-[3px]" />
+            </div>
+            <h2 className="text-3xl font-black uppercase tracking-tight italic text-emerald-900">Pagamento Confirmado!</h2>
+            <p className="text-muted-foreground font-medium uppercase text-xs tracking-widest">Seu pedido já foi enviado para a cozinha.</p>
+            <div className="pt-4">
+              <Button onClick={() => setIsPaidSuccess(false)} variant="hero" className="w-full">
+                Acompanhar Preparo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <header className="bg-primary text-primary-foreground p-8 text-center border-b-4 border-black relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-2">
+           <Badge variant="outline" className="border-white/40 text-white/60 text-[8px] font-black uppercase tracking-widest">
+             Live Tracking
+           </Badge>
+        </div>
+        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />}
         <h1 className="font-black text-xl uppercase tracking-tighter">{order.store_name}</h1>
         <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Pedido #{order.order_number}</div>
       </header>
