@@ -4,7 +4,7 @@ import { asaas } from "./asaas.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // Security: Check if user is the platform owner
-const isPlatformOwner = (email: string | undefined) => email === "jvieira@vexortech.com.br";
+// Removed hardcoded isPlatformOwner email check
 
 export const testAsaasConnection = createServerFn({ method: "POST" })
   .inputValidator(z.object({

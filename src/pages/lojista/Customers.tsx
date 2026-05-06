@@ -35,7 +35,7 @@ const Customers = () => {
 
   const openHistory = async (c: any) => {
     setSelected(c);
-    const { data } = await supabase.from("orders").select("id, order_number, status, total, created_at, order_type")
+    const { data } = await supabase.from("orders").select("id, order_number, status, total, created_at, delivery_type")
       .eq("store_id", store.id).eq("customer_id", c.id).order("created_at", { ascending: false }).limit(50);
     setOrders(data ?? []);
   };
@@ -101,7 +101,7 @@ const Customers = () => {
                       <li key={o.id} className="flex justify-between items-center text-sm border-b border-border pb-2">
                         <div>
                           <div className="font-medium">#{o.order_number} <Badge variant="outline" className="text-xs ml-1">{STATUS_LABELS[o.status]}</Badge></div>
-                          <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")} · {o.order_type}</div>
+                          <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")} · {o.delivery_type}</div>
                         </div>
                         <span className="font-semibold">{formatBRL(o.total)}</span>
                       </li>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getUserRoles } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/BrandMark";
@@ -29,14 +30,12 @@ const AdminLayout = () => {
       return;
     }
     (async () => {
-      // Manual check for the requested admin email and role
-      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      if (user.email === "jvieira@vexortech.com.br" || (roleData as any)?.role === "super_admin") {
+      const roles = await getUserRoles(user.id);
+      if (roles.includes("super_admin")) {
         setIsAdmin(true);
         return;
       }
-      const { data } = await supabase.rpc("is_vexor_admin", { _user_id: user.id });
-      setIsAdmin(!!data);
+      setIsAdmin(false);
     })();
   }, [loading, user, navigate]);
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getUserRoles } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,12 +26,12 @@ const AdminLogin = () => {
       return;
     }
 
-    const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
-    const role = (roleData as any)?.role || "customer";
+    const roles = await getUserRoles(user?.id || "");
+    const role = roles.includes("super_admin") ? "super_admin" : "customer";
     
     setLoading(false);
     
-    if (role === "super_admin" || user?.email === "jvieira@vexortech.com.br") {
+    if (role === "super_admin") {
       toast.success("Acesso autorizado!");
       navigate("/admin", { replace: true });
     } else {

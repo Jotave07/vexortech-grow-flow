@@ -219,15 +219,20 @@ const PublicStore = () => {
                     onChange={(event) => setSearch(event.target.value)}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant={activeCategory === "all" ? "default" : "outline"} onClick={() => setActiveCategory("all")}>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant={activeCategory === "all" ? "default" : "outline"} 
+                    onClick={() => setActiveCategory("all")}
+                    className="h-9 px-4 text-xs font-bold uppercase tracking-widest"
+                  >
                     Tudo
                   </Button>
-                  {categories.slice(0, 3).map((category) => (
+                  {categories.map((category) => (
                     <Button
                       key={category.id}
                       variant={activeCategory === category.id ? "default" : "outline"}
                       onClick={() => setActiveCategory(category.id)}
+                      className="h-9 px-4 text-xs font-bold uppercase tracking-widest"
                     >
                       {category.name}
                     </Button>

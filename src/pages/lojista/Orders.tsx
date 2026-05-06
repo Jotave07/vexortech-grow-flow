@@ -15,10 +15,10 @@ import { useServerFn } from "@tanstack/react-start";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
   { key: "aguardando_pagamento", label: "Aguardando PIX" },
-  { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Confirmar" },
-  { key: "confirmado", label: "Confirmados", nextStatus: "em_preparo", nextLabel: "Iniciar preparo" },
-  { key: "em_preparo", label: "Em preparo", nextStatus: "saiu_para_entrega", nextLabel: "Saiu/Pronto" },
-  { key: "saiu_para_entrega", label: "Em entrega/Retirada", nextStatus: "entregue", nextLabel: "Concluir" },
+  { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Aceitar" },
+  { key: "confirmado", label: "Confirmados", nextStatus: "em_preparo", nextLabel: "Preparar" },
+  { key: "em_preparo", label: "Em preparo", nextStatus: "saiu_para_entrega", nextLabel: "Enviar/Pronto" },
+  { key: "saiu_para_entrega", label: "Saiu/Pronto", nextStatus: "entregue", nextLabel: "Concluir" },
   { key: "entregue", label: "Entregues" },
 ];
 
@@ -98,15 +98,26 @@ const Orders = () => {
   };
 
   const updateStatus = async (orderId: string, status: any, note?: string) => {
-    const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
+    // Validar transição para pronto_para_retirada
+    let finalStatus = status;
+    const order = orders.find(o => o.id === orderId);
+    if (status === "saiu_para_entrega" && order?.delivery_type === "retirada") {
+      finalStatus = "pronto_para_retirada";
+    }
+
+    const { error } = await supabase.from("orders").update({ status: finalStatus }).eq("id", orderId);
     if (error) return toast.error(error.message);
-    await supabase.from("order_status_history").insert({ order_id: orderId, store_id: store.id, status, notes: note ?? null } as any);
-    if (status === "entregue") {
-      const order = orders.find((x) => x.id === orderId);
+    
+    await supabase.from("order_status_history").insert({ 
+      order_id: orderId, 
+      store_id: store.id, 
+      status: finalStatus, 
+      notes: note ?? null 
+    } as any);
+
+    if (finalStatus === "entregue") {
       if (order?.customer_id) {
-        // We only increment if the previous status was not already delivered to avoid double counting
-        const previousStatus = orders.find(x => x.id === orderId)?.status;
-        if (previousStatus !== "entregue") {
+        if (order.status !== "entregue") {
           const { data: customer } = await supabase.from("customers").select("total_orders, total_spent").eq("id", order.customer_id).maybeSingle();
           if (customer) {
             await supabase.from("customers").update({
@@ -119,8 +130,10 @@ const Orders = () => {
       }
       await supabase.from("payments").update({ status: "pago", paid_at: new Date().toISOString() }).eq("order_id", orderId);
     }
+    
     toast.success("Status atualizado");
-    if (selected?.id === orderId) setSelected({ ...selected, status });
+    if (selected?.id === orderId) setSelected({ ...selected, status: finalStatus });
+    load();
   };
 
   const cancelOrder = async (orderId: string) => {
@@ -184,9 +197,12 @@ const Orders = () => {
 
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {COLUMNS.map((col) => {
-          const colOrders = orders.filter((o) => col.key === "saiu_para_entrega"
-            ? (o.status === "saiu_para_entrega" || o.status === "pronto_para_retirada")
-            : o.status === col.key);
+          const colOrders = orders.filter((o) => {
+            if (col.key === "saiu_para_entrega") {
+              return o.status === "saiu_para_entrega" || o.status === "pronto_para_retirada";
+            }
+            return o.status === col.key;
+          });
           
           return (
             <div key={col.key} className="flex-shrink-0 w-80 flex flex-col gap-4">
@@ -213,7 +229,7 @@ const Orders = () => {
                     <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
-                        {o.delivery_type || o.order_type}
+                        {o.delivery_type}
                       </Badge>
                       <div className="font-black text-sm">{formatBRL(o.total)}</div>
                     </div>
@@ -225,7 +241,7 @@ const Orders = () => {
                         className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          updateStatus(o.id, (o.delivery_type || o.order_type) === "retirada" && col.key === "em_preparo" ? "pronto_para_retirada" : col.nextStatus!); 
+                          updateStatus(o.id, col.nextStatus!); 
                         }}
                       >
                         {col.nextLabel}
@@ -255,7 +271,7 @@ const Orders = () => {
                 <div className="font-medium">{selected.customer_name}</div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone className="h-3 w-3" /> {selected.customer_phone}</div>
                 {selected.delivery_address && <div className="flex items-start gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3 mt-0.5" /> <span>{selected.delivery_address}{selected.delivery_neighborhood && ` — ${selected.delivery_neighborhood}`}{selected.delivery_reference && ` (Ref: ${selected.delivery_reference})`}</span></div>}
-                <div className="text-xs capitalize"><Clock className="h-3 w-3 inline" /> {selected.delivery_type || selected.order_type}</div>
+                <div className="text-xs capitalize font-black"><Clock className="h-3 w-3 inline" /> {selected.delivery_type}</div>
               </div>
 
               <div className="border-t border-border pt-3 space-y-2">
@@ -277,8 +293,8 @@ const Orders = () => {
 
               <div className="border-t border-border pt-3 space-y-1">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(selected.subtotal)}</span></div>
-                {(selected.delivery_type || selected.order_type) === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
-                {Number(selected.discount_amount || selected.discount) > 0 && <div className="flex justify-between text-green-600"><span>Desconto {selected.coupon_code && `(${selected.coupon_code})`}</span><span>-{formatBRL(selected.discount_amount || selected.discount)}</span></div>}
+                {selected.delivery_type === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
+                {Number(selected.discount_amount) > 0 && <div className="flex justify-between text-green-600"><span>Desconto {selected.coupon_code && `(${selected.coupon_code})`}</span><span>-{formatBRL(selected.discount_amount)}</span></div>}
                 <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{formatBRL(selected.total)}</span></div>
               </div>
 

@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/contexts/AuthContext";
+import { getUserRoles } from "@/lib/auth/roles";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -16,7 +18,15 @@ export const Navbar = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   
-  const isAdmin = user?.email === "jvieira@vexortech.com.br" || profile?.role === "super_admin";
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      getUserRoles(user.id).then(roles => setIsAdmin(roles.includes("super_admin")));
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
   const isMerchant = profile?.role === "store_owner";
   
   const dashboardPath = isAdmin 

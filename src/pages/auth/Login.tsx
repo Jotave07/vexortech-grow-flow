@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
+import { getUserRoles } from "@/lib/auth/roles";
 import { AuthShell } from "./AuthShell";
 
 const Login = () => {
@@ -31,16 +32,10 @@ const Login = () => {
       return;
     }
 
-    // Check role for redirection
+    const roles = await getUserRoles(user?.id || "");
     let role = "customer";
-    if (user?.email === "jvieira@vexortech.com.br") {
-      role = "super_admin";
-    } else {
-      const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
-      if ((roleData as any)?.role) {
-        role = (roleData as any).role;
-      }
-    }
+    if (roles.includes("super_admin")) role = "super_admin";
+    else if (roles.includes("store_owner")) role = "store_owner";
     
     setLoading(false);
     toast.success("Bem-vindo!");

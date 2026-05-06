@@ -154,8 +154,7 @@ export default function StoresList() {
 
                     <div className="mt-auto pt-4 border-t border-emerald-50 flex items-center justify-between">
                       <div className="flex items-center gap-1 text-amber-500 font-black">
-                        <Star className="h-4 w-4 fill-current" />
-                        4.9
+                        {/* Rating real logic can be added later with store_reviews */}
                       </div>
                       <Button variant="ghost" className="text-emerald-600 font-black uppercase text-xs tracking-widest group-hover:translate-x-1 transition-transform">
                         Ver Cardápio
