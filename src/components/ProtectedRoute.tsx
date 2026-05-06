@@ -40,7 +40,7 @@ export const ProtectedRoute = ({
 
   // Se um papel específico for exigido, validar rigorosamente
   if (requiredRole) {
-    const isSuperAdmin = profile?.role === "super_admin" || user?.email === "jvieira@vexortech.com.br";
+    const isSuperAdmin = profile?.role === "super_admin";
     const isStoreOwner = profile?.role === "store_owner";
     const isCustomer = profile?.role === "customer";
 
@@ -65,7 +65,7 @@ export const ProtectedRoute = ({
   }
 
   // Proteção extra contra acesso cruzado baseado no prefixo da rota
-  if (path.startsWith("/admin") && profile?.role !== "super_admin" && user?.email !== "jvieira@vexortech.com.br") {
+  if (path.startsWith("/admin") && profile?.role !== "super_admin") {
     return <Navigate to="/" replace />;
   }
   if (path.startsWith("/lojista") && profile?.role !== "store_owner" && profile?.role !== "super_admin") {

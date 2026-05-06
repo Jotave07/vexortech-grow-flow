@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
-import { syncPaymentStatus, refundOrderPayment } from "@/server/asaas.functions";
+import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
 import { useServerFn } from "@tanstack/react-start";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
@@ -104,13 +104,17 @@ const Orders = () => {
     if (status === "entregue") {
       const order = orders.find((x) => x.id === orderId);
       if (order?.customer_id) {
-        const { data: customer } = await supabase.from("customers").select("total_orders, total_spent").eq("id", order.customer_id).maybeSingle();
-        if (customer) {
-          await supabase.from("customers").update({
-            total_orders: (customer.total_orders ?? 0) + 1,
-            total_spent: Number(customer.total_spent ?? 0) + Number(order.total),
-            last_order_at: new Date().toISOString(),
-          }).eq("id", order.customer_id);
+        // We only increment if the previous status was not already delivered to avoid double counting
+        const previousStatus = orders.find(x => x.id === orderId)?.status;
+        if (previousStatus !== "entregue") {
+          const { data: customer } = await supabase.from("customers").select("total_orders, total_spent").eq("id", order.customer_id).maybeSingle();
+          if (customer) {
+            await supabase.from("customers").update({
+              total_orders: (customer.total_orders ?? 0) + 1,
+              total_spent: Number(customer.total_spent ?? 0) + Number(order.total),
+              last_order_at: new Date().toISOString(),
+            }).eq("id", order.customer_id);
+          }
         }
       }
       await supabase.from("payments").update({ status: "pago", paid_at: new Date().toISOString() }).eq("order_id", orderId);
@@ -209,7 +213,7 @@ const Orders = () => {
                     <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
-                        {o.order_type}
+                        {o.delivery_type || o.order_type}
                       </Badge>
                       <div className="font-black text-sm">{formatBRL(o.total)}</div>
                     </div>
@@ -221,7 +225,7 @@ const Orders = () => {
                         className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          updateStatus(o.id, o.order_type === "retirada" && col.key === "em_preparo" ? "pronto_para_retirada" : col.nextStatus!); 
+                          updateStatus(o.id, (o.delivery_type || o.order_type) === "retirada" && col.key === "em_preparo" ? "pronto_para_retirada" : col.nextStatus!); 
                         }}
                       >
                         {col.nextLabel}
@@ -251,7 +255,7 @@ const Orders = () => {
                 <div className="font-medium">{selected.customer_name}</div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone className="h-3 w-3" /> {selected.customer_phone}</div>
                 {selected.delivery_address && <div className="flex items-start gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3 mt-0.5" /> <span>{selected.delivery_address}{selected.delivery_neighborhood && ` — ${selected.delivery_neighborhood}`}{selected.delivery_reference && ` (Ref: ${selected.delivery_reference})`}</span></div>}
-                <div className="text-xs capitalize"><Clock className="h-3 w-3 inline" /> {selected.order_type}</div>
+                <div className="text-xs capitalize"><Clock className="h-3 w-3 inline" /> {selected.delivery_type || selected.order_type}</div>
               </div>
 
               <div className="border-t border-border pt-3 space-y-2">
@@ -273,8 +277,8 @@ const Orders = () => {
 
               <div className="border-t border-border pt-3 space-y-1">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(selected.subtotal)}</span></div>
-                {selected.order_type === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
-                {Number(selected.discount) > 0 && <div className="flex justify-between text-green-600"><span>Desconto {selected.coupon_code && `(${selected.coupon_code})`}</span><span>-{formatBRL(selected.discount)}</span></div>}
+                {(selected.delivery_type || selected.order_type) === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
+                {Number(selected.discount_amount || selected.discount) > 0 && <div className="flex justify-between text-green-600"><span>Desconto {selected.coupon_code && `(${selected.coupon_code})`}</span><span>-{formatBRL(selected.discount_amount || selected.discount)}</span></div>}
                 <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{formatBRL(selected.total)}</span></div>
               </div>
 

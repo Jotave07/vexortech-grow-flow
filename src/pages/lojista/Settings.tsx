@@ -17,7 +17,8 @@ import { fetchAddressByCep, ViaCepError, buildAddressLabel, normalizeCep } from 
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
-import { testAsaasConnection } from "@/server/asaas.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { testAsaasConnection } from "@/functions/asaas";
 
 type StoreRow = Tables<"stores">;
 type StoreSettingsRow = Tables<"store_settings">;
@@ -72,6 +73,8 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [cepLookup, setCepLookup] = useState<CepLookupState>({ status: "idle" });
+  
+  const testAsaasConnectionFn = useServerFn(testAsaasConnection);
 
   const load = useCallback(async () => {
     if (!store?.id) return;
@@ -747,7 +750,7 @@ const Settings = () => {
                         const key = (storeSettings as any).asaas_api_key;
                         if (!key) return toast.error("Insira a chave de API primeiro.");
                         toast.loading("Testando conexão...");
-                        const result = await testAsaasConnection({ data: { apiKey: key } });
+                        const result = await testAsaasConnectionFn({ data: { apiKey: key } });
                         toast.dismiss();
                         if (result.success) toast.success(result.message);
                         else toast.error(result.message);

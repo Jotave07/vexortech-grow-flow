@@ -4,14 +4,49 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, MapPin, Star, ShoppingBag } from "lucide-react";
+import { Loader2, Search, MapPin, Star, ShoppingBag, X } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { fetchAddressByCep } from "@/services/viacep";
+import { toast } from "sonner";
+import { onlyDigits, formatCEP } from "@/lib/format";
 
 export default function StoresList() {
   const [stores, setStores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [address, setAddress] = useState<any>(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [tempCep, setTempCep] = useState("");
+  const [loadingCep, setLoadingCep] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("delivery_address");
+    if (saved) {
+      setAddress(JSON.parse(saved));
+    } else {
+      setShowAddressModal(true);
+    }
+  }, []);
+
+  const handleCepLookup = async () => {
+    const cleanCep = onlyDigits(tempCep);
+    if (cleanCep.length !== 8) return toast.error("CEP inválido");
+    setLoadingCep(true);
+    try {
+      const addr = await fetchAddressByCep(cleanCep);
+      const fullAddr = { ...addr, zipCode: cleanCep };
+      setAddress(fullAddr);
+      localStorage.setItem("delivery_address", JSON.stringify(fullAddr));
+      setShowAddressModal(false);
+      toast.success("Endereço definido!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao buscar CEP");
+    } finally {
+      setLoadingCep(false);
+    }
+  };
 
   useEffect(() => {
     async function loadStores() {
@@ -29,10 +64,19 @@ export default function StoresList() {
     loadStores();
   }, []);
 
-  const filteredStores = stores.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.city?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStores = stores.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.city?.toLowerCase().includes(search.toLowerCase());
+    
+    // In a real scenario, we would filter by delivery zones here
+    // For now, we'll just show all stores but could implement radius/zone logic
+    return matchesSearch;
+  }).sort((a, b) => {
+    // Show open stores first
+    if (a.store_settings?.is_open && !b.store_settings?.is_open) return -1;
+    if (!a.store_settings?.is_open && b.store_settings?.is_open) return 1;
+    return 0;
+  });
 
   return (
     <div className="min-h-screen bg-[#F0FDF4]">
@@ -40,6 +84,16 @@ export default function StoresList() {
       
       <main className="container mx-auto px-4 pt-24 pb-20">
         <div className="mb-10 text-center">
+          <div 
+            className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border-2 border-emerald-100 shadow-sm mb-6 cursor-pointer hover:bg-emerald-50 transition-colors"
+            onClick={() => setShowAddressModal(true)}
+          >
+            <MapPin className="h-4 w-4 text-emerald-600" />
+            <span className="text-xs font-black uppercase tracking-tight italic text-emerald-900">
+              {address ? `${address.neighborhood}, ${address.city}` : "Onde você quer receber?"}
+            </span>
+          </div>
+
           <h1 className="text-4xl font-black uppercase tracking-tighter italic text-emerald-900 mb-4">
             Lojas Disponíveis
           </h1>
@@ -114,6 +168,39 @@ export default function StoresList() {
           </div>
         )}
       </main>
+
+      <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
+        <DialogContent className="max-w-md rounded-3xl border-2 border-emerald-100 p-0 overflow-hidden">
+          <div className="bg-emerald-900 p-6 text-white text-center">
+            <MapPin className="h-10 w-10 mx-auto mb-3 text-emerald-400" />
+            <DialogTitle className="text-2xl font-black uppercase tracking-tighter italic text-white">Onde você está?</DialogTitle>
+            <p className="text-emerald-200 text-sm mt-2">Informe seu CEP para vermos quem entrega aí.</p>
+          </div>
+          <div className="p-8 space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Seu CEP</label>
+              <div className="flex gap-2">
+                <Input 
+                  value={formatCEP(tempCep)} 
+                  onChange={(e) => setTempCep(e.target.value)} 
+                  placeholder="00000-000"
+                  className="h-14 border-2 border-emerald-50 rounded-2xl font-bold focus:border-emerald-500"
+                />
+                <Button 
+                  onClick={handleCepLookup} 
+                  disabled={loadingCep}
+                  className="h-14 w-14 bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-lg shadow-emerald-200"
+                >
+                  {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                </Button>
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Ou use sua localização</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

@@ -105,6 +105,60 @@ export type Database = {
           },
         ]
       }
+      customer_addresses: {
+        Row: {
+          city: string
+          complement: string | null
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          label: string
+          latitude: number | null
+          longitude: number | null
+          neighborhood: string
+          number: string
+          state: string
+          street: string
+          updated_at: string | null
+          user_id: string
+          zip_code: string
+        }
+        Insert: {
+          city: string
+          complement?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          label: string
+          latitude?: number | null
+          longitude?: number | null
+          neighborhood: string
+          number: string
+          state: string
+          street: string
+          updated_at?: string | null
+          user_id: string
+          zip_code: string
+        }
+        Update: {
+          city?: string
+          complement?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          label?: string
+          latitude?: number | null
+          longitude?: number | null
+          neighborhood?: string
+          number?: string
+          state?: string
+          street?: string
+          updated_at?: string | null
+          user_id?: string
+          zip_code?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           asaas_id: string | null
@@ -369,6 +423,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          change_for: number | null
           coupon_code: string | null
           coupon_id: string | null
           created_at: string | null
@@ -386,12 +441,14 @@ export type Database = {
           delivery_zip_code: string | null
           discount_amount: number | null
           id: string
+          idempotency_key: string | null
           is_seen: boolean | null
           notes: string | null
           order_number: number
           payment_method: string | null
           payment_status: string | null
           public_token: string | null
+          scheduled_at: string | null
           status: string | null
           store_id: string
           subtotal: number | null
@@ -399,6 +456,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          change_for?: number | null
           coupon_code?: string | null
           coupon_id?: string | null
           created_at?: string | null
@@ -416,12 +474,14 @@ export type Database = {
           delivery_zip_code?: string | null
           discount_amount?: number | null
           id?: string
+          idempotency_key?: string | null
           is_seen?: boolean | null
           notes?: string | null
           order_number?: number
           payment_method?: string | null
           payment_status?: string | null
           public_token?: string | null
+          scheduled_at?: string | null
           status?: string | null
           store_id: string
           subtotal?: number | null
@@ -429,6 +489,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          change_for?: number | null
           coupon_code?: string | null
           coupon_id?: string | null
           created_at?: string | null
@@ -446,12 +507,14 @@ export type Database = {
           delivery_zip_code?: string | null
           discount_amount?: number | null
           id?: string
+          idempotency_key?: string | null
           is_seen?: boolean | null
           notes?: string | null
           order_number?: number
           payment_method?: string | null
           payment_status?: string | null
           public_token?: string | null
+          scheduled_at?: string | null
           status?: string | null
           store_id?: string
           subtotal?: number | null
@@ -1135,6 +1198,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_column_exists: {
+        Args: { c_name: string; t_name: string }
+        Returns: boolean
+      }
       get_public_order:
         | {
             Args: { _order_id: string }

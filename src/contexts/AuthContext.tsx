@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type Profile = {
+export type Profile = {
   id: string;
   user_id: string;
   store_id: string | null;
@@ -45,11 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       let profileData = data as any;
       
-      // Auto-assign super_admin role for jvieira@vexortech.com.br
-      if (userEmail === "jvieira@vexortech.com.br") {
-        profileData = { ...profileData, role: "super_admin" };
-      }
-      
+      // Removed hardcoded super_admin assignment for jvieira@vexortech.com.br
       setProfile(profileData as Profile | null);
     } catch (err) {
       console.error("Error loading profile:", err);

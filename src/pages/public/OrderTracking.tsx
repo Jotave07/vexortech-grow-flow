@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { getOrderPaymentInfo, syncPaymentStatus } from "@/server/asaas.functions";
+import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
@@ -177,6 +177,18 @@ const OrderTracking = () => {
               <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 <span>Entrega</span>
                 <span>{Number(order.delivery_fee || 0) === 0 ? "Grátis" : formatBRL(order.delivery_fee)}</span>
+              </div>
+            )}
+            {Number(order.discount_amount || order.discount || 0) > 0 && (
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-emerald-600">
+                <span>Desconto</span>
+                <span>-{formatBRL(order.discount_amount || order.discount)}</span>
+              </div>
+            )}
+            {order.payment_method === "dinheiro" && order.change_for && (
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <span>Troco para</span>
+                <span>{formatBRL(order.change_for)}</span>
               </div>
             )}
             <div className="flex justify-between font-black text-xl border-t-2 border-black pt-3 mt-3 uppercase tracking-tighter">
