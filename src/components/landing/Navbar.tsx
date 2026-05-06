@@ -1,16 +1,34 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/contexts/AuthContext";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut, LayoutDashboard, Store, ShoppingBag, Settings } from "lucide-react";
 
 export const Navbar = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
   
-  const dashboardPath = user?.email === "jvieira@vexortech.com.br" 
+  const isAdmin = user?.email === "jvieira@vexortech.com.br" || profile?.role === "super_admin";
+  const isMerchant = profile?.role === "store_owner";
+  
+  const dashboardPath = isAdmin 
     ? "/admin" 
-    : profile?.role === "store_owner" && profile?.store_id
+    : isMerchant
       ? "/lojista" 
       : "/cliente";
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/92 backdrop-blur-xl">
@@ -24,21 +42,61 @@ export const Navbar = () => {
         </div>
         <div className="flex items-center gap-2">
           {user ? (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
-                <Link to="/cliente">Minhas Compras</Link>
-              </Button>
-              <Button variant="hero" size="sm" asChild>
-                <Link to={dashboardPath}>Meu Painel</Link>
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="hero" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
+                  <span className="hidden sm:inline">Minha Conta</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{profile?.full_name || user.email}</p>
+                    <p className="text-xs leading-none text-muted-foreground lowercase">{profile?.role || "Cliente"}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Painel Administrador</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+
+                {isMerchant && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/lojista" className="cursor-pointer">
+                      <Store className="mr-2 h-4 w-4" />
+                      <span>Painel da Loja</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuItem asChild>
+                  <Link to="/cliente" className="cursor-pointer">
+                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    <span>Minhas Compras</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <>
               <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
                 <Link to="/entrar">Entrar</Link>
               </Button>
               <Button variant="hero" size="sm" asChild>
-                <Link to="/cadastrar">Cadastrar</Link>
+                <Link to="/cadastrar">Começar Agora</Link>
               </Button>
             </>
           )}
