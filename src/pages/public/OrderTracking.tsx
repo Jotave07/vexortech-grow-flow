@@ -179,6 +179,12 @@ const OrderTracking = () => {
                 <span>{Number(order.delivery_fee || 0) === 0 ? "Grátis" : formatBRL(order.delivery_fee)}</span>
               </div>
             )}
+            {Number(order.discount_amount || order.discount || 0) > 0 && (
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-emerald-600">
+                <span>Desconto</span>
+                <span>-{formatBRL(order.discount_amount || order.discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-black text-xl border-t-2 border-black pt-3 mt-3 uppercase tracking-tighter">
               <span>Total</span>
               <span className="text-primary">{formatBRL(order.total || 0)}</span>

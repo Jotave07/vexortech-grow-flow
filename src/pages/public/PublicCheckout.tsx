@@ -150,7 +150,7 @@ const PublicCheckout = () => {
 
     if (!name.trim()) return toast.error("Informe seu nome");
     if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inválido");
-    if (onlyDigits(document).length < 11) return toast.error("CPF/CNPJ obrigatório para pagamento");
+    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatório para pagamento via PIX");
     
     if (orderType === "entrega") {
       if (!zoneId) return toast.error("Selecione o bairro");
@@ -216,6 +216,7 @@ const PublicCheckout = () => {
         discount_amount: discount,
         total,
         payment_method: paymentMethod,
+        change_for: paymentMethod === "dinheiro" ? Number(onlyDigits(changeFor)) / 100 || null : null,
         notes: notes.trim() || null,
       }).select("id, public_token").single() as any);
       
@@ -362,7 +363,7 @@ const PublicCheckout = () => {
                 <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-black">PX</div>
+                    <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-black">PIX</div>
                     PIX (LIBERAÇÃO IMEDIATA)
                   </Label>
                 </div>
