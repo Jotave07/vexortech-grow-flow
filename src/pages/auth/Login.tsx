@@ -54,8 +54,8 @@ const Login = () => {
       // Se é lojista e não tem redirecionamento, vai para o painel de lojista
       navigate("/lojista", { replace: true });
     } else {
-      // Por padrão vai para o painel de cliente
-      navigate("/cliente", { replace: true });
+      // Por padrão vai para a lista de lojas para clientes
+      navigate("/lojas", { replace: true });
     }
   };
 
