@@ -65,11 +65,20 @@ const App = () => (
           <CartProvider>
             <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
               <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/entrar" element={<Login />} />
                 <Route path="/cadastrar" element={<Signup />} />
                 <Route path="/recuperar-senha" element={<ForgotPassword />} />
                 <Route path="/redefinir-senha" element={<ResetPassword />} />
+                
+                {/* Merchant Auth */}
+                <Route path="/lojista/entrar" element={<MerchantLogin />} />
+                <Route path="/cadastrar-loja" element={<MerchantSignup />} />
+                
+                {/* Admin Auth */}
+                <Route path="/admin/entrar" element={<AdminLogin />} />
+
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
                 <Route path="/loja/:slug" element={<PublicStore />} />
