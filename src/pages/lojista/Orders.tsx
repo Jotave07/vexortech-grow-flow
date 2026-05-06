@@ -229,7 +229,7 @@ const Orders = () => {
                     <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
-                        {o.delivery_type || o.order_type}
+                        {o.delivery_type}
                       </Badge>
                       <div className="font-black text-sm">{formatBRL(o.total)}</div>
                     </div>
