@@ -415,6 +415,72 @@ const PublicCheckout = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={showPixModal} onOpenChange={(open) => {
+        if (!open && createdOrder) {
+          navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
+        }
+        setShowPixModal(open);
+      }}>
+        <DialogContent className="max-w-[400px] border-2 border-emerald-500 rounded-3xl p-0 overflow-hidden bg-white sm:rounded-3xl shadow-2xl">
+          <div className="bg-emerald-900 p-6 text-center border-b-4 border-emerald-400">
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Pagamento via Pix</h2>
+          </div>
+          
+          <div className="p-8 flex flex-col items-center gap-6">
+            <div className="h-16 w-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-2">
+              <QrCode className="h-10 w-10" />
+            </div>
+
+            {pixData?.qrCodeUrl && (
+              <div className="bg-white p-4 border-4 border-emerald-50 rounded-2xl shadow-xl shadow-emerald-900/10">
+                <img 
+                  src={pixData.qrCodeUrl.startsWith('data:') ? pixData.qrCodeUrl : `data:image/png;base64,${pixData.qrCodeUrl}`} 
+                  alt="QR Code PIX" 
+                  className="w-48 h-48"
+                />
+              </div>
+            )}
+
+            <div className="w-full space-y-3">
+              <p className="text-[10px] font-black uppercase text-emerald-700 tracking-widest text-center">Pix Copia e Cola</p>
+              <div className="relative group">
+                <Input 
+                  readOnly 
+                  value={pixData?.pixCode || ""} 
+                  className="h-14 border-2 border-emerald-100 rounded-xl font-bold bg-emerald-50/50 pr-4 focus-visible:ring-emerald-500 text-center"
+                />
+              </div>
+            </div>
+
+            <Button 
+              className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-tight rounded-xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-lg transition-all active:scale-95"
+              onClick={() => {
+                if (pixData?.pixCode) {
+                  navigator.clipboard.writeText(pixData.pixCode);
+                  toast.success("Código PIX copiado!");
+                }
+              }}
+            >
+              <Copy className="h-5 w-5" /> Copiar Código Pix
+            </Button>
+
+            <p className="text-center text-[11px] font-bold text-emerald-800 leading-tight uppercase tracking-tight opacity-70 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+              Após o pagamento, o seu pedido será confirmado automaticamente.
+            </p>
+
+            <div className="w-full pt-2">
+              <Button 
+                variant="outline"
+                className="w-full h-14 border-2 border-emerald-900 text-emerald-900 font-black uppercase tracking-tighter text-lg rounded-xl hover:bg-emerald-50 transition-all active:scale-95 shadow-[4px_4px_0px_0px_rgba(6,78,59,1)]"
+                onClick={() => navigate(`/pedido/${createdOrder?.public_token}`, { replace: true })}
+              >
+                Acompanhar Pedido
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
