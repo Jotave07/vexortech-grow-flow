@@ -168,7 +168,7 @@ const CustomerDashboard = () => {
                 <h3 className="font-black uppercase tracking-tight text-xl">Nenhum pedido ainda</h3>
                 <p className="text-muted-foreground text-sm">Seus pedidos aparecerão aqui assim que você realizar sua primeira compra.</p>
                 <Button className="mt-6 font-black uppercase" variant="hero" asChild>
-                  <Link to="/">Ver lojas disponíveis</Link>
+                  <Link to="/lojas">Ver lojas disponíveis</Link>
                 </Button>
               </Card>
             ) : (
