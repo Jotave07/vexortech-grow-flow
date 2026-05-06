@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { asaas } from "./asaas.server";
+import { asaas } from "@/server/asaas.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const testAsaasConnection = createServerFn({ method: "POST" })
