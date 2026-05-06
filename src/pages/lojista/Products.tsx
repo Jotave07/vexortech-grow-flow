@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, Star, Upload, Settings2 } from "lucide-react";
 import { formatBRL } from "@/lib/format";
-import { OptionsDialog } from "@/components/app/OptionsDialog";
+import { OptionsDialog } from "@/components/lojista/OptionsDialog";
 
 type Product = any;
 type Category = { id: string; name: string };
