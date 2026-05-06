@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import * as AsaasFunctions from "@/server/asaas.functions";
+import type * as AsaasFunctions from "@/server/asaas.functions";
 import { toast } from "sonner";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
@@ -20,8 +20,8 @@ const OrderTracking = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pixInfo, setPixInfo] = useState<any>(null);
-  const getOrderPaymentInfoFn = useServerFn(AsaasFunctions.getOrderPaymentInfo);
-  const syncPaymentStatusFn = useServerFn(AsaasFunctions.syncPaymentStatus);
+  const getOrderPaymentInfoFn = useServerFn((AsaasFunctions as any).getOrderPaymentInfo);
+  const syncPaymentStatusFn = useServerFn((AsaasFunctions as any).syncPaymentStatus);
 
   const load = useCallback(async () => {
     if (!token) return;

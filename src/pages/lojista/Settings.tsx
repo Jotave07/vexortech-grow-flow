@@ -18,7 +18,7 @@ import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normaliz
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
 import { useServerFn } from "@tanstack/react-start";
-import * as AsaasFunctions from "@/server/asaas.functions";
+import type * as AsaasFunctions from "@/server/asaas.functions";
 
 type StoreRow = Tables<"stores">;
 type StoreSettingsRow = Tables<"store_settings">;
@@ -74,7 +74,7 @@ const Settings = () => {
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [cepLookup, setCepLookup] = useState<CepLookupState>({ status: "idle" });
   
-  const testAsaasConnectionFn = useServerFn(AsaasFunctions.testAsaasConnection);
+  const testAsaasConnectionFn = useServerFn((AsaasFunctions as any).testAsaasConnection);
 
   const load = useCallback(async () => {
     if (!store?.id) return;
