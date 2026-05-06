@@ -242,7 +242,12 @@ const PublicCheckout = () => {
       }
 
       if (paymentMethod === "pix") {
-        await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
+        const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
+        setPixData(pixResult);
+        setCreatedOrder(order);
+        setShowPixModal(true);
+        clear();
+        return;
       }
 
       clear();
