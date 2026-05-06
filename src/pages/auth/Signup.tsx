@@ -82,23 +82,17 @@ const Signup = () => {
     });
 
     if (!error && signUpData.user) {
-      // Create initial profile and role
-      const { error: profileErr } = await supabase.from("profiles").insert({
-        user_id: signUpData.user.id,
+      // O trigger handle_new_user() já cria profile + user_roles como 'customer'.
+      // Aqui apenas atualizamos com os dados extras (nome, documento) informados no formulário.
+      const { error: profileErr } = await supabase.from("profiles").update({
         full_name: parsed.data.full_name.toUpperCase(),
         document: parsed.data.document.replace(/\D/g, ""),
         email: parsed.data.email.toLowerCase(),
-        role: "customer"
-      });
+      } as any).eq("user_id", signUpData.user.id);
 
       if (profileErr) {
-        console.error("Error creating profile:", profileErr);
+        console.error("Error updating profile:", profileErr);
       }
-
-      await supabase.from("user_roles").insert({
-        user_id: signUpData.user.id,
-        role: "customer"
-      });
     }
     setLoading(false);
     if (error) {
