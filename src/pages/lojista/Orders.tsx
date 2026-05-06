@@ -271,7 +271,7 @@ const Orders = () => {
                 <div className="font-medium">{selected.customer_name}</div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone className="h-3 w-3" /> {selected.customer_phone}</div>
                 {selected.delivery_address && <div className="flex items-start gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3 mt-0.5" /> <span>{selected.delivery_address}{selected.delivery_neighborhood && ` — ${selected.delivery_neighborhood}`}{selected.delivery_reference && ` (Ref: ${selected.delivery_reference})`}</span></div>}
-                <div className="text-xs capitalize"><Clock className="h-3 w-3 inline" /> {selected.delivery_type || selected.order_type}</div>
+                <div className="text-xs capitalize font-black"><Clock className="h-3 w-3 inline" /> {selected.delivery_type}</div>
               </div>
 
               <div className="border-t border-border pt-3 space-y-2">
