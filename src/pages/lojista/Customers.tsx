@@ -101,7 +101,7 @@ const Customers = () => {
                       <li key={o.id} className="flex justify-between items-center text-sm border-b border-border pb-2">
                         <div>
                           <div className="font-medium">#{o.order_number} <Badge variant="outline" className="text-xs ml-1">{STATUS_LABELS[o.status]}</Badge></div>
-                          <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")} · {o.order_type}</div>
+                          <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")} · {o.delivery_type}</div>
                         </div>
                         <span className="font-semibold">{formatBRL(o.total)}</span>
                       </li>
