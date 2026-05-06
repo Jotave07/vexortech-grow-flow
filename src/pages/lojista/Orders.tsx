@@ -98,15 +98,26 @@ const Orders = () => {
   };
 
   const updateStatus = async (orderId: string, status: any, note?: string) => {
-    const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
+    // Validar transição para pronto_para_retirada
+    let finalStatus = status;
+    const order = orders.find(o => o.id === orderId);
+    if (status === "saiu_para_entrega" && order?.delivery_type === "retirada") {
+      finalStatus = "pronto_para_retirada";
+    }
+
+    const { error } = await supabase.from("orders").update({ status: finalStatus }).eq("id", orderId);
     if (error) return toast.error(error.message);
-    await supabase.from("order_status_history").insert({ order_id: orderId, store_id: store.id, status, notes: note ?? null } as any);
-    if (status === "entregue") {
-      const order = orders.find((x) => x.id === orderId);
+    
+    await supabase.from("order_status_history").insert({ 
+      order_id: orderId, 
+      store_id: store.id, 
+      status: finalStatus, 
+      notes: note ?? null 
+    } as any);
+
+    if (finalStatus === "entregue") {
       if (order?.customer_id) {
-        // We only increment if the previous status was not already delivered to avoid double counting
-        const previousStatus = orders.find(x => x.id === orderId)?.status;
-        if (previousStatus !== "entregue") {
+        if (order.status !== "entregue") {
           const { data: customer } = await supabase.from("customers").select("total_orders, total_spent").eq("id", order.customer_id).maybeSingle();
           if (customer) {
             await supabase.from("customers").update({
@@ -119,8 +130,10 @@ const Orders = () => {
       }
       await supabase.from("payments").update({ status: "pago", paid_at: new Date().toISOString() }).eq("order_id", orderId);
     }
+    
     toast.success("Status atualizado");
-    if (selected?.id === orderId) setSelected({ ...selected, status });
+    if (selected?.id === orderId) setSelected({ ...selected, status: finalStatus });
+    load();
   };
 
   const cancelOrder = async (orderId: string) => {
