@@ -8,7 +8,7 @@ export const Navbar = () => {
   
   const dashboardPath = user?.email === "jvieira@vexortech.com.br" 
     ? "/admin" 
-    : profile?.store_id 
+    : profile?.role === "store_owner" && profile?.store_id
       ? "/lojista" 
       : "/cliente";
 
@@ -17,16 +17,21 @@ export const Navbar = () => {
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         <BrandMark to="/" animated className="max-w-[10rem]" />
         <div className="hidden items-center gap-7 md:flex">
+          <Link to="/lojas" className="text-sm font-bold text-emerald-600 transition-smooth hover:text-emerald-800 uppercase tracking-widest italic">Comprar Agora</Link>
           <a href="#beneficios" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Beneficios</a>
-          <a href="#como-funciona" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Fluxo</a>
           <a href="#nichos" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Segmentos</a>
           <a href="#planos" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Planos</a>
         </div>
         <div className="flex items-center gap-2">
           {user ? (
-            <Button variant="hero" size="sm" asChild>
-              <Link to={dashboardPath}>Meu Painel</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
+                <Link to="/cliente">Minhas Compras</Link>
+              </Button>
+              <Button variant="hero" size="sm" asChild>
+                <Link to={dashboardPath}>Meu Painel</Link>
+              </Button>
+            </div>
           ) : (
             <>
               <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>

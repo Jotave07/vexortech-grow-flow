@@ -45,6 +45,7 @@ const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
 const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
+const StoresList = lazy(() => import("./pages/public/StoresList"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ const App = () => (
 
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
+                <Route path="/lojas" element={<StoresList />} />
                 <Route path="/loja/:slug" element={<PublicStore />} />
                 <Route path="/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
                 <Route path="/pedido/:token" element={<OrderTracking />} />

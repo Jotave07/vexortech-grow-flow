@@ -112,7 +112,7 @@ export const Pricing = () => {
                 ))}
               </ul>
               <Button variant={plan.variant as "hero" | "outline"} size="lg" className="mt-auto w-full" asChild>
-                <Link to="/cadastrar">{plan.cta}</Link>
+                <Link to="/cadastrar-loja">{plan.cta}</Link>
               </Button>
             </motion.div>
           ))}

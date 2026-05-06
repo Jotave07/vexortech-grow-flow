@@ -44,13 +44,13 @@ export const ProtectedRoute = ({
     const isStoreOwner = profile?.role === "store_owner";
     const isCustomer = profile?.role === "customer";
 
-    // Se a rota exige ser cliente, lojistas e admins também podem acessar (eles também são clientes)
+    // Se a rota exige ser cliente, lojistas e admins também podem acessar
     if (requiredRole === "customer") {
       if (!isCustomer && !isStoreOwner && !isSuperAdmin) {
         return <Navigate to="/" replace />;
       }
     } 
-    // Se a rota exige ser lojista, apenas lojistas e admins podem acessar
+    // Se a rota exige ser lojista, apenas lojistas e admins podem acessar (admins podem acessar tudo)
     else if (requiredRole === "store_owner") {
       if (!isStoreOwner && !isSuperAdmin) {
         return <Navigate to="/cliente" replace />;
@@ -68,10 +68,10 @@ export const ProtectedRoute = ({
   if (path.startsWith("/admin") && profile?.role !== "super_admin" && user?.email !== "jvieira@vexortech.com.br") {
     return <Navigate to="/" replace />;
   }
-  if (path.startsWith("/lojista") && profile?.role !== "store_owner") {
+  if (path.startsWith("/lojista") && profile?.role !== "store_owner" && profile?.role !== "super_admin") {
     return <Navigate to="/" replace />;
   }
-  if (path.startsWith("/cliente") && profile?.role !== "customer") {
+  if (path.startsWith("/cliente") && profile?.role !== "customer" && profile?.role !== "store_owner" && profile?.role !== "super_admin") {
     return <Navigate to="/" replace />;
   }
 
