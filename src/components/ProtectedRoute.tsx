@@ -49,6 +49,3 @@ export const ProtectedRoute = ({
 
   return <>{children}</>;
 };
-
-  return <>{children}</>;
-};

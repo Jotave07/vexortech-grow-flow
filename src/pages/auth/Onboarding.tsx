@@ -33,13 +33,13 @@ const Onboarding = () => {
   useEffect(() => {
     if (!authLoading) {
       if (profile?.role === "customer") {
-        navigate("/meu-painel", { replace: true });
+        navigate("/cliente", { replace: true });
         return;
       }
       
       const isStoreOwner = profile?.role === "store_owner";
       if (profile?.store_id && isStoreOwner) {
-        navigate("/app", { replace: true });
+        navigate("/lojista", { replace: true });
       }
     }
   }, [authLoading, profile, navigate]);
@@ -94,9 +94,9 @@ const Onboarding = () => {
     toast.success("Loja criada!");
     
     if (profile?.is_exempt) {
-      navigate("/app", { replace: true });
+      navigate("/lojista", { replace: true });
     } else {
-      navigate("/app/assinatura", { replace: true });
+      navigate("/lojista/assinatura", { replace: true });
     }
   };
 

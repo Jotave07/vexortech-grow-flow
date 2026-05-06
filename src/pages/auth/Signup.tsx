@@ -37,7 +37,7 @@ const Signup = () => {
   // but we should probably just redirect them to their panel instead.
   useEffect(() => {
     if (user && profile) {
-      navigate(redirect || "/meu-painel", { replace: true });
+      navigate(redirect || "/cliente", { replace: true });
     }
   }, [user, profile, navigate, redirect]);
 
@@ -73,7 +73,7 @@ const Signup = () => {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
       options: {
-        emailRedirectTo: window.location.origin + "/meu-painel",
+        emailRedirectTo: window.location.origin + "/cliente",
         data: { 
           full_name: parsed.data.full_name.toUpperCase(),
           document: parsed.data.document.replace(/\D/g, "")
@@ -116,7 +116,7 @@ const Signup = () => {
     if (redirect) {
       navigate(redirect, { replace: true });
     } else {
-      navigate("/meu-painel", { replace: true });
+      navigate("/cliente", { replace: true });
     }
   };
 
