@@ -145,6 +145,22 @@ const OrderTracking = () => {
                   Tentar Carregar Novamente
                 </Button>
               </div>
+            ) : pixInfo.error ? (
+              <div className="flex flex-col items-center gap-4 py-8 bg-white border-2 border-red-200 p-4">
+                <p className="text-sm font-bold text-red-600 uppercase">Erro no Gateway: {pixInfo.error}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Tente atualizar a página ou entre em contato com a loja.</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setPixInfo(null);
+                    void load();
+                  }} 
+                  className="border-2 border-black font-black uppercase rounded-none"
+                >
+                  Tentar Novamente
+                </Button>
+              </div>
             ) : (
               <>
                 {pixInfo.qrCodeUrl && (

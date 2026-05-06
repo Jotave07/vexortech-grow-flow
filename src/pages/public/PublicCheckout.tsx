@@ -223,9 +223,12 @@ const PublicCheckout = () => {
         payment_method: paymentMethod,
         change_for: paymentMethod === "dinheiro" ? Number(onlyDigits(changeFor)) / 100 || null : null,
         notes: notes.trim() || null,
-      }).select("id, public_token").single() as any);
+      }).select("id, public_token").maybeSingle() as any);
       
       if (oErr) throw oErr;
+      if (!order || !order.public_token) {
+        throw new Error("Erro ao gerar token do pedido. Tente novamente.");
+      }
 
       for (const it of items) {
         const { data: oi } = await (supabase.from("order_items" as any).insert({
@@ -243,6 +246,9 @@ const PublicCheckout = () => {
 
       if (paymentMethod === "pix") {
         const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
+        if ((pixResult as any).error) {
+          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Você poderá tentar pagar na tela de acompanhamento.`);
+        }
         setPixData(pixResult);
         setCreatedOrder(order);
         setShowPixModal(true);
