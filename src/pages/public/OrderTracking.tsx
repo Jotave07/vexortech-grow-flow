@@ -119,7 +119,7 @@ const OrderTracking = () => {
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-4 -mt-6">
-        {order.payment_method === "pix" && order.status === "aguardando_pagamento" && pixInfo && (
+        {order.payment_method === "pix" && order.status === "aguardando_pagamento" && (
           <Card className="p-6 border-4 border-emerald-500 bg-emerald-50/30 text-center space-y-6 rounded-none shadow-[8px_8px_0px_0px_rgba(16,185,129,1)]">
             <div className="flex flex-col items-center gap-2">
               <div className="h-14 w-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-2">
@@ -129,24 +129,41 @@ const OrderTracking = () => {
               <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-widest">Aguardando confirmação automática</p>
             </div>
             
-            {pixInfo.qrCodeUrl && (
-              <div className="bg-white p-4 inline-block border-4 border-emerald-100 rounded-2xl shadow-xl">
-                <img 
-                  src={pixInfo.qrCodeUrl.startsWith('data:') ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`} 
-                  alt="QR Code PIX" 
-                  className="w-48 h-48" 
-                />
+            {!pixInfo ? (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                <p className="text-xs font-bold uppercase text-emerald-800">Gerando informações de pagamento...</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => load()} 
+                  className="border-2 border-emerald-600 text-emerald-600 font-black uppercase rounded-none"
+                >
+                  Tentar Carregar Novamente
+                </Button>
               </div>
-            )}
+            ) : (
+              <>
+                {pixInfo.qrCodeUrl && (
+                  <div className="bg-white p-4 inline-block border-4 border-emerald-100 rounded-2xl shadow-xl">
+                    <img 
+                      src={pixInfo.qrCodeUrl.startsWith('data:') ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`} 
+                      alt="QR Code PIX" 
+                      className="w-48 h-48" 
+                    />
+                  </div>
+                )}
 
-            <div className="space-y-3 w-full">
-              <div className="bg-white border-2 border-emerald-100 p-3 rounded-xl font-mono text-[10px] break-all text-center select-all opacity-70">
-                {pixInfo.pixCode}
-              </div>
-              <Button onClick={copyPix} variant="default" className="w-full h-14 font-black bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-tighter text-lg rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
-                <Copy className="h-5 w-5 mr-2" /> Copiar Código PIX
-              </Button>
-            </div>
+                <div className="space-y-3 w-full">
+                  <div className="bg-white border-2 border-emerald-100 p-3 rounded-xl font-mono text-[10px] break-all text-center select-all opacity-70">
+                    {pixInfo.pixCode}
+                  </div>
+                  <Button onClick={copyPix} variant="default" className="w-full h-14 font-black bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-tighter text-lg rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+                    <Copy className="h-5 w-5 mr-2" /> Copiar Código PIX
+                  </Button>
+                </div>
+              </>
+            )}
             
             <div className="p-3 bg-white border-2 border-dashed border-emerald-200 rounded-xl text-[10px] text-emerald-800 font-bold uppercase leading-tight">
               O seu pedido será confirmado em instantes após o pagamento
