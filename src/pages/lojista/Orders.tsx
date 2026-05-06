@@ -10,9 +10,7 @@ import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
-// The server functions should be called via their RPC bridge
-// We use type-only imports or dynamic imports to avoid import-protection issues in client build
-import type * as AsaasFunctions from "@/server/asaas.functions";
+import { syncPaymentStatus, refundOrderPayment } from "@/server/asaas.functions";
 import { useServerFn } from "@tanstack/react-start";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
@@ -32,8 +30,8 @@ const Orders = () => {
   const [selected, setSelected] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
-  const syncPaymentStatusFn = useServerFn((AsaasFunctions as any).syncPaymentStatus);
-  const refundOrderPaymentFn = useServerFn((AsaasFunctions as any).refundOrderPayment);
+  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
+  const refundOrderPaymentFn = useServerFn(refundOrderPayment);
 
   const load = async () => {
     const { data } = await supabase.from("orders").select("*").eq("store_id", store.id)
