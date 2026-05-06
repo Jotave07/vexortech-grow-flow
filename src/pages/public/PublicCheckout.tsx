@@ -164,8 +164,48 @@ const PublicCheckout = () => {
         return toast.error("Dono da loja não pode comprar de si mesmo.");
       }
 
+      // 1. Garantir que existe um registro na tabela 'customers' para este usuário nesta loja
+      let customerId = null;
+      if (user) {
+        const { data: existingCustomer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("store_id", store.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else {
+          const { data: newCustomer, error: cErr } = await supabase
+            .from("customers")
+            .insert({
+              store_id: store.id,
+              user_id: user.id,
+              full_name: name.trim().toUpperCase(),
+              phone: onlyDigits(phone),
+              document: onlyDigits(document),
+              email: user.email,
+              street: street.toUpperCase(),
+              number: number,
+              neighborhood: neighborhood.toUpperCase(),
+              city: city.toUpperCase(),
+              state: state.toUpperCase(),
+              zip_code: onlyDigits(zipCode),
+              registration_completed: true
+            })
+            .select("id")
+            .single();
+          
+          if (!cErr && newCustomer) {
+            customerId = newCustomer.id;
+          }
+        }
+      }
+
       const { data: order, error: oErr } = await (supabase.from("orders" as any).insert({
         store_id: store.id,
+        customer_id: customerId,
         customer_name: name.trim().toUpperCase(),
         customer_phone: onlyDigits(phone),
         customer_document: onlyDigits(document),
