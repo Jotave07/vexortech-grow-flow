@@ -33,12 +33,13 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string }>({ score: 0, label: "", color: "" });
 
+  // Only sign out if the user is already logged in and tries to access signup, 
+  // but we should probably just redirect them to their panel instead.
   useEffect(() => {
-    if (user && profile?.role === 'store_owner') {
-      toast.info("Você está logado como administrador. Para criar uma conta de cliente, você será desconectado.");
-      signOut();
+    if (user && profile) {
+      navigate(redirect || "/meu-painel", { replace: true });
     }
-  }, [user, profile]);
+  }, [user, profile, navigate, redirect]);
 
   const checkPasswordStrength = (pass: string) => {
     if (!pass) return { score: 0, label: "", color: "" };
