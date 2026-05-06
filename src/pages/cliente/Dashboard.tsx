@@ -136,23 +136,16 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
-      <header className="bg-black text-white p-8 border-b-4 border-primary">
+      <header className="bg-emerald-900 text-white p-8 border-b-4 border-emerald-400">
         <div className="container max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter italic">Meu Painel</h1>
-            <p className="text-white/60 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
+            <p className="text-emerald-100/60 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
           </div>
           <div className="flex items-center gap-4">
-            <User className="h-10 w-10 text-primary" />
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/10" 
-              onClick={() => signOut()}
-              title="Sair"
-            >
-              <LogOut className="h-6 w-6" />
-            </Button>
+            <div className="h-12 w-12 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center">
+              <User className="h-6 w-6 text-emerald-400" />
+            </div>
           </div>
         </div>
       </header>
