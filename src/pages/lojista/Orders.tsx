@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
-import { syncPaymentStatus, refundOrderPayment } from "@/server/asaas";
+import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
 import { useServerFn } from "@tanstack/react-start";
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [

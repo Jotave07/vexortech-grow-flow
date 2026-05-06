@@ -18,7 +18,7 @@ import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normaliz
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
 import { useServerFn } from "@tanstack/react-start";
-import { testAsaasConnection } from "@/server/asaas";
+import { testAsaasConnection } from "@/functions/asaas";
 
 type StoreRow = Tables<"stores">;
 type StoreSettingsRow = Tables<"store_settings">;
