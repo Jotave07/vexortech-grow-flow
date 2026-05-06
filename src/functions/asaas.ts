@@ -124,6 +124,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
         .from("payments")
         .update({ 
           external_id: payment.id,
+          asaas_id: payment.id,
           status: "pendente" 
         })
         .eq("id", existingPayment.id);
@@ -136,6 +137,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
           store_id: data.storeId,
           amount: Number(order.total),
           external_id: payment.id,
+          asaas_id: payment.id,
           status: "pendente"
         });
       if (pErr) throw pErr;
