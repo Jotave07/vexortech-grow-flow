@@ -179,10 +179,10 @@ const OrderTracking = () => {
                 <span>{Number(order.delivery_fee || 0) === 0 ? "Grátis" : formatBRL(order.delivery_fee)}</span>
               </div>
             )}
-            {Number(order.discount_amount || order.discount || 0) > 0 && (
+            {Number(order.discount_amount) > 0 && (
               <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-emerald-600">
                 <span>Desconto</span>
-                <span>-{formatBRL(order.discount_amount || order.discount)}</span>
+                <span>-{formatBRL(order.discount_amount)}</span>
               </div>
             )}
             {order.payment_method === "dinheiro" && order.change_for && (
