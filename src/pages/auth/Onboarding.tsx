@@ -85,8 +85,8 @@ const Onboarding = () => {
 
     await Promise.all([
       supabase.from("store_settings").insert({ store_id: store.id }),
-      supabase.from("profiles").update({ store_id: store.id, full_name: profile?.full_name ?? null } as any).eq("user_id", user.id),
-      supabase.from("user_roles").insert({ user_id: user.id, role: "store_owner", store_id: store.id }),
+      supabase.from("profiles").update({ store_id: store.id, role: "store_owner", full_name: profile?.full_name ?? null } as any).eq("user_id", user.id),
+      supabase.from("user_roles").upsert({ user_id: user.id, role: "store_owner", store_id: store.id }, { onConflict: "user_id,role" }),
     ]);
 
     setLoading(false);
