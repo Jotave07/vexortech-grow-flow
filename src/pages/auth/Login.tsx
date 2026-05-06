@@ -32,16 +32,10 @@ const Login = () => {
       return;
     }
 
-    // Check role for redirection
+    const roles = await getUserRoles(user?.id || "");
     let role = "customer";
-    if (user?.email === "jvieira@vexortech.com.br") {
-      role = "super_admin";
-    } else {
-      const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
-      if ((roleData as any)?.role) {
-        role = (roleData as any).role;
-      }
-    }
+    if (roles.includes("super_admin")) role = "super_admin";
+    else if (roles.includes("store_owner")) role = "store_owner";
     
     setLoading(false);
     toast.success("Bem-vindo!");
