@@ -71,22 +71,51 @@ const Orders = () => {
       }
     };
 
-    const ch = supabase.channel(`orders-${store.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, (payload) => {
-        if (payload.eventType === "INSERT") {
-          if ((payload.new as any).status === "novo") {
-            toast.success(`🔔 Novo pedido #${(payload.new as any).order_number}`, { duration: 8000 });
-            playNotificationSound();
+    console.log(`[Orders] Subscribing to realtime updates for store ${store.id}`);
+    const ch = supabase.channel(`orders-store-${store.id}`)
+      .on(
+        "postgres_changes", 
+        { 
+          event: "*", 
+          schema: "public", 
+          table: "orders", 
+          filter: `store_id=eq.${store.id}` 
+        }, 
+        (payload) => {
+          console.log("[Orders] Realtime payload received:", payload);
+          
+          if (payload.eventType === "INSERT") {
+            const newOrder = payload.new as any;
+            if (newOrder.status === "novo") {
+              toast.success(`🔔 Novo pedido #${newOrder.order_number}`, { duration: 8000 });
+              playNotificationSound();
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const oldOrder = payload.old as any;
+            const newOrder = payload.new as any;
+            
+            // If it was waiting payment and now it is "novo" (paid)
+            if (oldOrder.status === "aguardando_pagamento" && newOrder.status === "novo") {
+              toast.success(`✅ Pagamento confirmado! Pedido #${newOrder.order_number}`, { duration: 8000 });
+              playNotificationSound();
+            }
           }
-        } else if (payload.eventType === "UPDATE") {
-          if ((payload.old as any).status === "aguardando_pagamento" && (payload.new as any).status === "novo") {
-            toast.success(`✅ Pagamento confirmado! Pedido #${(payload.new as any).order_number}`, { duration: 8000 });
-            playNotificationSound();
-          }
+          
+          // Force a full reload to ensure the UI matches the DB state perfectly
+          void load();
         }
-        load();
-      }).subscribe();
-    return () => { supabase.removeChannel(ch); };
+      )
+      .subscribe((status) => {
+        console.log(`[Orders] Realtime subscription status: ${status}`);
+        if (status === "SUBSCRIBED") {
+          console.log("[Orders] Successfully subscribed to realtime updates");
+        }
+      });
+
+    return () => { 
+      console.log("[Orders] Unsubscribing from realtime");
+      void supabase.removeChannel(ch); 
+    };
     // eslint-disable-next-line
   }, [store?.id]);
 
