@@ -184,20 +184,16 @@ const PublicCheckout = () => {
 
     setSubmitting(true);
     try {
-      // Security check: ensure user is NOT a store owner trying to buy as customer
-      if (profile?.role === 'store_owner') {
-        const isOwnerOfThisStore = store.owner_user_id === user?.id;
-        
-        if (isOwnerOfThisStore) {
-          setSubmitting(false);
-          return toast.error("Você é o administrador desta loja. Para realizar compras, use uma conta de cliente.", {
-            action: {
-              label: "Sair agora",
-              onClick: () => signOut().then(() => navigate(`/loja/${slug}`))
-            },
-            duration: 10000
-          });
-        }
+      // Security check: ensure user is NOT the store owner trying to buy as customer in their own store
+      if (store.owner_user_id === user?.id) {
+        setSubmitting(false);
+        return toast.error("Você é o administrador desta loja. Para realizar compras, use uma conta de cliente.", {
+          action: {
+            label: "Sair agora",
+            onClick: () => signOut().then(() => navigate(`/loja/${slug}`))
+          },
+          duration: 10000
+        });
       }
 
       const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id || "").maybeSingle();
