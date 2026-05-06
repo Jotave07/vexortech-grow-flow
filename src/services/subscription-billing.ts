@@ -1,4 +1,4 @@
-import { createSubscriptionCheckout as createServerSubscriptionCheckout } from "@/server/asaas.functions";
+import { createSubscriptionCheckout as createServerSubscriptionCheckout } from "@/functions/asaas";
 
 export type CreateSubscriptionCheckoutInput = {
   planId: string;
