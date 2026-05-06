@@ -185,6 +185,12 @@ const OrderTracking = () => {
                 <span>-{formatBRL(order.discount_amount || order.discount)}</span>
               </div>
             )}
+            {order.payment_method === "dinheiro" && order.change_for && (
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <span>Troco para</span>
+                <span>{formatBRL(order.change_for)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-black text-xl border-t-2 border-black pt-3 mt-3 uppercase tracking-tighter">
               <span>Total</span>
               <span className="text-primary">{formatBRL(order.total || 0)}</span>
