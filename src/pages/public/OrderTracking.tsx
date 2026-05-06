@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check, Bike, ChefHat, PackageCheck, Wallet } from "lucide-react";
-import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
