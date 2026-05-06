@@ -115,7 +115,13 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       throw new Error("Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.");
     }
 
+    console.log(`[asaas] Payment created: ${payment.id}. Fetching PIX QR Code...`);
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
+
+    if (qrCode.errors) {
+      console.error("[asaas] Error fetching QR Code during creation:", qrCode.errors);
+      // Even if QR code fails, we have the payment. The user can retry on the tracking page.
+    }
 
     // 6. Update or Insert payment in DB
     const { data: existingPayment } = await supabaseAdmin
@@ -124,27 +130,26 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       .eq("order_id", order.id)
       .maybeSingle();
 
+    const paymentData = { 
+      order_id: order.id,
+      store_id: data.storeId,
+      amount: Number(order.total),
+      external_id: payment.id,
+      asaas_id: payment.id,
+      status: "pendente",
+      updated_at: new Date().toISOString()
+    };
+
     if (existingPayment) {
       const { error: pErr } = await supabaseAdmin
         .from("payments")
-        .update({ 
-          external_id: payment.id,
-          asaas_id: payment.id,
-          status: "pendente" 
-        })
+        .update(paymentData)
         .eq("id", existingPayment.id);
       if (pErr) throw pErr;
     } else {
       const { error: pErr } = await supabaseAdmin
         .from("payments")
-        .insert({
-          order_id: order.id,
-          store_id: data.storeId,
-          amount: Number(order.total),
-          external_id: payment.id,
-          asaas_id: payment.id,
-          status: "pendente"
-        });
+        .insert(paymentData);
       if (pErr) throw pErr;
     }
 
@@ -153,6 +158,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       pixCode: qrCode.payload || null,
       qrCodeUrl: qrCode.encodedImage || null,
       invoiceUrl: payment.invoiceUrl || null,
+      error: qrCode.errors ? qrCode.errors[0].description : null
     };
   });
 
