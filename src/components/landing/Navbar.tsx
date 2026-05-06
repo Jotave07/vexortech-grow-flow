@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/contexts/AuthContext";
+import { getUserRoles } from "@/lib/auth/roles";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
