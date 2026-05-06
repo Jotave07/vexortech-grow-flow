@@ -152,11 +152,11 @@ const CustomerDashboard = () => {
 
       <main className="container max-w-4xl mx-auto p-4 -mt-6">
         <Tabs defaultValue="pedidos" className="space-y-6">
-          <TabsList className="w-full bg-white border-2 border-black rounded-none h-14 p-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <TabsTrigger value="pedidos" className="flex-1 rounded-none data-[state=active]:bg-black data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
+          <TabsList className="w-full bg-white border-2 border-emerald-900 rounded-none h-14 p-1 shadow-[4px_4px_0px_0px_rgba(6,78,59,1)]">
+            <TabsTrigger value="pedidos" className="flex-1 rounded-none data-[state=active]:bg-emerald-900 data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
               <Package className="h-4 w-4 mr-2" /> Meus Pedidos
             </TabsTrigger>
-            <TabsTrigger value="perfil" className="flex-1 rounded-none data-[state=active]:bg-black data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
+            <TabsTrigger value="perfil" className="flex-1 rounded-none data-[state=active]:bg-emerald-900 data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
               <User className="h-4 w-4 mr-2" /> Meu Perfil
             </TabsTrigger>
           </TabsList>
