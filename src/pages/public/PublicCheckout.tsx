@@ -319,17 +319,21 @@ const PublicCheckout = () => {
   if (!store) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loja não encontrada</div>;
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <header className="sticky top-0 z-20 bg-card border-b border-border p-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild><Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link></Button>
-        <h1 className="font-semibold uppercase tracking-wider text-sm">Finalizar pedido</h1>
+    <div className="min-h-screen bg-[#F0FDF4] pb-32 font-sans">
+      <header className="sticky top-0 z-20 bg-emerald-900 text-white p-4 flex items-center gap-3 border-b-4 border-emerald-400">
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" asChild>
+          <Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link>
+        </Button>
+        <h1 className="font-black uppercase tracking-tighter italic">Finalizar Pedido</h1>
       </header>
 
-      <div className="container max-w-xl mx-auto p-4 space-y-4">
-        <Card className="p-5 border-border shadow-elegant">
-          <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight italic">Seus dados</h2>
-            <div className="h-1 w-12 bg-primary mt-1"></div>
+      <div className="container max-w-xl mx-auto p-4 space-y-6 mt-4">
+        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white">
+          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
+            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Seus dados</h2>
           </div>
           <div className="space-y-4">
             <div>
