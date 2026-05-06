@@ -45,11 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       let profileData = data as any;
       
-      // Auto-assign super_admin role for jvieira@vexortech.com.br
-      if (userEmail === "jvieira@vexortech.com.br") {
-        profileData = { ...profileData, role: "super_admin" };
-      }
-      
+      // Removed hardcoded super_admin assignment for jvieira@vexortech.com.br
       setProfile(profileData as Profile | null);
     } catch (err) {
       console.error("Error loading profile:", err);
