@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
+import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getUserRoles, UserRole } from "@/lib/auth/roles";
 
 export type Profile = {
   id: string;
@@ -10,7 +11,7 @@ export type Profile = {
   email: string | null;
   phone: string | null;
   document: string | null;
-  role?: "super_admin" | "store_owner" | "customer" | null;
+  role?: UserRole | null;
   is_exempt?: boolean;
   zip_code?: string | null;
   street?: string | null;
@@ -38,14 +39,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (userId: string, userEmail?: string) => {
+  const loadProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase.from("profiles" as any).select("*").eq("user_id", userId).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles" as any)
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
       if (error) throw error;
       
       let profileData = data as any;
       
-      // Removed hardcoded super_admin assignment for jvieira@vexortech.com.br
+      if (profileData) {
+        // Fetch roles from the user_roles table to be sure
+        const roles = await getUserRoles(userId);
+        if (roles.length > 0) {
+          // Priority: super_admin > store_owner > customer
+          if (roles.includes("super_admin")) profileData.role = "super_admin";
+          else if (roles.includes("store_owner")) profileData.role = "store_owner";
+          else profileData.role = "customer";
+        }
+      }
+      
       setProfile(profileData as Profile | null);
     } catch (err) {
       console.error("Error loading profile:", err);
@@ -59,24 +75,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Set up listener FIRST
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        // Defer to avoid deadlock
-        setTimeout(() => loadProfile(sess.user.id, sess.user.email), 0);
+        setTimeout(() => loadProfile(sess.user.id), 0);
       } else {
         setProfile(null);
       }
     });
 
-    // THEN check existing session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) loadProfile(s.user.id, s.user.email).finally(() => setLoading(false));
-      else setLoading(false);
+      if (s?.user) {
+        loadProfile(s.user.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
     });
 
     return () => sub.subscription.unsubscribe();
@@ -88,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshProfile = async () => {
-    if (user) await loadProfile(user.id, user.email);
+    if (user) await loadProfile(user.id);
   };
 
   return (
