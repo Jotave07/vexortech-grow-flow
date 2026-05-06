@@ -81,7 +81,7 @@ const OrderTracking = () => {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!order) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Pedido não encontrado</div>;
 
-  const steps = order.order_type === "retirada" ? STEPS_PICKUP : STEPS;
+  const steps = order.delivery_type === "retirada" ? STEPS_PICKUP : STEPS;
   const currentIdx = steps.indexOf(order.status);
   const cancelled = order.status === "cancelado";
 
