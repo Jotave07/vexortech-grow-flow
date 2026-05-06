@@ -63,14 +63,18 @@ const CustomerLayout = () => {
               end={item.end}
               onClick={() => setOpen(false)}
               className={({ isActive }) => cn(
-                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200",
+                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200 group",
                 isActive 
                   ? "bg-emerald-600 text-white shadow-md shadow-emerald-200" 
                   : "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
               )}
             >
-              <item.icon className={cn("h-5 w-5", isActive ? "text-emerald-100" : "text-emerald-400")} />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <item.icon className={cn("h-5 w-5", isActive ? "text-emerald-100" : "text-emerald-400 group-hover:text-emerald-600")} />
+                  {item.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
