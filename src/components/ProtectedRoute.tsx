@@ -2,7 +2,13 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
-export const ProtectedRoute = ({ children, superAdminOnly }: { children: React.ReactNode, superAdminOnly?: boolean }) => {
+export const ProtectedRoute = ({ 
+  children, 
+  requiredRole 
+}: { 
+  children: React.ReactNode, 
+  requiredRole?: "super_admin" | "store_owner" | "customer" 
+}) => {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
@@ -18,14 +24,31 @@ export const ProtectedRoute = ({ children, superAdminOnly }: { children: React.R
     return <Navigate to="/entrar" state={{ from: location.pathname }} replace />;
   }
 
-  if (superAdminOnly && profile?.role !== "super_admin" && user?.email !== "jvieira@vexortech.com.br") {
-    return <Navigate to="/app" replace />;
+  // Se um papel específico for exigido, validar rigorosamente
+  if (requiredRole && profile?.role !== requiredRole && user?.email !== "jvieira@vexortech.com.br") {
+    // Redirecionar para o painel correto com base no papel atual do usuário
+    if (profile?.role === "super_admin") return <Navigate to="/admin" replace />;
+    if (profile?.role === "store_owner") return <Navigate to="/lojista" replace />;
+    if (profile?.role === "customer") return <Navigate to="/cliente" replace />;
+    
+    // Fallback caso não tenha perfil ou papel
+    return <Navigate to="/" replace />;
   }
 
-  // Prevent customers from accessing store owner panel (/app)
-  if (location.pathname.startsWith("/app") && profile?.role === "customer") {
-    return <Navigate to="/meu-painel" replace />;
+  // Proteção extra contra acesso cruzado baseado no prefixo da rota
+  const path = location.pathname;
+  if (path.startsWith("/admin") && profile?.role !== "super_admin" && user?.email !== "jvieira@vexortech.com.br") {
+    return <Navigate to="/" replace />;
   }
+  if (path.startsWith("/lojista") && profile?.role !== "store_owner") {
+    return <Navigate to="/" replace />;
+  }
+  if (path.startsWith("/cliente") && profile?.role !== "customer") {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
 
   return <>{children}</>;
 };

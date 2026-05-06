@@ -69,13 +69,16 @@ const App = () => (
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
                 <Route path="/loja/:slug" element={<PublicStore />} />
-                <Route path="/loja/:slug/checkout" element={<ProtectedRoute><PublicCheckout /></ProtectedRoute>} />
+                <Route path="/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
                 <Route path="/pedido/:token" element={<OrderTracking />} />
                 <Route path="/pedido/:token/sucesso" element={<PaymentSuccess />} />
                 <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
-                <Route path="/meu-painel" element={<ProtectedRoute><CustomerDashboard /></ProtectedRoute>} />
+                
+                {/* Painel do Consumidor */}
+                <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerDashboard /></ProtectedRoute>} />
 
-                <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                {/* Painel do Lojista */}
+                <Route path="/lojista" element={<ProtectedRoute requiredRole="store_owner"><AppLayout /></ProtectedRoute>}>
                   <Route path="assinatura" element={<Subscription />} />
                   <Route element={<SubscriptionGuard />}>
                     <Route index element={<Dashboard />} />
@@ -91,7 +94,8 @@ const App = () => (
                   </Route>
                 </Route>
 
-                <Route path="/admin" element={<ProtectedRoute superAdminOnly><AdminLayout /></ProtectedRoute>}>
+                {/* Painel do Proprietário (Admin Geral) */}
+                <Route path="/admin" element={<ProtectedRoute requiredRole="super_admin"><AdminLayout /></ProtectedRoute>}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="lojas" element={<AdminStores />} />
                   <Route path="planos" element={<AdminPlans />} />
