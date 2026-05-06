@@ -17,7 +17,15 @@ export const Navbar = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   
-  const isAdmin = user?.email === "jvieira@vexortech.com.br" || profile?.role === "super_admin";
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      getUserRoles(user.id).then(roles => setIsAdmin(roles.includes("super_admin")));
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
   const isMerchant = profile?.role === "store_owner";
   
   const dashboardPath = isAdmin 
