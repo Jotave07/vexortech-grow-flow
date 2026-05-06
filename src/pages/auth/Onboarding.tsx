@@ -32,15 +32,14 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (!authLoading) {
-      if (profile?.role === "customer") {
-        navigate("/cliente", { replace: true });
-        return;
-      }
-      
       const isStoreOwner = profile?.role === "store_owner";
-      if (profile?.store_id && isStoreOwner) {
+      const isSuperAdmin = profile?.role === "super_admin";
+
+      // Se já tem loja e é lojista, vai para o painel
+      if (profile?.store_id && (isStoreOwner || isSuperAdmin)) {
         navigate("/lojista", { replace: true });
       }
+      // Se é admin sem loja (raro), permite ficar para criar uma se quiser
     }
   }, [authLoading, profile, navigate]);
 

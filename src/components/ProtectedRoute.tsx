@@ -39,21 +39,29 @@ export const ProtectedRoute = ({
   }
 
   // Se um papel específico for exigido, validar rigorosamente
-  if (requiredRole && profile?.role !== requiredRole && user?.email !== "jvieira@vexortech.com.br") {
-    // Redirecionar para o painel correto com base no papel atual do usuário
-    if (profile?.role === "super_admin") return <Navigate to="/admin" replace />;
-    if (profile?.role === "store_owner") return <Navigate to="/lojista" replace />;
-    if (profile?.role === "customer") {
-      // Se ele é cliente mas a rota exige outro papel (como store_owner), ele vai pro painel dele
-      // A menos que ele esteja tentando acessar a loja pública (que não deve ter requiredRole ou deve ter customer)
-      if (path.startsWith("/lojista") || path.startsWith("/admin")) {
+  if (requiredRole) {
+    const isSuperAdmin = profile?.role === "super_admin" || user?.email === "jvieira@vexortech.com.br";
+    const isStoreOwner = profile?.role === "store_owner";
+    const isCustomer = profile?.role === "customer";
+
+    // Se a rota exige ser cliente, lojistas e admins também podem acessar (eles também são clientes)
+    if (requiredRole === "customer") {
+      if (!isCustomer && !isStoreOwner && !isSuperAdmin) {
+        return <Navigate to="/" replace />;
+      }
+    } 
+    // Se a rota exige ser lojista, apenas lojistas e admins podem acessar
+    else if (requiredRole === "store_owner") {
+      if (!isStoreOwner && !isSuperAdmin) {
         return <Navigate to="/cliente" replace />;
       }
-      return <>{children}</>;
     }
-    
-    // Fallback caso não tenha perfil ou papel
-    return <Navigate to="/" replace />;
+    // Se a rota exige ser admin, apenas admins podem acessar
+    else if (requiredRole === "super_admin") {
+      if (!isSuperAdmin) {
+        return <Navigate to="/" replace />;
+      }
+    }
   }
 
   // Proteção extra contra acesso cruzado baseado no prefixo da rota

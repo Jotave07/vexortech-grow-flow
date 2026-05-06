@@ -47,10 +47,15 @@ const Login = () => {
     
     if (role === "super_admin") {
       navigate("/admin", { replace: true });
+    } else if (from) {
+      // Se veio de um redirecionamento (ex: checkout), segue para lá independente do papel
+      navigate(from, { replace: true });
     } else if (role === "store_owner") {
-      navigate(from || "/lojista", { replace: true });
+      // Se é lojista e não tem redirecionamento, vai para o painel de lojista
+      navigate("/lojista", { replace: true });
     } else {
-      navigate(from || "/cliente", { replace: true });
+      // Por padrão vai para o painel de cliente
+      navigate("/cliente", { replace: true });
     }
   };
 
