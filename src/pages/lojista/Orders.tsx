@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useOutletContext, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
+import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
+import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
+import { useServerFn } from "@tanstack/react-start";
+import { motion, AnimatePresence } from "framer-motion";
+
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
