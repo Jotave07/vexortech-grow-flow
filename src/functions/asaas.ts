@@ -118,39 +118,26 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     console.log(`[asaas] Payment created: ${payment.id}. Fetching PIX QR Code...`);
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
 
-    if (qrCode.errors) {
-      console.error("[asaas] Error fetching QR Code during creation:", qrCode.errors);
-      // Even if QR code fails, we have the payment. The user can retry on the tracking page.
-    }
-
-    // 6. Update or Insert payment in DB
+    // Update or Insert payment in DB
     const { data: existingPayment } = await supabaseAdmin
       .from("payments")
       .select("id")
       .eq("order_id", order.id)
       .maybeSingle();
 
-    const paymentData = { 
+    const paymentData = {
       order_id: order.id,
       store_id: data.storeId,
       amount: Number(order.total),
       external_id: payment.id,
       asaas_id: payment.id,
-      status: "pendente",
-      updated_at: new Date().toISOString()
+      status: "pendente"
     };
 
     if (existingPayment) {
-      const { error: pErr } = await supabaseAdmin
-        .from("payments")
-        .update(paymentData)
-        .eq("id", existingPayment.id);
-      if (pErr) throw pErr;
+      await supabaseAdmin.from("payments").update(paymentData).eq("id", existingPayment.id);
     } else {
-      const { error: pErr } = await supabaseAdmin
-        .from("payments")
-        .insert(paymentData);
-      if (pErr) throw pErr;
+      await supabaseAdmin.from("payments").insert(paymentData);
     }
 
     return {
@@ -176,7 +163,6 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
 
     if (!storeSettings?.asaas_api_key) throw new Error("Configuração ausente");
 
-    // Try to find existing payment
     const { data: payment } = await supabaseAdmin
       .from("payments")
       .select("external_id, asaas_id, status")
@@ -185,16 +171,10 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
 
     let externalId = payment?.external_id || payment?.asaas_id;
 
-    // If no payment record exists, try to create one (recovery)
     if (!externalId) {
       console.log(`[asaas] Payment record missing for order ${data.orderId}. Attempting recovery...`);
       try {
-        const { data: order } = await supabaseAdmin
-          .from("orders")
-          .select("*")
-          .eq("id", data.orderId)
-          .single();
-
+        const { data: order } = await supabaseAdmin.from("orders").select("*").eq("id", data.orderId).single();
         if (order && order.payment_method === "pix") {
           const asaasCustomer = await asaas.createCustomer({
             name: (order as any).customer_name || "Cliente",
@@ -220,19 +200,21 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
               external_id: externalId,
               status: "pendente"
             });
+          } else {
+             return { error: asaasPayment.errors[0].description };
           }
         }
       } catch (e) {
-        console.error("[asaas] Recovery failed:", e);
+        return { error: "Falha na recuperação do pagamento" };
       }
     }
 
     if (!externalId) return null;
 
+    console.log(`[asaas] Fetching PIX QR Code for payment ${externalId}...`);
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, externalId);
     if (qrCode.errors) {
-      console.error("[asaas] QR Code error:", qrCode.errors);
-      return null;
+      return { error: qrCode.errors[0].description };
     }
 
     return {
