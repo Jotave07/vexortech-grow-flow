@@ -25,27 +25,37 @@ const OrderTracking = () => {
 
   const load = useCallback(async () => {
     if (!token) return;
-    const [{ data: o }, { data: it }, { data: h }] = await Promise.all([
-      supabase.rpc("get_public_order", { _token: token }),
-      supabase.rpc("get_public_order_items", { _token: token }),
-      supabase.rpc("get_public_order_status_history", { _token: token }),
-    ]);
-    const orderData = o?.[0] ?? null;
-    setOrder(orderData);
-    setItems(it ?? []);
-    setHistory(h ?? []);
-    
-    if (orderData && orderData.payment_method === "pix" && !pixInfo) {
-      try {
-        const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id } });
-        setPixInfo(info);
-      } catch (e) {
-        console.error("Error loading PIX:", e);
+    try {
+      const [{ data: o, error: oErr }, { data: it, error: itErr }, { data: h, error: hErr }] = await Promise.all([
+        supabase.rpc("get_public_order", { _token: token }),
+        supabase.rpc("get_public_order_items", { _token: token }),
+        supabase.rpc("get_public_order_status_history", { _token: token }),
+      ]);
+
+      if (oErr) throw oErr;
+      if (itErr) throw itErr;
+      if (hErr) throw hErr;
+
+      const orderData = o?.[0] ?? null;
+      setOrder(orderData);
+      setItems(it ?? []);
+      setHistory(h ?? []);
+      
+      if (orderData && orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento") {
+        try {
+          const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id } });
+          setPixInfo(info);
+        } catch (e) {
+          console.error("Error loading PIX info:", e);
+        }
       }
+    } catch (e) {
+      console.error("Error loading order:", e);
+      toast.error("Erro ao carregar dados do pedido");
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
-  }, [token, pixInfo, getOrderPaymentInfoFn]);
+  }, [token, getOrderPaymentInfoFn]);
 
   useEffect(() => {
     void load();
