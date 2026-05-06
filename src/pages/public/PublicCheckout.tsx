@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
-import { createOrderPayment } from "@/server/asaas.functions";
+import { createOrderPayment } from "@/server/asaas";
 import { fetchAddressByCep } from "@/services/viacep";
 import { cn } from "@/lib/utils";
 
