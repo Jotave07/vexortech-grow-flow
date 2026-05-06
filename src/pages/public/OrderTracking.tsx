@@ -288,31 +288,107 @@ const OrderTracking = () => {
           </Card>
         )}
 
-        <Card className="p-6 border-2 border-black rounded-none">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-black uppercase tracking-tighter italic">Status do pedido</h2>
-            <Badge className="rounded-none border-2 border-black text-xs font-black uppercase px-3 py-1" variant={cancelled ? "destructive" : "default"}>
+        <Card className="p-6 border-2 border-black rounded-none overflow-hidden relative">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="font-black uppercase tracking-tighter italic text-lg">Acompanhe seu pedido</h2>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Atualizações em tempo real</p>
+            </div>
+            <Badge className={`rounded-none border-2 border-black text-[10px] font-black uppercase px-3 py-1 ${cancelled ? "bg-red-500" : "bg-primary"}`}>
               {STATUS_LABELS[order.status] ?? order.status}
             </Badge>
           </div>
           
-          <div className="space-y-4">
-            {steps.map((s, i) => {
-              const reached = i <= currentIdx;
-              const isCurrent = i === currentIdx;
-              return (
-                <div key={s} className="flex items-center gap-4">
-                  <div className={`w-8 h-8 flex items-center justify-center border-2 border-black ${reached ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
-                    {reached ? <CheckCircle2 className="h-5 w-5" /> : <div className="h-2 w-2 bg-current rounded-full" />}
+          <div className="relative pt-2 pb-8">
+            {/* Progress Line Background */}
+            <div className="absolute top-7 left-0 w-full h-1 bg-muted rounded-full" />
+            
+            {/* Progress Line Active */}
+            <motion.div 
+              className="absolute top-7 left-0 h-1 bg-primary rounded-full"
+              initial={{ width: 0 }}
+              animate={{ 
+                width: `${(TRACKING_STEPS.findIndex(s => s.statuses.includes(order.status)) / (TRACKING_STEPS.length - 1)) * 100}%` 
+              }}
+              transition={{ duration: 1, ease: "circOut" }}
+            />
+
+            <div className="relative flex justify-between">
+              {TRACKING_STEPS.map((step, idx) => {
+                const stepIdx = TRACKING_STEPS.findIndex(s => s.statuses.includes(order.status));
+                const isCompleted = idx < stepIdx;
+                const isCurrent = idx === stepIdx;
+                const Icon = step.icon;
+                
+                // Adjust label for pickup
+                let label = step.label;
+                if (step.id === 'route' && order.delivery_type === 'retirada') {
+                  label = 'Pronto';
+                }
+
+                return (
+                  <div key={step.id} className="flex flex-col items-center group">
+                    <motion.div 
+                      initial={false}
+                      animate={{ 
+                        scale: isCurrent ? [1, 1.1, 1] : 1,
+                        backgroundColor: isCompleted || isCurrent ? "var(--primary)" : "white",
+                        borderColor: isCompleted || isCurrent ? "black" : "#e2e8f0"
+                      }}
+                      transition={{ 
+                        scale: isCurrent ? { repeat: Infinity, duration: 2 } : { duration: 0.3 }
+                      }}
+                      className={`w-14 h-14 rounded-full border-4 flex items-center justify-center z-10 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white`}
+                    >
+                      <Icon className={`h-6 w-6 ${isCompleted || isCurrent ? "text-white" : "text-muted-foreground"}`} />
+                      
+                      {isCompleted && (
+                        <motion.div 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-black"
+                        >
+                          <Check className="h-3 w-3 stroke-[4px]" />
+                        </motion.div>
+                      )}
+                    </motion.div>
+                    
+                    <div className="mt-4 text-center">
+                      <span className={`text-[10px] font-black uppercase tracking-tighter leading-none block ${isCurrent ? "text-primary" : "text-muted-foreground"}`}>
+                        {label}
+                      </span>
+                    </div>
                   </div>
-                  <span className={`text-sm uppercase font-black tracking-tight ${reached ? "text-foreground" : "text-muted-foreground"}`}>
-                    {STATUS_LABELS[s]}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Detailed Timeline - Optional but good for transparency */}
+          <div className="mt-6 space-y-3 pt-6 border-t border-dashed border-black/10">
+            <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground">Histórico Detalhado</h4>
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {history.slice(0, 3).map((h, i) => (
+                  <motion.div 
+                    key={h.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="flex items-start gap-3"
+                  >
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary ring-4 ring-primary/10 flex-shrink-0" />
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-tight">{STATUS_LABELS[h.status] || h.status}</p>
+                      <p className="text-[9px] text-muted-foreground font-medium">{new Date(h.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
         </Card>
+
 
         <Card className="p-6 border-2 border-black rounded-none space-y-4">
           <h3 className="font-black uppercase tracking-tighter italic text-sm">Resumo da Compra</h3>
