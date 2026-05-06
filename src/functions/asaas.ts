@@ -168,11 +168,11 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
     // Try to find existing payment
     const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select("external_id, status")
+      .select("external_id, asaas_id, status")
       .eq("order_id", data.orderId)
       .maybeSingle();
 
-    let externalId = payment?.external_id;
+    let externalId = payment?.external_id || payment?.asaas_id;
 
     // If no payment record exists, try to create one (recovery)
     if (!externalId) {
