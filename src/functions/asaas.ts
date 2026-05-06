@@ -112,13 +112,32 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
 
-    await supabaseAdmin
+    // 6. Update or Insert payment in DB
+    const { data: existingPayment } = await supabaseAdmin
       .from("payments")
-      .update({ 
-        external_id: payment.id,
-        status: "pendente" 
-      })
-      .eq("order_id", order.id);
+      .select("id")
+      .eq("order_id", order.id)
+      .maybeSingle();
+
+    if (existingPayment) {
+      await supabaseAdmin
+        .from("payments")
+        .update({ 
+          external_id: payment.id,
+          status: "pendente" 
+        })
+        .eq("id", existingPayment.id);
+    } else {
+      await supabaseAdmin
+        .from("payments")
+        .insert({
+          order_id: order.id,
+          store_id: data.storeId,
+          amount: Number(order.total),
+          external_id: payment.id,
+          status: "pendente"
+        });
+    }
 
     return {
       paymentId: payment.id,
