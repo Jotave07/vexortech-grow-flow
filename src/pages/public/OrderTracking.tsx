@@ -1,18 +1,27 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check } from "lucide-react";
+import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check, Bike, ChefHat, PackageCheck, Wallet } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
 const STEPS_PICKUP = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
+
+const TRACKING_STEPS = [
+  { id: 'payment', label: 'Pagamento', icon: Wallet, statuses: ['aguardando_pagamento'] },
+  { id: 'preparing', label: 'Na Cozinha', icon: ChefHat, statuses: ['novo', 'confirmado', 'em_preparo'] },
+  { id: 'route', label: 'Em Rota', icon: Bike, statuses: ['saiu_para_entrega', 'pronto_para_retirada'] },
+  { id: 'delivered', label: 'Entregue', icon: PackageCheck, statuses: ['entregue'] },
+];
+
 
 const OrderTracking = () => {
   const { token } = useParams();
