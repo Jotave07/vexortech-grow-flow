@@ -27,7 +27,7 @@ const schema = z.object({
 const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const redirect = new URLSearchParams(location.search).get("redirect");
   const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
@@ -112,6 +112,9 @@ const Signup = () => {
       return;
     }
     toast.success("Conta criada! Bem-vindo.");
+    
+    // Explicitly refresh profile after creation and wait for it
+    await refreshProfile();
     
     if (redirect) {
       navigate(redirect, { replace: true });
