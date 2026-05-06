@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
