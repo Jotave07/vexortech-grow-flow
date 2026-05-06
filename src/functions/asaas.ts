@@ -110,6 +110,11 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       throw new Error(`Erro Asaas da Loja: ${payment.errors[0].description}`);
     }
 
+    if (!payment?.id) {
+      console.error("[asaas] Payment created but ID is missing:", payment);
+      throw new Error("Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.");
+    }
+
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
 
     // 6. Update or Insert payment in DB
