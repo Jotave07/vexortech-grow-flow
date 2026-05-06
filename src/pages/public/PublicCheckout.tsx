@@ -25,7 +25,7 @@ const PublicCheckout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
 
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
