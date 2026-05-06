@@ -531,8 +531,10 @@ const PublicCheckout = () => {
                 Acompanhar Pedido
               </Button>
             </div>
-          </div>
-        </DialogContent>
+          </>
+        )}
+      </div>
+    </DialogContent>
       </Dialog>
     </div>
   );
