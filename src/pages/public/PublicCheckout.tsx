@@ -185,7 +185,6 @@ const PublicCheckout = () => {
               full_name: name.trim().toUpperCase(),
               phone: onlyDigits(phone),
               document: onlyDigits(document),
-              email: user.email,
               street: street.toUpperCase(),
               number: number,
               neighborhood: neighborhood.toUpperCase(),
