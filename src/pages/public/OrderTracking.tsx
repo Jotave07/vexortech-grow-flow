@@ -1,25 +1,29 @@
-import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode } from "lucide-react";
+import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
 const STEPS_PICKUP = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
 
 const OrderTracking = () => {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pixInfo, setPixInfo] = useState<any>(null);
+  const [isPaidSuccess, setIsPaidSuccess] = useState(false);
+  const lastStatus = useRef<string | null>(null);
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
