@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          store_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          store_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -158,6 +199,35 @@ export type Database = {
           zip_code?: string
         }
         Relationships: []
+      }
+      customer_favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          store_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          store_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          store_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_favorites_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
@@ -423,6 +493,9 @@ export type Database = {
       }
       orders: {
         Row: {
+          accepted_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
           change_for: number | null
           coupon_code: string | null
           coupon_id: string | null
@@ -432,6 +505,7 @@ export type Database = {
           customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
+          delivered_at: string | null
           delivery_address: string | null
           delivery_city: string | null
           delivery_fee: number | null
@@ -440,14 +514,20 @@ export type Database = {
           delivery_type: string | null
           delivery_zip_code: string | null
           discount_amount: number | null
+          estimated_delivery_at: string | null
+          estimated_ready_at: string | null
           id: string
           idempotency_key: string | null
           is_seen: boolean | null
           notes: string | null
           order_number: number
+          out_for_delivery_at: string | null
           payment_method: string | null
           payment_status: string | null
+          preparation_started_at: string | null
           public_token: string | null
+          ready_at: string | null
+          refused_reason: string | null
           scheduled_at: string | null
           status: string | null
           store_id: string
@@ -456,6 +536,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          accepted_at?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           change_for?: number | null
           coupon_code?: string | null
           coupon_id?: string | null
@@ -465,6 +548,7 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          delivered_at?: string | null
           delivery_address?: string | null
           delivery_city?: string | null
           delivery_fee?: number | null
@@ -473,14 +557,20 @@ export type Database = {
           delivery_type?: string | null
           delivery_zip_code?: string | null
           discount_amount?: number | null
+          estimated_delivery_at?: string | null
+          estimated_ready_at?: string | null
           id?: string
           idempotency_key?: string | null
           is_seen?: boolean | null
           notes?: string | null
           order_number?: number
+          out_for_delivery_at?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          preparation_started_at?: string | null
           public_token?: string | null
+          ready_at?: string | null
+          refused_reason?: string | null
           scheduled_at?: string | null
           status?: string | null
           store_id: string
@@ -489,6 +579,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          accepted_at?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           change_for?: number | null
           coupon_code?: string | null
           coupon_id?: string | null
@@ -498,6 +591,7 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          delivered_at?: string | null
           delivery_address?: string | null
           delivery_city?: string | null
           delivery_fee?: number | null
@@ -506,14 +600,20 @@ export type Database = {
           delivery_type?: string | null
           delivery_zip_code?: string | null
           discount_amount?: number | null
+          estimated_delivery_at?: string | null
+          estimated_ready_at?: string | null
           id?: string
           idempotency_key?: string | null
           is_seen?: boolean | null
           notes?: string | null
           order_number?: number
+          out_for_delivery_at?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          preparation_started_at?: string | null
           public_token?: string | null
+          ready_at?: string | null
+          refused_reason?: string | null
           scheduled_at?: string | null
           status?: string | null
           store_id?: string
@@ -854,6 +954,57 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: []
+      }
+      store_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          is_visible: boolean | null
+          order_id: string
+          rating: number
+          store_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          is_visible?: boolean | null
+          order_id: string
+          rating: number
+          store_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          is_visible?: boolean | null
+          order_id?: string
+          rating?: number
+          store_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_reviews_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       store_settings: {
         Row: {
@@ -1332,6 +1483,13 @@ export type Database = {
               status: string
             }[]
           }
+      get_store_rating: {
+        Args: { p_store_id: string }
+        Returns: {
+          avg_rating: number
+          total_reviews: number
+        }[]
+      }
       is_vexor_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
