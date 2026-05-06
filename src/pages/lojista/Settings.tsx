@@ -17,7 +17,8 @@ import { fetchAddressByCep, ViaCepError, buildAddressLabel, normalizeCep } from 
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
-import { testAsaasConnection } from "@/server/asaas.functions";
+import { useServerFn } from "@tanstack/react-start";
+import * as AsaasFunctions from "@/server/asaas.functions";
 
 type StoreRow = Tables<"stores">;
 type StoreSettingsRow = Tables<"store_settings">;
@@ -72,6 +73,8 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [cepLookup, setCepLookup] = useState<CepLookupState>({ status: "idle" });
+  
+  const testAsaasConnectionFn = useServerFn(AsaasFunctions.testAsaasConnection);
 
   const load = useCallback(async () => {
     if (!store?.id) return;
