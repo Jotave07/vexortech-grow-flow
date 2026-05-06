@@ -750,7 +750,7 @@ const Settings = () => {
                         const key = (storeSettings as any).asaas_api_key;
                         if (!key) return toast.error("Insira a chave de API primeiro.");
                         toast.loading("Testando conexão...");
-                        const result = await testAsaasConnection({ data: { apiKey: key } });
+                        const result = await testAsaasConnectionFn({ data: { apiKey: key } });
                         toast.dismiss();
                         if (result.success) toast.success(result.message);
                         else toast.error(result.message);
