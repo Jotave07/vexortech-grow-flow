@@ -423,6 +423,22 @@ const PublicCheckout = () => {
                   </Label>
                 </div>
               )}
+              {settings?.accept_card_on_delivery && (
+                <>
+                  <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'cartao_credito_entrega' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                    <RadioGroupItem value="cartao_credito_entrega" id="cartao_credito_entrega" />
+                    <Label htmlFor="cartao_credito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                      <CreditCard className="h-5 w-5" /> Cartão de Crédito (na entrega)
+                    </Label>
+                  </div>
+                  <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'cartao_debito_entrega' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                    <RadioGroupItem value="cartao_debito_entrega" id="cartao_debito_entrega" />
+                    <Label htmlFor="cartao_debito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                      <CreditCard className="h-5 w-5" /> Cartão de Débito (na entrega)
+                    </Label>
+                  </div>
+                </>
+              )}
             </RadioGroup>
             {paymentMethod === "dinheiro" && (
               <div className="animate-in slide-in-from-left-4">
