@@ -185,12 +185,12 @@ const PublicCheckout = () => {
     setSubmitting(true);
     try {
       // Security check: ensure user is NOT a store owner trying to buy as customer
-      if (profile?.role === 'store_owner' || profile?.role === 'admin') {
+      if (profile?.role === 'store_owner') {
         const isOwnerOfThisStore = store.owner_user_id === user?.id;
         
         if (isOwnerOfThisStore) {
           setSubmitting(false);
-          return toast.error("Você é o administrador desta loja. Para realizar compras, por favor use uma conta de cliente diferente.", {
+          return toast.error("Você é o administrador desta loja. Para realizar compras, use uma conta de cliente.", {
             action: {
               label: "Sair agora",
               onClick: () => signOut().then(() => navigate(`/loja/${slug}`))
@@ -198,8 +198,6 @@ const PublicCheckout = () => {
             duration: 10000
           });
         }
-        // If it's a store owner but NOT the owner of this specific store, we can let them buy, 
-        // or at least be more specific with the message.
       }
 
       const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id || "").maybeSingle();
