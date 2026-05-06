@@ -362,7 +362,7 @@ const Orders = () => {
               </div>
 
               <div className="text-xs">
-                <div>Pagamento: <span className="font-medium capitalize">{selected.payment_method.replace("_", " ")}</span></div>
+                <div>Pagamento: <span className="font-medium">{PAYMENT_METHOD_LABELS[selected.payment_method] || selected.payment_method}</span></div>
                 {selected.change_for && <div>Troco para: {formatBRL(selected.change_for)}</div>}
                 {selected.notes && <div className="mt-1 italic">Obs: "{selected.notes}"</div>}
               </div>
