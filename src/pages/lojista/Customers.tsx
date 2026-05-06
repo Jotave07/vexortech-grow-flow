@@ -35,7 +35,7 @@ const Customers = () => {
 
   const openHistory = async (c: any) => {
     setSelected(c);
-    const { data } = await supabase.from("orders").select("id, order_number, status, total, created_at, order_type")
+    const { data } = await supabase.from("orders").select("id, order_number, status, total, created_at, delivery_type")
       .eq("store_id", store.id).eq("customer_id", c.id).order("created_at", { ascending: false }).limit(50);
     setOrders(data ?? []);
   };
