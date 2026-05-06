@@ -120,15 +120,16 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (existingPayment) {
-      await supabaseAdmin
+      const { error: pErr } = await supabaseAdmin
         .from("payments")
         .update({ 
           external_id: payment.id,
           status: "pendente" 
         })
         .eq("id", existingPayment.id);
+      if (pErr) throw pErr;
     } else {
-      await supabaseAdmin
+      const { error: pErr } = await supabaseAdmin
         .from("payments")
         .insert({
           order_id: order.id,
@@ -137,6 +138,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
           external_id: payment.id,
           status: "pendente"
         });
+      if (pErr) throw pErr;
     }
 
     return {
