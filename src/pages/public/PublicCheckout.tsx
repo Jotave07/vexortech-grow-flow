@@ -337,8 +337,8 @@ const PublicCheckout = () => {
           </div>
           <div className="space-y-4">
             <div>
-              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nome *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
+              <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nome Completo *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-2 border-emerald-50 focus:border-emerald-500 h-11 font-bold" placeholder="NOME COMPLETO" />
             </div>
             <div>
               <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CPF ou CNPJ *</Label>
