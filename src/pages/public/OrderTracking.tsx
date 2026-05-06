@@ -27,25 +27,51 @@ const OrderTracking = () => {
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
-  const load = useCallback(async () => {
-    if (!token) return;
+  const load = useCallback(async (isAutoRefresh = false) => {
+    if (!token || token === "undefined") return;
+    
     try {
-      const [{ data: o, error: oErr }, { data: it, error: itErr }, { data: h, error: hErr }] = await Promise.all([
-        supabase.rpc("get_public_order", { _token: token }),
+      const { data: o, error: oErr } = await supabase.rpc("get_public_order", { _token: token });
+      if (oErr) {
+        console.error("RPC Error get_public_order:", oErr);
+        throw oErr;
+      }
+
+      const orderData = o?.[0] ?? null;
+      if (!orderData) {
+        console.warn("No order found for token:", token);
+        setOrder(null);
+        setLoading(false);
+        return;
+      }
+
+      // Check if status changed from aguardando_pagamento to something else
+      if (lastStatus.current === "aguardando_pagamento" && orderData.status !== "aguardando_pagamento") {
+        setIsPaidSuccess(true);
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#10b981', '#059669', '#34d399']
+        });
+        
+        // After 5 seconds, clear the success overlay to show the tracking
+        setTimeout(() => setIsPaidSuccess(false), 5000);
+      }
+      
+      lastStatus.current = orderData.status;
+      setOrder(orderData);
+
+      // Fetch other data in parallel
+      const [{ data: it }, { data: h }] = await Promise.all([
         supabase.rpc("get_public_order_items", { _token: token }),
         supabase.rpc("get_public_order_status_history", { _token: token }),
       ]);
 
-      if (oErr) throw oErr;
-      if (itErr) throw itErr;
-      if (hErr) throw hErr;
-
-      const orderData = o?.[0] ?? null;
-      setOrder(orderData);
       setItems(it ?? []);
       setHistory(h ?? []);
       
-      if (orderData && orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento") {
+      if (orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento" && !pixInfo) {
         try {
           const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id } });
           setPixInfo(info);
@@ -53,13 +79,15 @@ const OrderTracking = () => {
           console.error("Error loading PIX info:", e);
         }
       }
-    } catch (e) {
-      console.error("Error loading order:", e);
-      toast.error("Erro ao carregar dados do pedido");
+    } catch (e: any) {
+      console.error("Error loading order context:", e);
+      if (!isAutoRefresh) {
+        toast.error("Erro ao carregar dados do pedido");
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, getOrderPaymentInfoFn]);
+  }, [token, getOrderPaymentInfoFn, pixInfo]);
 
   useEffect(() => {
     if (!token) return;
