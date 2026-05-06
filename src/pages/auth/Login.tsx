@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
+import { getUserRoles } from "@/lib/auth/roles";
 import { AuthShell } from "./AuthShell";
 
 const Login = () => {
