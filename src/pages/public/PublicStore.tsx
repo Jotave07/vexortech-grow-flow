@@ -240,6 +240,15 @@ const PublicStore = () => {
       </section>
 
       <div className="container mx-auto px-4 pt-8">
+        {user && profile?.role === 'store_owner' && store.owner_user_id === user.id && (
+          <div className="mb-6 border border-blue-200 bg-blue-50 p-4 text-center">
+            <p className="text-sm text-blue-800 font-medium">
+              Você está visualizando sua loja como <strong>Administrador</strong>. 
+              Para testar o fluxo de compra completo como cliente, por favor use uma conta de cliente ou <button onClick={() => signOut()} className="underline font-bold hover:text-blue-600">saia da conta</button>.
+            </p>
+          </div>
+        )}
+
         {isSuspended && (
           <div className="mb-6 border-4 border-destructive bg-destructive/10 p-6 text-center text-destructive">
             <h3 className="text-xl font-black uppercase tracking-tight italic mb-2">Operação Temporariamente Suspensa</h3>
