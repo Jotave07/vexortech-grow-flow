@@ -120,15 +120,16 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (existingPayment) {
-      await supabaseAdmin
+      const { error: pErr } = await supabaseAdmin
         .from("payments")
         .update({ 
           external_id: payment.id,
           status: "pendente" 
         })
         .eq("id", existingPayment.id);
+      if (pErr) throw pErr;
     } else {
-      await supabaseAdmin
+      const { error: pErr } = await supabaseAdmin
         .from("payments")
         .insert({
           order_id: order.id,
@@ -137,6 +138,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
           external_id: payment.id,
           status: "pendente"
         });
+      if (pErr) throw pErr;
     }
 
     return {
@@ -161,16 +163,64 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
 
     if (!storeSettings?.asaas_api_key) throw new Error("Configuração ausente");
 
+    // Try to find existing payment
     const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select("external_id")
+      .select("external_id, status")
       .eq("order_id", data.orderId)
-      .single();
+      .maybeSingle();
 
-    if (!payment?.external_id) return null;
+    let externalId = payment?.external_id;
 
-    const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.external_id);
-    if (qrCode.errors) return null;
+    // If no payment record exists, try to create one (recovery)
+    if (!externalId) {
+      console.log(`[asaas] Payment record missing for order ${data.orderId}. Attempting recovery...`);
+      try {
+        const { data: order } = await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("id", data.orderId)
+          .single();
+
+        if (order && order.payment_method === "pix") {
+          const asaasCustomer = await asaas.createCustomer({
+            name: (order as any).customer_name || "Cliente",
+            email: (order as any).customer_email || "",
+            cpfCnpj: (order as any).customer_document || "",
+            mobilePhone: (order as any).customer_phone || undefined,
+          }, storeSettings.asaas_api_key);
+
+          const asaasPayment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
+            customer: asaasCustomer.id,
+            value: Number(order.total),
+            dueDate: new Date().toISOString().split('T')[0],
+            description: `Pedido #${order.order_number} - ${order.customer_name}`,
+            externalReference: order.id,
+          });
+
+          if (!asaasPayment.errors) {
+            externalId = asaasPayment.id;
+            await supabaseAdmin.from("payments").insert({
+              order_id: order.id,
+              store_id: data.storeId,
+              amount: Number(order.total),
+              external_id: externalId,
+              status: "pendente"
+            });
+          }
+        }
+      } catch (e) {
+        console.error("[asaas] Recovery failed:", e);
+      }
+    }
+
+    if (!externalId) return null;
+
+    const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, externalId);
+    if (qrCode.errors) {
+      console.error("[asaas] QR Code error:", qrCode.errors);
+      return null;
+    }
 
     return {
       pixCode: qrCode.payload || null,

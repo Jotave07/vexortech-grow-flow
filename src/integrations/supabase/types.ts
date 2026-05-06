@@ -1353,136 +1353,49 @@ export type Database = {
         Args: { c_name: string; t_name: string }
         Returns: boolean
       }
-      get_public_order:
-        | {
-            Args: { _order_id: string }
-            Returns: {
-              created_at: string
-              delivery_type: string
-              id: string
-              notes: string
-              payment_method: string
-              status: string
-              store_name: string
-              total: number
-            }[]
-          }
-        | {
-            Args: { _order_id: string; _token?: string }
-            Returns: {
-              created_at: string
-              delivery_type: string
-              id: string
-              notes: string
-              payment_method: string
-              payment_status: string
-              status: string
-              store_id: string
-              store_name: string
-              total: number
-            }[]
-          }
-        | {
-            Args: { _token: string }
-            Returns: {
-              created_at: string
-              delivery_fee: number
-              delivery_type: string
-              id: string
-              notes: string
-              order_number: number
-              payment_method: string
-              payment_status: string
-              public_token: string
-              status: string
-              store_id: string
-              store_name: string
-              subtotal: number
-              total: number
-            }[]
-          }
-        | {
-            Args: { _order_id?: string; _token: string }
-            Returns: {
-              created_at: string
-              delivery_type: string
-              id: string
-              notes: string
-              payment_method: string
-              payment_status: string
-              public_token: string
-              status: string
-              store_id: string
-              store_name: string
-              total: number
-            }[]
-          }
-      get_public_order_items:
-        | {
-            Args: { _order_id: string }
-            Returns: {
-              id: string
-              product_name: string
-              quantity: number
-              unit_price: number
-            }[]
-          }
-        | {
-            Args: { _order_id: string; _token?: string }
-            Returns: {
-              id: string
-              product_name: string
-              quantity: number
-              unit_price: number
-            }[]
-          }
-        | {
-            Args: { _token: string }
-            Returns: {
-              id: string
-              options: Json
-              product_name: string
-              quantity: number
-              unit_price: number
-            }[]
-          }
-        | {
-            Args: { _order_id?: string; _token: string }
-            Returns: {
-              id: string
-              product_name: string
-              quantity: number
-              unit_price: number
-            }[]
-          }
-      get_public_order_status_history:
-        | {
-            Args: { _order_id: string }
-            Returns: {
-              created_at: string
-              id: string
-              notes: string
-              status: string
-            }[]
-          }
-        | {
-            Args: { _order_id: string; _token?: string }
-            Returns: {
-              created_at: string
-              id: string
-              notes: string
-              status: string
-            }[]
-          }
-        | {
-            Args: { _order_id?: string; _token: string }
-            Returns: {
-              created_at: string
-              id: string
-              notes: string
-              status: string
-            }[]
-          }
+      get_public_order: {
+        Args: { _token: string }
+        Returns: {
+          change_for: number
+          created_at: string
+          delivery_fee: number
+          delivery_type: string
+          discount_amount: number
+          id: string
+          notes: string
+          order_number: number
+          payment_method: string
+          payment_status: string
+          public_token: string
+          status: string
+          store_id: string
+          store_logo_url: string
+          store_name: string
+          store_whatsapp: string
+          subtotal: number
+          total: number
+        }[]
+      }
+      get_public_order_items: {
+        Args: { _token: string }
+        Returns: {
+          id: string
+          notes: string
+          options: Json
+          product_name: string
+          quantity: number
+          unit_price: number
+        }[]
+      }
+      get_public_order_status_history: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string
+          id: string
+          notes: string
+          status: string
+        }[]
+      }
       get_store_rating: {
         Args: { p_store_id: string }
         Returns: {
