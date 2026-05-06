@@ -775,10 +775,16 @@ const Settings = () => {
                   onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_pix: val })}
                 />
                 <SwitchRow
-                  label="Pagamento na Entrega"
-                  description="Dinheiro ou Maquininha (Presencial)."
-                  checked={!!(storeSettings.accept_cash || storeSettings.accept_card_on_delivery)}
-                  onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_cash: val, accept_card_on_delivery: val })}
+                  label="Aceitar Dinheiro"
+                  description="Pagamento em espécie na entrega."
+                  checked={!!storeSettings.accept_cash}
+                  onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_cash: val })}
+                />
+                <SwitchRow
+                  label="Cartão na Entrega"
+                  description="Crédito ou Débito na maquininha."
+                  checked={!!storeSettings.accept_card_on_delivery}
+                  onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_card_on_delivery: val })}
                 />
               </div>
 
