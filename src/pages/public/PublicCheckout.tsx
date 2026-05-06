@@ -86,6 +86,35 @@ const PublicCheckout = () => {
       setState((profile as any).state || "");
     }
   }, [profile]);
+  
+  // Real-time payment verification while modal is open
+  useEffect(() => {
+    if (!showPixModal || !createdOrder?.id || isPaid) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const result = await syncPaymentStatusFn({ 
+          data: { 
+            orderId: createdOrder.id, 
+            storeId: store.id 
+          } 
+        });
+        
+        if (result.status === "paid") {
+          setIsPaid(true);
+          toast.success("Pagamento confirmado!");
+          setTimeout(() => {
+            setShowPixModal(false);
+            navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
+          }, 2000);
+        }
+      } catch (e) {
+        console.error("Error syncing payment:", e);
+      }
+    }, 4000); // Check every 4s
+    
+    return () => clearInterval(interval);
+  }, [showPixModal, createdOrder, store?.id, isPaid, navigate, syncPaymentStatusFn]);
 
   useEffect(() => {
     if (!slug) return;
