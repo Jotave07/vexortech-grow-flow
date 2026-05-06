@@ -8,17 +8,17 @@ import { BarChart3, CreditCard, ExternalLink, LayoutDashboard, Loader2, LogOut, 
 import { cn } from "@/lib/utils";
 
 const menu = [
-  { to: "/app", icon: LayoutDashboard, label: "Dashboard", end: true },
-  { to: "/app/pedidos", icon: ShoppingBag, label: "Pedidos" },
-  { to: "/app/cardapio", icon: UtensilsCrossed, label: "Cardapio" },
-  { to: "/app/categorias", icon: Tags, label: "Categorias" },
-  { to: "/app/clientes", icon: Users, label: "Clientes" },
-  { to: "/app/cupons", icon: Ticket, label: "Cupons" },
-  { to: "/app/entregas", icon: Truck, label: "Entregas" },
-  { to: "/app/relatorios", icon: BarChart3, label: "Relatorios" },
-  { to: "/app/configuracoes", icon: Settings, label: "Configuracoes" },
-  { to: "/app/assinatura", icon: CreditCard, label: "Assinatura" },
-  { to: "/app/usuarios", icon: UserCog, label: "Usuarios" },
+  { to: "/lojista", icon: LayoutDashboard, label: "Dashboard", end: true },
+  { to: "/lojista/pedidos", icon: ShoppingBag, label: "Pedidos" },
+  { to: "/lojista/cardapio", icon: UtensilsCrossed, label: "Cardapio" },
+  { to: "/lojista/categorias", icon: Tags, label: "Categorias" },
+  { to: "/lojista/clientes", icon: Users, label: "Clientes" },
+  { to: "/lojista/cupons", icon: Ticket, label: "Cupons" },
+  { to: "/lojista/entregas", icon: Truck, label: "Entregas" },
+  { to: "/lojista/relatorios", icon: BarChart3, label: "Relatorios" },
+  { to: "/lojista/configuracoes", icon: Settings, label: "Configuracoes" },
+  { to: "/lojista/assinatura", icon: CreditCard, label: "Assinatura" },
+  { to: "/lojista/usuarios", icon: UserCog, label: "Usuarios" },
   { to: "/admin", icon: ShieldCheck, label: "Global Admin", superAdminOnly: true },
 ];
 
