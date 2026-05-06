@@ -241,7 +241,7 @@ const Orders = () => {
                         className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          updateStatus(o.id, (o.delivery_type || o.order_type) === "retirada" && col.key === "em_preparo" ? "pronto_para_retirada" : col.nextStatus!); 
+                          updateStatus(o.id, col.nextStatus!); 
                         }}
                       >
                         {col.nextLabel}
