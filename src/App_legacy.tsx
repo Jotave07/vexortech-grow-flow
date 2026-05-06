@@ -18,18 +18,18 @@ import { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
 
 // Lazy load layouts and complex pages to prevent initial load crashes
-const AppLayout = lazy(() => import("./pages/app/AppLayout"));
-const Dashboard = lazy(() => import("./pages/app/Dashboard"));
-const Categories = lazy(() => import("./pages/app/Categories"));
-const Products = lazy(() => import("./pages/app/Products"));
-const Coupons = lazy(() => import("./pages/app/Coupons"));
-const Zones = lazy(() => import("./pages/app/Zones"));
-const Settings = lazy(() => import("./pages/app/Settings"));
-const Orders = lazy(() => import("./pages/app/Orders"));
-const Customers = lazy(() => import("./pages/app/Customers"));
-const Reports = lazy(() => import("./pages/app/Reports"));
-const Subscription = lazy(() => import("./pages/app/Subscription"));
-const Users = lazy(() => import("./pages/app/Users"));
+const AppLayout = lazy(() => import("./pages/lojista/AppLayout"));
+const Dashboard = lazy(() => import("./pages/lojista/Dashboard"));
+const Categories = lazy(() => import("./pages/lojista/Categories"));
+const Products = lazy(() => import("./pages/lojista/Products"));
+const Coupons = lazy(() => import("./pages/lojista/Coupons"));
+const Zones = lazy(() => import("./pages/lojista/Zones"));
+const Settings = lazy(() => import("./pages/lojista/Settings"));
+const Orders = lazy(() => import("./pages/lojista/Orders"));
+const Customers = lazy(() => import("./pages/lojista/Customers"));
+const Reports = lazy(() => import("./pages/lojista/Reports"));
+const Subscription = lazy(() => import("./pages/lojista/Subscription"));
+const Users = lazy(() => import("./pages/lojista/Users"));
 const PublicStore = lazy(() => import("./pages/public/PublicStore"));
 const PublicCheckout = lazy(() => import("./pages/public/PublicCheckout"));
 const OrderTracking = lazy(() => import("./pages/public/OrderTracking"));
@@ -40,7 +40,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminStores = lazy(() => import("./pages/admin/AdminStores"));
 const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
-const CustomerDashboard = lazy(() => import("./pages/public/CustomerDashboard"));
+const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,13 +69,16 @@ const App = () => (
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
                 <Route path="/loja/:slug" element={<PublicStore />} />
-                <Route path="/loja/:slug/checkout" element={<ProtectedRoute><PublicCheckout /></ProtectedRoute>} />
+                <Route path="/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
                 <Route path="/pedido/:token" element={<OrderTracking />} />
                 <Route path="/pedido/:token/sucesso" element={<PaymentSuccess />} />
                 <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
-                <Route path="/meu-painel" element={<ProtectedRoute><CustomerDashboard /></ProtectedRoute>} />
+                
+                {/* Painel do Consumidor */}
+                <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerDashboard /></ProtectedRoute>} />
 
-                <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                {/* Painel do Lojista */}
+                <Route path="/lojista" element={<ProtectedRoute requiredRole="store_owner"><AppLayout /></ProtectedRoute>}>
                   <Route path="assinatura" element={<Subscription />} />
                   <Route element={<SubscriptionGuard />}>
                     <Route index element={<Dashboard />} />
@@ -91,7 +94,8 @@ const App = () => (
                   </Route>
                 </Route>
 
-                <Route path="/admin" element={<ProtectedRoute superAdminOnly><AdminLayout /></ProtectedRoute>}>
+                {/* Painel do Proprietário (Admin Geral) */}
+                <Route path="/admin" element={<ProtectedRoute requiredRole="super_admin"><AdminLayout /></ProtectedRoute>}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="lojas" element={<AdminStores />} />
                   <Route path="planos" element={<AdminPlans />} />

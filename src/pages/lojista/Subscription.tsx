@@ -79,7 +79,7 @@ const Subscription = () => {
   const subscriptionMeta = getStatusMeta(subscription);
   const limits = getPlanLimits(activePlan);
   const accessParam = (searchParams.get("state") as SubscriptionAccessState | null) ?? accessState;
-  const redirectPath = searchParams.get("redirect") || "/app";
+  const redirectPath = searchParams.get("redirect") || "/lojista";
 
   const usageCards = useMemo(
     () => [

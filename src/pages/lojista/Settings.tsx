@@ -690,7 +690,7 @@ const Settings = () => {
                   : "aguardando coordenadas confiaveis da loja. Sem isso, o sistema nao deve fingir bloqueio por KM real."}
               </div>
               <div>
-                Zonas por bairro existentes continuam em <Link to="/app/entregas" className="text-primary underline-offset-4 hover:underline">Entregas</Link> para o fluxo atual do checkout.
+                Zonas por bairro existentes continuam em <Link to="/lojista/entregas" className="text-primary underline-offset-4 hover:underline">Entregas</Link> para o fluxo atual do checkout.
               </div>
             </div>
 
@@ -848,7 +848,7 @@ const Settings = () => {
                   <div className="text-2xl font-bold">{formatBRL(activePlan?.priceMonthly ?? 0)}</div>
                 </div>
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/app/assinatura">Abrir gestao completa da assinatura</Link>
+                  <Link to="/lojista/assinatura">Abrir gestao completa da assinatura</Link>
                 </Button>
               </div>
             </div>

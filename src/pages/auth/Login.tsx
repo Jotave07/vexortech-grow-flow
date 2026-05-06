@@ -19,8 +19,8 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirect = new URLSearchParams(location.search).get("redirect");
-  const from = (location.state as { from?: string } | null)?.from || redirect || "/app";
-  const safeFrom = from.startsWith("/") ? from : "/app";
+  const from = (location.state as { from?: string } | null)?.from || redirect || "/lojista";
+  const safeFrom = from.startsWith("/") ? from : "/lojista";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,10 +59,10 @@ const Login = () => {
       navigate("/admin", { replace: true });
     } else if (role === "store_owner" || role === "admin") {
       // If it's a store owner, they go to the store app panel
-      navigate(safeFrom === "/meu-painel" ? "/app" : safeFrom, { replace: true });
+      navigate(safeFrom === "/cliente" ? "/lojista" : safeFrom, { replace: true });
     } else {
       // Customers always go to the customer panel
-      navigate(redirect || "/meu-painel", { replace: true });
+      navigate(redirect || "/cliente", { replace: true });
     }
   };
 

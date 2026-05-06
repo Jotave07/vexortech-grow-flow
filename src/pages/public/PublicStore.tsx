@@ -109,7 +109,7 @@ const PublicStore = () => {
             {user ? (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" asChild className="hidden sm:flex gap-2 font-bold uppercase text-[10px] tracking-widest border border-black/5">
-                  <Link to={profile?.role === 'store_owner' ? "/app" : "/meu-painel"}>
+                  <Link to={profile?.role === 'store_owner' ? "/lojista" : "/cliente"}>
                     <User className="h-3 w-3" />
                     {profile?.role === 'store_owner' ? 'Painel Admin' : (profile?.full_name?.split(' ')[0] || 'Minha Conta')}
                   </Link>

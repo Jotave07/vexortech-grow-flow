@@ -101,7 +101,7 @@ const Dashboard = () => {
           <p className="text-muted-foreground mt-2 font-medium">{message}</p>
         </div>
         <Button variant="hero" className="font-black uppercase tracking-widest text-xs h-12 px-8" asChild>
-          <Link to="/app/assinatura">
+          <Link to="/lojista/assinatura">
             Regularizar Assinatura <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>

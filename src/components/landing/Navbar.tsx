@@ -9,8 +9,8 @@ export const Navbar = () => {
   const dashboardPath = user?.email === "jvieira@vexortech.com.br" 
     ? "/admin" 
     : profile?.store_id 
-      ? "/app" 
-      : "/meu-painel";
+      ? "/lojista" 
+      : "/cliente";
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/92 backdrop-blur-xl">

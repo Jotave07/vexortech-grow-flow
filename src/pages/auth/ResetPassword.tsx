@@ -28,7 +28,7 @@ const ResetPassword = () => {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Senha atualizada!");
-    navigate("/app", { replace: true });
+    navigate("/lojista", { replace: true });
   };
 
   if (!ready) {
