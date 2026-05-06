@@ -473,7 +473,13 @@ const PublicCheckout = () => {
               <Button 
                 variant="outline"
                 className="w-full h-14 border-2 border-emerald-900 text-emerald-900 font-black uppercase tracking-tighter text-lg rounded-xl hover:bg-emerald-50 transition-all active:scale-95 shadow-[4px_4px_0px_0px_rgba(6,78,59,1)]"
-                onClick={() => navigate(`/pedido/${createdOrder?.public_token}`, { replace: true })}
+                onClick={() => {
+                  if (createdOrder?.public_token) {
+                    navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
+                  } else {
+                    toast.error("Erro ao localizar token do pedido. Tente fechar e abrir novamente.");
+                  }
+                }}
               >
                 Acompanhar Pedido
               </Button>
