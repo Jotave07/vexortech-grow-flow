@@ -1,47 +1,77 @@
-import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode } from "lucide-react";
+import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check } from "lucide-react";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
 const STEPS_PICKUP = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
 
 const OrderTracking = () => {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pixInfo, setPixInfo] = useState<any>(null);
+  const [isPaidSuccess, setIsPaidSuccess] = useState(false);
+  const lastStatus = useRef<string | null>(null);
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
-  const load = useCallback(async () => {
-    if (!token) return;
+  const load = useCallback(async (isAutoRefresh = false) => {
+    if (!token || token === "undefined") return;
+    
     try {
-      const [{ data: o, error: oErr }, { data: it, error: itErr }, { data: h, error: hErr }] = await Promise.all([
-        supabase.rpc("get_public_order", { _token: token }),
+      const { data: o, error: oErr } = await supabase.rpc("get_public_order", { _token: token });
+      if (oErr) {
+        console.error("RPC Error get_public_order:", oErr);
+        throw oErr;
+      }
+
+      const orderData = o?.[0] ?? null;
+      if (!orderData) {
+        console.warn("No order found for token:", token);
+        setOrder(null);
+        setLoading(false);
+        return;
+      }
+
+      // Check if status changed from aguardando_pagamento to something else
+      if (lastStatus.current === "aguardando_pagamento" && orderData.status !== "aguardando_pagamento") {
+        setIsPaidSuccess(true);
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#10b981', '#059669', '#34d399']
+        });
+        
+        // After 5 seconds, clear the success overlay to show the tracking
+        setTimeout(() => setIsPaidSuccess(false), 5000);
+      }
+      
+      lastStatus.current = orderData.status;
+      setOrder(orderData);
+
+      // Fetch other data in parallel
+      const [{ data: it }, { data: h }] = await Promise.all([
         supabase.rpc("get_public_order_items", { _token: token }),
         supabase.rpc("get_public_order_status_history", { _token: token }),
       ]);
 
-      if (oErr) throw oErr;
-      if (itErr) throw itErr;
-      if (hErr) throw hErr;
-
-      const orderData = o?.[0] ?? null;
-      setOrder(orderData);
       setItems(it ?? []);
       setHistory(h ?? []);
       
-      if (orderData && orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento") {
+      if (orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento" && !pixInfo) {
         try {
           const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id } });
           setPixInfo(info);
@@ -49,34 +79,71 @@ const OrderTracking = () => {
           console.error("Error loading PIX info:", e);
         }
       }
-    } catch (e) {
-      console.error("Error loading order:", e);
-      toast.error("Erro ao carregar dados do pedido");
+    } catch (e: any) {
+      console.error("Error loading order context:", e);
+      if (!isAutoRefresh) {
+        toast.error("Erro ao carregar dados do pedido");
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, getOrderPaymentInfoFn]);
+  }, [token, getOrderPaymentInfoFn, pixInfo]);
 
   useEffect(() => {
+    if (!token) return;
     void load();
-    const interval = setInterval(load, 15000); // Poll every 15s for status updates
-    return () => clearInterval(interval);
-  }, [load]);
 
+    // Subscribe to real-time updates for this order
+    const channel = supabase
+      .channel(`order-tracking-${token}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `public_token=eq.${token}`,
+        },
+        (payload) => {
+          console.log("Order updated:", payload.new);
+          const newOrder = payload.new as any;
+          setOrder((prev: any) => ({ ...prev, ...newOrder }));
+          
+          if (newOrder.status === "novo" || newOrder.payment_status === "pago") {
+            toast.success("Pagamento confirmado!");
+          }
+          
+          // Refresh everything to be sure
+          void load();
+        }
+      )
+      .subscribe();
+
+    // Fallback polling (every 30s instead of 15s since we have realtime)
+    const interval = setInterval(load, 30000);
+    
+    return () => {
+      void supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [token, load]);
+
+  // Specific effect for sync payment status if still pending
   useEffect(() => {
-    if (order?.status !== "aguardando_pagamento") return;
+    if (order?.status !== "aguardando_pagamento" || !order?.id) return;
     
     const interval = setInterval(async () => {
       try {
         const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id } });
         if (result.status === "paid") {
-          toast.success("Pagamento confirmado!");
+          // The realtime listener above will catch the DB update and call load()
+          // But we can call load() here too for faster feedback
           void load();
         }
       } catch (e) {
         console.error("Sync error:", e);
       }
-    }, 5000); // Check payment every 5s
+    }, 5000);
     
     return () => clearInterval(interval);
   }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load]);
@@ -115,8 +182,30 @@ const OrderTracking = () => {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      <header className="bg-primary text-primary-foreground p-8 text-center border-b-4 border-black">
-        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border-2 border-black" />}
+      {isPaidSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+          <div className="text-center space-y-4 p-6 max-w-sm">
+            <div className="mx-auto w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+              <Check className="h-10 w-10 stroke-[3px]" />
+            </div>
+            <h2 className="text-3xl font-black uppercase tracking-tight italic text-emerald-900">Pagamento Confirmado!</h2>
+            <p className="text-muted-foreground font-medium uppercase text-xs tracking-widest">Seu pedido já foi enviado para a cozinha.</p>
+            <div className="pt-4">
+              <Button onClick={() => setIsPaidSuccess(false)} variant="hero" className="w-full">
+                Acompanhar Preparo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <header className="bg-primary text-primary-foreground p-8 text-center border-b-4 border-black relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-2">
+           <Badge variant="outline" className="border-white/40 text-white/60 text-[8px] font-black uppercase tracking-widest">
+             Live Tracking
+           </Badge>
+        </div>
+        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />}
         <h1 className="font-black text-xl uppercase tracking-tighter">{order.store_name}</h1>
         <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Pedido #{order.order_number}</div>
       </header>

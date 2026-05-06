@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
-import { createOrderPayment } from "@/functions/asaas";
+import { createOrderPayment, syncPaymentStatus } from "@/functions/asaas";
 import { fetchAddressByCep } from "@/services/viacep";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,8 @@ const PublicCheckout = () => {
   const [showPixModal, setShowPixModal] = useState(false);
   const [pixData, setPixData] = useState<any>(null);
   const [createdOrder, setCreatedOrder] = useState<any>(null);
+  const [isPaid, setIsPaid] = useState(false);
+  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
   const [name, setName] = useState("");
   const [document, setDocument] = useState("");
@@ -84,6 +86,35 @@ const PublicCheckout = () => {
       setState((profile as any).state || "");
     }
   }, [profile]);
+  
+  // Real-time payment verification while modal is open
+  useEffect(() => {
+    if (!showPixModal || !createdOrder?.id || isPaid) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const result = await syncPaymentStatusFn({ 
+          data: { 
+            orderId: createdOrder.id, 
+            storeId: store.id 
+          } 
+        });
+        
+        if (result.status === "paid") {
+          setIsPaid(true);
+          toast.success("Pagamento confirmado!");
+          setTimeout(() => {
+            setShowPixModal(false);
+            navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
+          }, 2000);
+        }
+      } catch (e) {
+        console.error("Error syncing payment:", e);
+      }
+    }, 4000); // Check every 4s
+    
+    return () => clearInterval(interval);
+  }, [showPixModal, createdOrder, store?.id, isPaid, navigate, syncPaymentStatusFn]);
 
   useEffect(() => {
     if (!slug) return;
@@ -434,9 +465,19 @@ const PublicCheckout = () => {
           </div>
           
           <div className="p-8 flex flex-col items-center gap-6">
-            <div className="h-16 w-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-2">
-              <QrCode className="h-10 w-10" />
-            </div>
+            {isPaid ? (
+              <div className="flex flex-col items-center gap-4 py-8 animate-in zoom-in duration-500">
+                <div className="h-20 w-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="h-12 w-12" />
+                </div>
+                <h3 className="text-2xl font-black uppercase text-emerald-900 italic">Pago com Sucesso!</h3>
+                <p className="text-sm text-center text-muted-foreground uppercase font-bold">Redirecionando para o acompanhamento...</p>
+              </div>
+            ) : (
+              <>
+                <div className="h-16 w-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-2">
+                  <QrCode className="h-10 w-10" />
+                </div>
 
             {pixData?.qrCodeUrl && (
               <div className="bg-white p-4 border-4 border-emerald-50 rounded-2xl shadow-xl shadow-emerald-900/10">
@@ -490,8 +531,10 @@ const PublicCheckout = () => {
                 Acompanhar Pedido
               </Button>
             </div>
-          </div>
-        </DialogContent>
+          </>
+        )}
+      </div>
+    </DialogContent>
       </Dialog>
     </div>
   );

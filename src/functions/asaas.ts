@@ -254,7 +254,10 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
         paid_at: new Date().toISOString()
       }).eq("id", payment.id);
 
-      await supabaseAdmin.from("orders").update({ status: "novo" }).eq("id", data.orderId);
+      await supabaseAdmin.from("orders").update({ 
+        status: "novo",
+        payment_status: "pago"
+      }).eq("id", data.orderId);
       
       await supabaseAdmin.from("order_status_history").insert({ 
         order_id: data.orderId, 
