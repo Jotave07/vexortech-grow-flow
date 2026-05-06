@@ -11,6 +11,7 @@ export const ProtectedRoute = ({
 }) => {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
+  const path = location.pathname;
 
   if (loading) {
     return (
@@ -52,7 +53,6 @@ export const ProtectedRoute = ({
   }
 
   // Proteção extra contra acesso cruzado baseado no prefixo da rota
-  const path = location.pathname;
   if (path.startsWith("/admin") && profile?.role !== "super_admin" && user?.email !== "jvieira@vexortech.com.br") {
     return <Navigate to="/" replace />;
   }
