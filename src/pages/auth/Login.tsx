@@ -19,8 +19,8 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirect = new URLSearchParams(location.search).get("redirect");
-  const from = (location.state as { from?: string } | null)?.from || redirect || "/lojista";
-  const safeFrom = from.startsWith("/") ? from : "/lojista";
+  const from = (location.state as { from?: string } | null)?.from || redirect || null;
+  const safeFrom = from && from.startsWith("/") ? from : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,12 +57,10 @@ const Login = () => {
     
     if (role === "super_admin") {
       navigate("/admin", { replace: true });
-    } else if (role === "store_owner" || role === "admin") {
-      // If it's a store owner, they go to the store app panel
-      navigate(safeFrom === "/cliente" ? "/lojista" : safeFrom, { replace: true });
+    } else if (role === "store_owner") {
+      navigate(safeFrom || "/lojista", { replace: true });
     } else {
-      // Customers always go to the customer panel
-      navigate(redirect || "/cliente", { replace: true });
+      navigate(safeFrom || "/cliente", { replace: true });
     }
   };
 
@@ -89,7 +87,7 @@ const Login = () => {
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Nao tem conta? <Link to={redirect ? `/cadastrar?redirect=${encodeURIComponent(redirect)}` : "/cadastrar"} className="text-primary hover:underline">Cadastre-se</Link>
+          Nao tem conta? <Link to={safeFrom ? `/cadastrar?redirect=${encodeURIComponent(safeFrom)}` : "/cadastrar"} className="text-primary hover:underline">Cadastre-se</Link>
         </p>
       </Card>
     </div>
