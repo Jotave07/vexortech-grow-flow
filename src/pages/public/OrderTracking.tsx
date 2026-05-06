@@ -58,25 +58,60 @@ const OrderTracking = () => {
   }, [token, getOrderPaymentInfoFn]);
 
   useEffect(() => {
+    if (!token) return;
     void load();
-    const interval = setInterval(load, 15000); // Poll every 15s for status updates
-    return () => clearInterval(interval);
-  }, [load]);
 
+    // Subscribe to real-time updates for this order
+    const channel = supabase
+      .channel(`order-tracking-${token}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `public_token=eq.${token}`,
+        },
+        (payload) => {
+          console.log("Order updated:", payload.new);
+          const newOrder = payload.new as any;
+          setOrder((prev: any) => ({ ...prev, ...newOrder }));
+          
+          if (newOrder.status === "novo" || newOrder.payment_status === "pago") {
+            toast.success("Pagamento confirmado!");
+          }
+          
+          // Refresh everything to be sure
+          void load();
+        }
+      )
+      .subscribe();
+
+    // Fallback polling (every 30s instead of 15s since we have realtime)
+    const interval = setInterval(load, 30000);
+    
+    return () => {
+      void supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [token, load]);
+
+  // Specific effect for sync payment status if still pending
   useEffect(() => {
-    if (order?.status !== "aguardando_pagamento") return;
+    if (order?.status !== "aguardando_pagamento" || !order?.id) return;
     
     const interval = setInterval(async () => {
       try {
         const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id } });
         if (result.status === "paid") {
-          toast.success("Pagamento confirmado!");
+          // The realtime listener above will catch the DB update and call load()
+          // But we can call load() here too for faster feedback
           void load();
         }
       } catch (e) {
         console.error("Sync error:", e);
       }
-    }, 5000); // Check payment every 5s
+    }, 5000);
     
     return () => clearInterval(interval);
   }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load]);
