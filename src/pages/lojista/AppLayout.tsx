@@ -19,6 +19,7 @@ const menu = [
   { to: "/lojista/configuracoes", icon: Settings, label: "Configuracoes" },
   { to: "/lojista/assinatura", icon: CreditCard, label: "Assinatura" },
   { to: "/lojista/usuarios", icon: UserCog, label: "Usuarios" },
+  { to: "/", icon: ExternalLink, label: "Ver Marketplace" },
   { to: "/admin", icon: ShieldCheck, label: "Global Admin", superAdminOnly: true },
 ];
 
