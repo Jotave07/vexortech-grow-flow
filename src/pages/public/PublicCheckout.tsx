@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
-import { createOrderPayment } from "@/server/asaas.functions";
+import * as AsaasFunctions from "@/server/asaas.functions";
 import { fetchAddressByCep } from "@/services/viacep";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +53,7 @@ const PublicCheckout = () => {
   const [coupon, setCoupon] = useState<any>(null);
   const [loadingCep, setLoadingCep] = useState(false);
 
-  const createOrderPaymentFn = useServerFn(createOrderPayment);
+  const createOrderPaymentFn = useServerFn(AsaasFunctions.createOrderPayment);
 
   useEffect(() => {
     if (slug) setStoreSlug(slug);
