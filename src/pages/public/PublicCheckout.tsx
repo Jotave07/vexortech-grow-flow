@@ -25,7 +25,7 @@ const PublicCheckout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
 
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -186,8 +186,18 @@ const PublicCheckout = () => {
     try {
       // Security check: ensure user is NOT a store owner trying to buy as customer
       if (profile?.role === 'store_owner') {
-        setSubmitting(false);
-        return toast.error("Lojistas não podem realizar compras usando a conta de administrador da loja. Por favor, saia e entre com uma conta de cliente.");
+        const isOwnerOfThisStore = store.owner_user_id === user?.id;
+        
+        if (isOwnerOfThisStore) {
+          setSubmitting(false);
+          return toast.error("Você é o administrador desta loja. Para realizar compras, use uma conta de cliente.", {
+            action: {
+              label: "Sair agora",
+              onClick: () => signOut().then(() => navigate(`/loja/${slug}`))
+            },
+            duration: 10000
+          });
+        }
       }
 
       const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id || "").maybeSingle();
