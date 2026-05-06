@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, CheckCircle2, Search } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Search, MapPin, Truck, ShoppingBag, CreditCard, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment } from "@/server/asaas.functions";
 import { fetchAddressByCep } from "@/services/viacep";
+import { cn } from "@/lib/utils";
 
 type Zone = { id: string; neighborhood: string; city: string | null; fee: number; min_order: number; estimated_minutes: number };
 
@@ -24,7 +25,7 @@ const PublicCheckout = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { items, itemSubtotal, subtotal, clear, count, setStoreSlug } = useCart();
+  const { items, itemSubtotal, subtotal, clear, setStoreSlug } = useCart();
   const { user, profile, loading: authLoading, signOut } = useAuth();
 
   const [store, setStore] = useState<any>(null);
@@ -52,6 +53,8 @@ const PublicCheckout = () => {
   const [coupon, setCoupon] = useState<any>(null);
   const [loadingCep, setLoadingCep] = useState(false);
 
+  const createOrderPaymentFn = useServerFn(createOrderPayment);
+
   useEffect(() => {
     if (slug) setStoreSlug(slug);
   }, [slug, setStoreSlug]);
@@ -75,18 +78,8 @@ const PublicCheckout = () => {
       setNeighborhood((profile as any).neighborhood || "");
       setCity((profile as any).city || "");
       setState((profile as any).state || "");
-      
-      const neighborhoodVal = (profile as any).neighborhood;
-      if (neighborhoodVal && zones.length > 0) {
-        const neighborhoodLower = neighborhoodVal.toLowerCase().trim();
-        const matchingZone = zones.find(z => 
-          z.neighborhood.toLowerCase().trim() === neighborhoodLower
-        );
-        if (matchingZone) setZoneId(matchingZone.id);
-      }
     }
-  }, [profile, zones]);
-  const createOrderPaymentFn = useServerFn(createOrderPayment);
+  }, [profile]);
 
   useEffect(() => {
     if (!slug) return;
@@ -122,7 +115,7 @@ const PublicCheckout = () => {
         setZoneId(matchingZone.id);
       } else {
         setZoneId("");
-        toast.info("Bairro não encontrado na lista de entregas. Selecione manualmente a região mais próxima.");
+        toast.info("Bairro não encontrado na lista de entregas da loja. Selecione a região manualmente.");
       }
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
@@ -133,13 +126,13 @@ const PublicCheckout = () => {
 
   const zone = zones.find((z) => z.id === zoneId);
   const deliveryFee = orderType === "entrega" ? Number(zone?.fee ?? settings?.delivery_base_fee ?? 0) : 0;
+  
   const discount = useMemo(() => {
     if (!coupon) return 0;
     if (coupon.discount_type === "percentual") return (subtotal * Number(coupon.discount_value)) / 100;
     return Math.min(Number(coupon.discount_value), subtotal);
   }, [coupon, subtotal]);
   
-  // Free delivery logic
   const actualDeliveryFee = useMemo(() => {
     if (settings?.free_delivery_above && subtotal >= Number(settings.free_delivery_above)) return 0;
     return deliveryFee;
@@ -150,426 +143,224 @@ const PublicCheckout = () => {
   const submit = async () => {
     if (!store || !settings) return;
     
-    if (store.is_suspended) {
-      return toast.error("Esta loja está com as vendas suspensas temporariamente.");
-    }
-
+    if (store.is_suspended) return toast.error("Loja suspensa.");
     if (!isStoreOpen(settings.business_hours, settings.is_open) && !settings.accept_orders_when_closed) {
-      return toast.error(`A loja está fechada no momento. Próxima abertura às ${settings.next_opening_time || 'breve'}`);
+      return toast.error("Loja fechada.");
     }
 
-    if (!name.trim() || name.trim().length < 2) return toast.error("Informe seu nome");
-    const phoneDigits = onlyDigits(phone);
-    if (phoneDigits.length < 10) return toast.error("Telefone inválido");
-    
-    const docDigits = onlyDigits(document);
-    if (docDigits.length !== 11 && docDigits.length !== 14) {
-      return toast.error("CPF ou CNPJ inválido. O Asaas exige este documento para gerar o pagamento.");
-    }
+    if (!name.trim()) return toast.error("Informe seu nome");
+    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inválido");
+    if (onlyDigits(document).length < 11) return toast.error("CPF/CNPJ obrigatório para pagamento");
     
     if (orderType === "entrega") {
-      if (!settings.allow_delivery) return toast.error("Loja não faz entrega");
-      if (!zoneId) return toast.error("Escolha a região de entrega");
-      if (!street.trim() || !number.trim() || !neighborhood.trim()) return toast.error("Endereço incompleto");
-      if (zone && zone.min_order > 0 && subtotal < zone.min_order) {
-        return toast.error(`Pedido mínimo para ${zone.neighborhood} é ${formatBRL(zone.min_order)}`);
-      }
-    } else if (!settings.allow_pickup) {
-      return toast.error("Loja não permite retirada");
-    }
-
-    if (settings.min_order_value && subtotal < Number(settings.min_order_value)) {
-      return toast.error(`Pedido mínimo da loja é ${formatBRL(settings.min_order_value)}`);
+      if (!zoneId) return toast.error("Selecione o bairro");
+      if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
     }
 
     setSubmitting(true);
     try {
-      // Security check: ensure user is NOT the store owner trying to buy as customer in their own store
       if (store.owner_user_id === user?.id) {
         setSubmitting(false);
-        return toast.error("Você é o administrador desta loja. Para realizar compras, use uma conta de cliente.", {
-          action: {
-            label: "Sair agora",
-            onClick: () => signOut().then(() => navigate(`/loja/${slug}`))
-          },
-          duration: 10000
-        });
+        return toast.error("Dono da loja não pode comprar de si mesmo.");
       }
-
-      const { data: existingCustomer } = await supabase.from("customers").select("*").eq("store_id", store.id).eq("user_id", user?.id || "").maybeSingle();
-      let customerId = existingCustomer?.id as string | undefined;
-      
-      const customerData = {
-        store_id: store.id, 
-        full_name: name.trim(), 
-        phone: phoneDigits,
-        document: docDigits,
-        zip_code: zipCode,
-        street: street.trim(),
-        number: number.trim(),
-        complement: complement.trim(),
-        neighborhood: neighborhood.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        registration_completed: true,
-        user_id: user?.id
-      };
-
-      if (!customerId) {
-        const { data: newC, error: cErr } = await (supabase.from("customers" as any).insert(customerData).select("id").single() as any);
-        if (cErr) throw cErr;
-        customerId = newC.id;
-      } else {
-        // Update existing customer info
-        const { error: uErr } = await supabase.from("customers").update(customerData).eq("id", customerId);
-        if (uErr) throw uErr;
-      }
-
-      // Also update the main profile if it's missing info
-      if (user) {
-        await supabase.from("profiles").update({
-          full_name: name.trim(),
-          phone: phoneDigits,
-          document: docDigits,
-          zip_code: zipCode,
-          street: street.trim(),
-          number: number.trim(),
-          complement: complement.trim(),
-          neighborhood: neighborhood.trim(),
-          city: city.trim(),
-          state: state.trim()
-        } as any).eq("user_id", user.id);
-      }
-
-      const deliveryAddress = orderType === "entrega" 
-        ? `${street.trim()}, ${number.trim()}${complement ? ` - ${complement}` : ""}${zipCode ? ` - CEP ${formatCEP(zipCode)}` : ""}` 
-        : null;
 
       const { data: order, error: oErr } = await (supabase.from("orders" as any).insert({
         store_id: store.id,
-        customer_id: customerId,
         customer_name: name.trim().toUpperCase(),
-        customer_phone: phoneDigits,
-        customer_document: docDigits,
+        customer_phone: onlyDigits(phone),
+        customer_document: onlyDigits(document),
         delivery_type: orderType,
         status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo",
-        delivery_address: deliveryAddress?.toUpperCase() || null,
-        delivery_neighborhood: orderType === "entrega" ? (neighborhood || zone?.neighborhood)?.toUpperCase() : null,
+        delivery_address: orderType === "entrega" ? `${street}, ${number} - ${neighborhood}`.toUpperCase() : "RETIRADA",
         delivery_fee: actualDeliveryFee,
         subtotal,
         discount_amount: discount,
         total,
         payment_method: paymentMethod,
         notes: notes.trim() || null,
-      }).select("id, public_token, order_number").single() as any);
+      }).select("id, public_token").single() as any);
       
       if (oErr) throw oErr;
 
       for (const it of items) {
-        const { data: oi, error: iErr } = await (supabase.from("order_items" as any).insert({
+        const { data: oi } = await (supabase.from("order_items" as any).insert({
           order_id: order.id, store_id: store.id, product_id: it.product_id,
           product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity,
         }).select("id").single() as any);
-        if (iErr) throw iErr;
         
         if (it.options.length) {
           await supabase.from("order_item_options" as any).insert(it.options.map((o: any) => ({
-            order_item_id: oi.id, 
-            option_name: o.option_name, item_name: o.item_name, extra_price: o.extra_price,
+            order_item_id: oi.id, option_name: o.option_name, item_name: o.item_name, extra_price: o.extra_price,
             name: o.item_name, option_item_id: o.item_id
           })));
         }
       }
 
-      await supabase.from("order_status_history").insert({ 
-        order_id: order.id, 
-        store_id: store.id, 
-        status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo", 
-        notes: paymentMethod === "pix" ? "Pedido aguardando pagamento PIX" : "Pedido recebido" 
-      });
-
-      await supabase.from("payments" as any).insert({
-        order_id: order.id, store_id: store.id, status: "pendente", amount: total,
-      });
-
-      if (paymentMethod === "pix" && settings.accept_pix) {
-        try {
-          const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
-          if (!pixResult || !pixResult.pixCode) {
-             throw new Error("Não foi possível gerar o código PIX.");
-          }
-        } catch (error: any) {
-          console.error("Asaas PIX error:", error);
-          toast.error("Houve um problema ao gerar seu QR Code PIX. O pedido foi registrado mas o pagamento precisa ser verificado.");
-        }
+      if (paymentMethod === "pix") {
+        await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
       }
 
       clear();
-      toast.success("Pedido enviado!");
+      toast.success("Pedido realizado!");
       navigate(`/pedido/${order.public_token}`, { replace: true });
     } catch (e: any) {
-      console.error(e);
-      toast.error(e.message ?? "Erro ao enviar pedido");
+      toast.error(e.message || "Erro ao finalizar");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!store) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loja não encontrada</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-emerald-50"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /></div>;
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <header className="sticky top-0 z-20 bg-card border-b border-border p-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild><Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link></Button>
-        <h1 className="font-semibold uppercase tracking-wider text-sm">Finalizar pedido</h1>
+    <div className="min-h-screen bg-[#F0FDF4] pb-32">
+      <header className="sticky top-0 z-20 bg-emerald-900 text-white p-4 flex items-center gap-3 border-b-4 border-emerald-400">
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" asChild>
+          <Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link>
+        </Button>
+        <h1 className="font-black uppercase tracking-tighter italic">Finalizar Pedido</h1>
       </header>
 
-      <div className="container max-w-xl mx-auto p-4 space-y-4">
-        <Card className="p-5 border-border shadow-elegant">
-          <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight italic">Seus dados</h2>
-            <div className="h-1 w-12 bg-primary mt-1"></div>
+      <div className="container max-w-xl mx-auto p-4 space-y-6 mt-4">
+        {/* Identificação */}
+        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl overflow-hidden">
+          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
+            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Seus dados</h2>
           </div>
           <div className="space-y-4">
             <div>
-              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nome *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} maxLength={80} className="border-border focus:ring-0" placeholder="Nome completo" />
+              <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nome Completo</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="COMO DEVEMOS TE CHAMAR?" />
             </div>
-            <div>
-              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CPF ou CNPJ *</Label>
-              <Input 
-                value={formatDoc(document)} 
-                onChange={(e) => setDocument(e.target.value)} 
-                maxLength={18} 
-                className="border-border focus:ring-0" 
-                placeholder="000.000.000-00" 
-              />
-            </div>
-            <div>
-              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">WhatsApp *</Label>
-              <div className="flex gap-2">
-                <Input 
-                  value={formatPhone(phone)} 
-                  onChange={(e) => setPhone(e.target.value)} 
-                  onBlur={async () => {
-                    const digits = onlyDigits(phone);
-                    if (digits.length >= 10 && store?.id) {
-                      const { data } = await supabase
-                        .from("customers")
-                        .select("*")
-                        .eq("store_id", store.id)
-                        .eq("user_id", user?.id || "")
-                        .maybeSingle();
-                      
-                      if (data) {
-                        setName(data.full_name || "");
-                        setDocument(data.document || "");
-                        setZipCode(data.zip_code || "");
-                        setStreet(data.street || "");
-                        setNumber(data.number || "");
-                        setComplement(data.complement || "");
-                        setNeighborhood(data.neighborhood || "");
-                        setCity(data.city || "");
-                        setState(data.state || "");
-                        
-                        if (data.neighborhood) {
-                          const neighborhoodLower = data.neighborhood.toLowerCase().trim();
-                          const matchingZone = zones.find(z => 
-                            z.neighborhood.toLowerCase().trim() === neighborhoodLower
-                          );
-                          if (matchingZone) setZoneId(matchingZone.id);
-                        }
-                        toast.info("Dados de cadastro carregados!");
-                      }
-                    }
-                  }}
-                  placeholder="(11) 99999-9999" 
-                  maxLength={15} 
-                  className="border-border focus:ring-0" 
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">CPF ou CNPJ</Label>
+                <Input value={formatDoc(document)} onChange={(e) => setDocument(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="000.000.000-00" />
+              </div>
+              <div>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">WhatsApp</Label>
+                <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="(00) 00000-0000" />
               </div>
             </div>
           </div>
         </Card>
 
-        <Card className="p-5 border-border shadow-elegant">
-          <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight italic">Tipo de pedido</h2>
-            <div className="h-1 w-12 bg-primary mt-1"></div>
+        {/* Entrega ou Retirada */}
+        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl">
+          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
+            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <Truck className="h-6 w-6" />
+            </div>
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Tipo de Entrega</h2>
           </div>
           <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="grid grid-cols-2 gap-4">
-            {settings.allow_delivery && (
-              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${orderType === 'entrega' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
-                <RadioGroupItem value="entrega" id="entrega" />
-                <Label htmlFor="entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer">Entrega</Label>
+            {settings?.allow_delivery && (
+              <div className={cn("relative flex items-center justify-center border-2 p-4 rounded-xl transition-all cursor-pointer", orderType === 'entrega' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                <RadioGroupItem value="entrega" id="entrega" className="absolute top-2 right-2" />
+                <Label htmlFor="entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex flex-col items-center gap-2">
+                  <Truck className="h-5 w-5" /> Entrega
+                </Label>
               </div>
             )}
-            {settings.allow_pickup && (
-              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${orderType === 'retirada' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
-                <RadioGroupItem value="retirada" id="retirada" />
-                <Label htmlFor="retirada" className="font-black uppercase text-xs tracking-widest cursor-pointer">Retirada</Label>
+            {settings?.allow_pickup && (
+              <div className={cn("relative flex items-center justify-center border-2 p-4 rounded-xl transition-all cursor-pointer", orderType === 'retirada' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                <RadioGroupItem value="retirada" id="retirada" className="absolute top-2 right-2" />
+                <Label htmlFor="retirada" className="font-black uppercase text-xs tracking-widest cursor-pointer flex flex-col items-center gap-2">
+                  <ShoppingBag className="h-5 w-5" /> Retirada
+                </Label>
               </div>
             )}
           </RadioGroup>
-        </Card>
 
-        {orderType === "entrega" && (
-          <Card className="p-5 border-border shadow-elegant">
-            <div className="mb-4">
-              <h2 className="font-bold text-lg uppercase tracking-tight italic">Endereço</h2>
-              <div className="h-1 w-12 bg-primary mt-1"></div>
-            </div>
-            <div className="space-y-4">
+          {orderType === "entrega" && (
+            <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
               <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">CEP *</Label>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Seu CEP</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    value={formatCEP(zipCode)} 
-                    onChange={(e) => setZipCode(e.target.value)} 
-                    placeholder="00000-000" 
-                    maxLength={9}
-                  />
-                  <Button 
-                    type="button" 
-                    variant="hero" 
-                    size="icon" 
-                    onClick={handleCepLookup}
-                    disabled={loadingCep || onlyDigits(zipCode).length !== 8}
-                  >
-                    {loadingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  <Input value={formatCEP(zipCode)} onChange={(e) => setZipCode(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="00000-000" />
+                  <Button onClick={handleCepLookup} disabled={loadingCep} className="bg-emerald-600 hover:bg-emerald-700 h-12 w-12 rounded-xl shrink-0 shadow-lg shadow-emerald-200">
+                    {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                   </Button>
                 </div>
               </div>
-
               <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Região de entrega *</Label>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Seu Bairro (Taxa)</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>
-                  <SelectTrigger className="rounded-none border-2 border-black"><SelectValue placeholder="Selecione a região" /></SelectTrigger>
-                  <SelectContent>
-                    {zones.map(z => <SelectItem key={z.id} value={z.id}>{z.neighborhood} - {formatBRL(z.fee)}</SelectItem>)}
+                  <SelectTrigger className="border-2 border-emerald-50 h-12 font-bold rounded-xl bg-white"><SelectValue placeholder="ONDE VOCÊ ESTÁ?" /></SelectTrigger>
+                  <SelectContent className="rounded-xl border-emerald-100">
+                    {zones.map(z => <SelectItem key={z.id} value={z.id} className="font-bold">{z.neighborhood.toUpperCase()} ({formatBRL(z.fee)})</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {zones.length === 0 && <p className="text-[10px] text-destructive mt-1 uppercase font-bold">Nenhuma região de entrega configurada.</p>}
               </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Rua *</Label>
-                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} placeholder="Ex: Av. Brasil" />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-3">
+                  <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Rua / Av</Label>
+                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" />
                 </div>
                 <div>
-                  <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Nº *</Label>
-                  <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="123" />
+                  <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nº</Label>
+                  <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" />
                 </div>
               </div>
-
-              <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Bairro *</Label>
-                <Input value={neighborhood} onChange={(e) => setNeighborhood(e.target.value.toUpperCase())} placeholder="Ex: Centro" />
-              </div>
-
-              <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Complemento</Label>
-                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} placeholder="Apto, Bloco..." />
-              </div>
-              <div>
-                <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Referência</Label>
-                <Input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} placeholder="Próximo a..." />
-              </div>
-            </div>
-          </Card>
-        )}
-
-        <Card className="p-5 border-border shadow-elegant">
-          <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight italic">Resumo do pedido</h2>
-            <div className="h-1 w-12 bg-primary mt-1"></div>
-          </div>
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div key={item.uid} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{item.quantity}x {item.product_name}</span>
-                <span className="font-medium">{formatBRL(itemSubtotal(item))}</span>
-              </div>
-            ))}
-            <div className="pt-2 border-t border-dashed border-border space-y-1">
-              <div className="flex justify-between text-xs uppercase font-bold text-muted-foreground">
-                <span>Subtotal</span>
-                <span>{formatBRL(subtotal)}</span>
-              </div>
-              {orderType === "entrega" && (
-                <div className="flex justify-between text-xs uppercase font-bold text-muted-foreground">
-                  <span>Taxa de entrega</span>
-                  <span>{actualDeliveryFee === 0 ? "Grátis" : formatBRL(actualDeliveryFee)}</span>
-                </div>
-              )}
-              {discount > 0 && (
-                <div className="flex justify-between text-xs uppercase font-bold text-green-600">
-                  <span>Desconto</span>
-                  <span>- {formatBRL(discount)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-5 border-border shadow-elegant">
-          <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight italic">Pagamento</h2>
-            <div className="h-1 w-12 bg-primary mt-1"></div>
-          </div>
-          <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="space-y-3">
-            {settings.accept_pix && (
-              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${paymentMethod === 'pix' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
-                <RadioGroupItem value="pix" id="pix" />
-                <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer">PIX (Online)</Label>
-              </div>
-            )}
-            {settings.accept_cash && (
-              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${paymentMethod === 'dinheiro' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
-                <RadioGroupItem value="dinheiro" id="dinheiro" />
-                <Label htmlFor="dinheiro" className="font-black uppercase text-xs tracking-widest cursor-pointer">Dinheiro</Label>
-              </div>
-            )}
-            {settings.accept_card_on_delivery && (
-              <div className={`flex items-center space-x-2 border-2 p-3 rounded-none transition-all ${paymentMethod === 'cartao_entrega' ? 'border-primary bg-primary/5' : 'border-black/10'}`}>
-                <RadioGroupItem value="cartao_entrega" id="cartao_entrega" />
-                <Label htmlFor="cartao_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer">Cartão na entrega</Label>
-              </div>
-            )}
-          </RadioGroup>
-          {paymentMethod === "dinheiro" && (
-            <div className="mt-4 animate-fade-in">
-              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Troco para quanto?</Label>
-              <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} placeholder="Ex: 50" type="number" />
             </div>
           )}
         </Card>
 
-        <Card className="p-5 border-border shadow-elegant">
-          <div className="mb-4">
-            <h2 className="font-bold text-lg uppercase tracking-tight italic">Observações</h2>
-            <div className="h-1 w-12 bg-primary mt-1"></div>
-          </div>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Alguma observação para o pedido?" className="rounded-none border-2 border-black" />
-        </Card>
-        
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t-4 border-black z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-          <div className="container max-w-xl mx-auto flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1 italic">Total a pagar</div>
-              <div className="text-2xl font-black text-primary tracking-tighter">{formatBRL(total)}</div>
-              {actualDeliveryFee === 0 && orderType === 'entrega' && <div className="text-[10px] text-green-600 font-black uppercase">Entrega Grátis!</div>}
+        {/* Pagamento */}
+        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl">
+          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
+            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <CreditCard className="h-6 w-6" />
             </div>
-            <Button 
-              onClick={submit} 
-              disabled={submitting || count === 0} 
-              size="lg" 
-              variant="hero"
-              className="px-10 h-14 font-black uppercase tracking-tighter text-lg"
-            >
-              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finalizar Pedido"}
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Pagamento</h2>
+          </div>
+          <div className="space-y-4">
+            <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="space-y-3">
+              {settings?.accept_pix && (
+                <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                  <RadioGroupItem value="pix" id="pix" />
+                  <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-black">PX</div>
+                    PIX (LIBERAÇÃO IMEDIATA)
+                  </Label>
+                </div>
+              )}
+              {settings?.accept_cash && (
+                <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'dinheiro' ? 'border-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                  <RadioGroupItem value="dinheiro" id="dinheiro" />
+                  <Label htmlFor="dinheiro" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                    <Wallet className="h-5 w-5" /> Dinheiro
+                  </Label>
+                </div>
+              )}
+            </RadioGroup>
+            {paymentMethod === "dinheiro" && (
+              <div className="animate-in slide-in-from-left-4">
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Troco para quanto?</Label>
+                <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} type="number" className="border-2 border-emerald-50 h-12 font-bold rounded-xl" placeholder="EX: 100" />
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Observações */}
+        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl">
+          <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700 mb-2 block">Observações do Pedido</Label>
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 rounded-xl font-bold min-h-[100px]" placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..." />
+        </Card>
+
+        {/* Footer com Total */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-emerald-900 border-t-4 border-emerald-400 z-30 shadow-2xl">
+          <div className="container max-w-xl mx-auto flex items-center justify-between gap-4">
+            <div className="text-white">
+              <p className="text-[10px] uppercase font-black text-emerald-300 tracking-widest leading-none mb-1 italic">Total do Pedido</p>
+              <p className="text-2xl font-black tracking-tighter text-white">{formatBRL(total)}</p>
+            </div>
+            <Button onClick={submit} disabled={submitting || items.length === 0} className="bg-emerald-400 hover:bg-emerald-300 text-emerald-950 px-8 h-14 font-black uppercase tracking-tighter text-lg rounded-xl shadow-lg transition-transform active:scale-95">
+              {submitting ? <Loader2 className="h-6 w-6 animate-spin" /> : "ENVIAR PEDIDO"}
             </Button>
           </div>
         </div>

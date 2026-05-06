@@ -6,16 +6,21 @@ type BrandMarkProps = {
   compact?: boolean;
   className?: string;
   to?: string;
+  inverted?: boolean;
 };
 
-export const BrandMark = ({ compact, className, to }: BrandMarkProps) => {
+export const BrandMark = ({ compact, className, to, inverted }: BrandMarkProps) => {
   const classes = cn(
     "brand-mark inline-flex items-center",
     className,
   );
 
   const content = (
-    <div className={cn("flex items-center gap-0.5 font-black tracking-tighter text-black uppercase", compact ? "text-xl" : "text-2xl")}>
+    <div className={cn(
+      "flex items-center gap-0.5 font-black tracking-tighter uppercase", 
+      compact ? "text-xl" : "text-2xl",
+      inverted ? "text-white" : "text-black"
+    )}>
       <span className="relative inline-block">
         H
         <span className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-[#00FF00] shadow-[0_0_10px_rgba(0,255,0,0.8)]" />

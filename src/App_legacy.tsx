@@ -10,6 +10,9 @@ import { SubscriptionGuard } from "@/components/SubscriptionGuard";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Login from "./pages/auth/Login";
+import MerchantLogin from "./pages/auth/MerchantLogin";
+import AdminLogin from "./pages/auth/AdminLogin";
+import MerchantSignup from "./pages/auth/MerchantSignup";
 import Signup from "./pages/auth/Signup";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
@@ -41,6 +44,7 @@ const AdminStores = lazy(() => import("./pages/admin/AdminStores"));
 const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
+const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,11 +65,20 @@ const App = () => (
           <CartProvider>
             <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
               <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/entrar" element={<Login />} />
                 <Route path="/cadastrar" element={<Signup />} />
                 <Route path="/recuperar-senha" element={<ForgotPassword />} />
                 <Route path="/redefinir-senha" element={<ResetPassword />} />
+                
+                {/* Merchant Auth */}
+                <Route path="/lojista/entrar" element={<MerchantLogin />} />
+                <Route path="/cadastrar-loja" element={<MerchantSignup />} />
+                
+                {/* Admin Auth */}
+                <Route path="/admin/entrar" element={<AdminLogin />} />
+
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
                 <Route path="/loja/:slug" element={<PublicStore />} />
@@ -75,7 +88,9 @@ const App = () => (
                 <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
                 
                 {/* Painel do Consumidor */}
-                <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerDashboard /></ProtectedRoute>} />
+                <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerLayout /></ProtectedRoute>}>
+                  <Route index element={<CustomerDashboard />} />
+                </Route>
 
                 {/* Painel do Lojista */}
                 <Route path="/lojista" element={<ProtectedRoute requiredRole="store_owner"><AppLayout /></ProtectedRoute>}>

@@ -136,34 +136,27 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
-      <header className="bg-black text-white p-8 border-b-4 border-primary">
+      <header className="bg-emerald-900 text-white p-8 border-b-4 border-emerald-400">
         <div className="container max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter italic">Meu Painel</h1>
-            <p className="text-white/60 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
+            <p className="text-emerald-100/60 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
           </div>
           <div className="flex items-center gap-4">
-            <User className="h-10 w-10 text-primary" />
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/10" 
-              onClick={() => signOut()}
-              title="Sair"
-            >
-              <LogOut className="h-6 w-6" />
-            </Button>
+            <div className="h-12 w-12 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center">
+              <User className="h-6 w-6 text-emerald-400" />
+            </div>
           </div>
         </div>
       </header>
 
       <main className="container max-w-4xl mx-auto p-4 -mt-6">
         <Tabs defaultValue="pedidos" className="space-y-6">
-          <TabsList className="w-full bg-white border-2 border-black rounded-none h-14 p-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <TabsTrigger value="pedidos" className="flex-1 rounded-none data-[state=active]:bg-black data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
+          <TabsList className="w-full bg-white border-2 border-emerald-900 rounded-none h-14 p-1 shadow-[4px_4px_0px_0px_rgba(6,78,59,1)]">
+            <TabsTrigger value="pedidos" className="flex-1 rounded-none data-[state=active]:bg-emerald-900 data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
               <Package className="h-4 w-4 mr-2" /> Meus Pedidos
             </TabsTrigger>
-            <TabsTrigger value="perfil" className="flex-1 rounded-none data-[state=active]:bg-black data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
+            <TabsTrigger value="perfil" className="flex-1 rounded-none data-[state=active]:bg-emerald-900 data-[state=active]:text-white font-black uppercase text-xs tracking-widest h-full">
               <User className="h-4 w-4 mr-2" /> Meu Perfil
             </TabsTrigger>
           </TabsList>

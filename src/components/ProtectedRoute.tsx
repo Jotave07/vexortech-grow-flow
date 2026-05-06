@@ -22,7 +22,11 @@ export const ProtectedRoute = ({
   }
 
   if (!user && typeof window !== "undefined") {
-    return <Navigate to="/entrar" state={{ from: location.pathname }} replace />;
+    let loginPath = "/entrar";
+    if (path.startsWith("/admin")) loginPath = "/admin/entrar";
+    else if (path.startsWith("/lojista")) loginPath = "/lojista/entrar";
+    
+    return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
   // Se estiver carregando o perfil mas o usuário já estiver autenticado, esperar um pouco
