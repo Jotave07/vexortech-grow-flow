@@ -184,9 +184,12 @@ const Orders = () => {
 
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {COLUMNS.map((col) => {
-          const colOrders = orders.filter((o) => col.key === "saiu_para_entrega"
-            ? (o.status === "saiu_para_entrega" || o.status === "pronto_para_retirada")
-            : o.status === col.key);
+          const colOrders = orders.filter((o) => {
+            if (col.key === "saiu_para_entrega") {
+              return o.status === "saiu_para_entrega" || o.status === "pronto_para_retirada";
+            }
+            return o.status === col.key;
+          });
           
           return (
             <div key={col.key} className="flex-shrink-0 w-80 flex flex-col gap-4">
