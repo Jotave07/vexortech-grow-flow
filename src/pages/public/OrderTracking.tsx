@@ -89,7 +89,8 @@ const OrderTracking = () => {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!order) {
+  
+  if (!order || !token || token === "undefined") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4">
         <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center text-muted-foreground mb-4">
@@ -97,7 +98,9 @@ const OrderTracking = () => {
         </div>
         <h1 className="font-black text-2xl uppercase tracking-tighter italic">Pedido não encontrado</h1>
         <p className="text-muted-foreground max-w-xs text-sm">
-          Não conseguimos localizar as informações deste pedido. Verifique o link ou entre em contato com a loja.
+          {!token || token === "undefined" 
+            ? "O link do pedido parece estar incompleto. Por favor, feche esta aba e tente novamente pelo checkout."
+            : "Não conseguimos localizar as informações deste pedido. Verifique o link ou entre em contato com a loja."}
         </p>
         <Button variant="outline" onClick={() => window.location.reload()} className="border-2 border-black rounded-none font-bold uppercase">
           Tentar Novamente
