@@ -26,10 +26,18 @@ const schema = z.object({
 const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, profile, signOut } = useAuth();
   const redirect = new URLSearchParams(location.search).get("redirect");
   const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string }>({ score: 0, label: "", color: "" });
+
+  useEffect(() => {
+    if (user && profile?.role === 'store_owner') {
+      toast.info("Você está logado como administrador. Para criar uma conta de cliente, você será desconectado.");
+      signOut();
+    }
+  }, [user, profile]);
 
   const checkPasswordStrength = (pass: string) => {
     if (!pass) return { score: 0, label: "", color: "" };
