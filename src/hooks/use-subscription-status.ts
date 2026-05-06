@@ -42,7 +42,7 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
 
     setLoading(true);
     const [adminRes, storeRes] = await Promise.all([
-      user.email === "jvieira@vexortech.com.br" ? Promise.resolve({ data: true }) : (supabase.rpc("is_vexor_admin" as any, { _user_id: user.id }) as any),
+      supabase.rpc("is_vexor_admin" as any, { _user_id: user.id }) as any,
       profile?.store_id ? (supabase.from("stores" as any).select("*").eq("id", profile.store_id).maybeSingle() as any) : Promise.resolve({ data: null, error: null }),
     ]);
 
