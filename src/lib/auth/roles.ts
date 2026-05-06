@@ -12,5 +12,6 @@ export function isStoreOwner(profile: Profile | null, storeId?: string): boolean
 }
 
 export function isCustomer(profile: Profile | null): boolean {
-  return profile?.role === "customer" || profile?.role === "store_owner" || profile?.role === "super_admin";
+  // Any authenticated user can be a customer
+  return !!profile;
 }
