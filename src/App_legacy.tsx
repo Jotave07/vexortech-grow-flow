@@ -76,7 +76,9 @@ const App = () => (
                 <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
                 
                 {/* Painel do Consumidor */}
-                <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerDashboard /></ProtectedRoute>} />
+                <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerLayout /></ProtectedRoute>}>
+                  <Route index element={<CustomerDashboard />} />
+                </Route>
 
                 {/* Painel do Lojista */}
                 <Route path="/lojista" element={<ProtectedRoute requiredRole="store_owner"><AppLayout /></ProtectedRoute>}>
