@@ -202,6 +202,7 @@ const PublicCheckout = () => {
       // 1. Garantir que existe um registro na tabela 'customers' para este usuário nesta loja
       let customerId = null;
       if (user) {
+        // Try to find by user_id first
         const { data: existingCustomer } = await supabase
           .from("customers")
           .select("id")
@@ -212,27 +213,44 @@ const PublicCheckout = () => {
         if (existingCustomer) {
           customerId = existingCustomer.id;
         } else {
-          const { data: newCustomer, error: cErr } = await supabase
+          // Try to find by phone if not found by user_id
+          const { data: phoneCustomer } = await supabase
             .from("customers")
-            .insert({
-              store_id: store.id,
-              user_id: user.id,
-              full_name: name.trim().toUpperCase(),
-              phone: onlyDigits(phone),
-              document: onlyDigits(document),
-              street: street.toUpperCase(),
-              number: number,
-              neighborhood: neighborhood.toUpperCase(),
-              city: city.toUpperCase(),
-              state: state.toUpperCase(),
-              zip_code: onlyDigits(zipCode),
-              registration_completed: true
-            })
             .select("id")
-            .single();
-          
-          if (!cErr && newCustomer) {
-            customerId = newCustomer.id;
+            .eq("store_id", store.id)
+            .eq("phone", onlyDigits(phone))
+            .maybeSingle();
+
+          if (phoneCustomer) {
+            customerId = phoneCustomer.id;
+            // Link this customer to the user
+            await supabase
+              .from("customers")
+              .update({ user_id: user.id })
+              .eq("id", customerId);
+          } else {
+            const { data: newCustomer, error: cErr } = await supabase
+              .from("customers")
+              .insert({
+                store_id: store.id,
+                user_id: user.id,
+                full_name: name.trim().toUpperCase(),
+                phone: onlyDigits(phone),
+                document: onlyDigits(document),
+                street: street.toUpperCase(),
+                number: number,
+                neighborhood: neighborhood.toUpperCase(),
+                city: city.toUpperCase(),
+                state: state.toUpperCase(),
+                zip_code: onlyDigits(zipCode),
+                registration_completed: true
+              })
+              .select("id")
+              .single();
+            
+            if (!cErr && newCustomer) {
+              customerId = newCustomer.id;
+            }
           }
         }
       }
