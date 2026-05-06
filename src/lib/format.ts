@@ -95,3 +95,11 @@ export const STATUS_COLORS: Record<string, string> = {
   entregue: "bg-green-500/10 text-green-500 border-green-500/20",
   cancelado: "bg-red-500/10 text-red-500 border-red-500/20",
 };
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: "PIX",
+  dinheiro: "Dinheiro",
+  cartao_credito_entrega: "Cartão de Crédito (na entrega)",
+  cartao_debito_entrega: "Cartão de Débito (na entrega)",
+  cartao_entrega: "Cartão (na entrega)",
+};

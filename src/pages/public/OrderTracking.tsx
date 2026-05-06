@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check, Bike, ChefHat, PackageCheck, Wallet } from "lucide-react";
-import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
@@ -440,6 +440,10 @@ const OrderTracking = () => {
                 <span>{formatBRL(order.change_for)}</span>
               </div>
             )}
+            <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground pt-1">
+              <span>Pagamento</span>
+              <span>{PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}</span>
+            </div>
             <div className="flex justify-between font-black text-xl border-t-2 border-black pt-3 mt-3 uppercase tracking-tighter">
               <span>Total</span>
               <span className="text-primary">{formatBRL(order.total || 0)}</span>
