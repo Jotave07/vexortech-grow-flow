@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useOutletContext, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
+import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
 import { useServerFn } from "@tanstack/react-start";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
   { key: "aguardando_pagamento", label: "Aguardando PIX" },
@@ -245,48 +247,76 @@ const Orders = () => {
               </div>
               
               <div className="space-y-3 min-h-[500px] bg-muted/20 p-2 border-x border-b border-dashed border-black/10">
-                {colOrders.map((o) => (
-                  <Card 
-                    key={o.id} 
-                    className={cn(
-                      "p-4 cursor-pointer hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 border-2 border-black rounded-none bg-white",
-                      !o.is_seen && col.key === "novo" ? "ring-2 ring-primary animate-pulse" : ""
-                    )} 
-                    onClick={() => openDetails(o)}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-black text-xs bg-black text-white px-2 py-0.5 tracking-tighter">#{o.order_number}</span>
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">{new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                    </div>
-                    
-                    <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
-                        {o.delivery_type}
-                      </Badge>
-                      <div className="font-black text-sm">{formatBRL(o.total)}</div>
-                    </div>
-                    
-                    {col.nextStatus && (
-                      <Button 
-                        size="sm" 
-                        variant="hero" 
-                        className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          updateStatus(o.id, col.nextStatus!); 
-                        }}
+                <AnimatePresence mode="popLayout">
+                  {colOrders.map((o) => (
+                    <motion.div
+                      key={o.id}
+                      layout
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                      transition={{ 
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 25
+                      }}
+                    >
+                      <Card 
+                        className={cn(
+                          "p-4 cursor-pointer hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 border-2 border-black rounded-none bg-white relative overflow-hidden",
+                          !o.is_seen && col.key === "novo" ? "ring-2 ring-primary" : ""
+                        )} 
+                        onClick={() => openDetails(o)}
                       >
-                        {col.nextLabel}
-                      </Button>
-                    )}
-                  </Card>
-                ))}
+                        {!o.is_seen && col.key === "novo" && (
+                          <motion.div 
+                            className="absolute top-0 right-0 p-1"
+                            animate={{ opacity: [1, 0, 1] }}
+                            transition={{ repeat: Infinity, duration: 2 }}
+                          >
+                            <Badge className="bg-primary text-[8px] h-3 px-1">Novo</Badge>
+                          </motion.div>
+                        )}
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="font-black text-xs bg-black text-white px-2 py-0.5 tracking-tighter">#{o.order_number}</span>
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                        
+                        <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
+                            {o.delivery_type}
+                          </Badge>
+                          <div className="font-black text-sm">{formatBRL(o.total)}</div>
+                        </div>
+                        
+                        {col.nextStatus && (
+                          <Button 
+                            size="sm" 
+                            variant="hero" 
+                            className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              updateStatus(o.id, col.nextStatus!); 
+                            }}
+                          >
+                            {col.nextLabel}
+                          </Button>
+                        )}
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
                 {colOrders.length === 0 && (
-                  <div className="h-20 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border border-dashed border-black/10">
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="h-20 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border border-dashed border-black/10"
+                  >
                     Vazio
-                  </div>
+                  </motion.div>
                 )}
+
               </div>
             </div>
           );

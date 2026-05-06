@@ -88,7 +88,28 @@ const CustomerDashboard = () => {
     }
 
     loadOrders();
+
+    // Add Real-time subscription for orders
+    const channel = supabase
+      .channel(`customer-orders-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders"
+        },
+        () => {
+          loadOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [user, profile, authLoading, navigate, isProfileComplete]);
+
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
