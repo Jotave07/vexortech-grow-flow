@@ -41,6 +41,7 @@ const AdminStores = lazy(() => import("./pages/admin/AdminStores"));
 const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
+const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
