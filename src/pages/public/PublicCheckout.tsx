@@ -417,7 +417,7 @@ const PublicCheckout = () => {
       </div>
 
       <Dialog open={showPixModal} onOpenChange={(open) => {
-        if (!open && createdOrder) {
+        if (!open && createdOrder?.public_token) {
           navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
         }
         setShowPixModal(open);
