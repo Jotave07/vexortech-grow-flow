@@ -110,6 +110,11 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       throw new Error(`Erro Asaas da Loja: ${payment.errors[0].description}`);
     }
 
+    if (!payment?.id) {
+      console.error("[asaas] Payment created but ID is missing:", payment);
+      throw new Error("Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.");
+    }
+
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
 
     // 6. Update or Insert payment in DB
@@ -124,6 +129,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
         .from("payments")
         .update({ 
           external_id: payment.id,
+          asaas_id: payment.id,
           status: "pendente" 
         })
         .eq("id", existingPayment.id);
@@ -136,6 +142,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
           store_id: data.storeId,
           amount: Number(order.total),
           external_id: payment.id,
+          asaas_id: payment.id,
           status: "pendente"
         });
       if (pErr) throw pErr;
@@ -166,11 +173,11 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
     // Try to find existing payment
     const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select("external_id, status")
+      .select("external_id, asaas_id, status")
       .eq("order_id", data.orderId)
       .maybeSingle();
 
-    let externalId = payment?.external_id;
+    let externalId = payment?.external_id || payment?.asaas_id;
 
     // If no payment record exists, try to create one (recovery)
     if (!externalId) {
