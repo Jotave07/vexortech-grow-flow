@@ -26,7 +26,7 @@ const Reports = () => {
       setLoading(true);
       const since = new Date(Date.now() - Number(range) * 24 * 60 * 60 * 1000).toISOString();
       const [{ data: o }, { data: it }] = await Promise.all([
-        supabase.from("orders").select("created_at, total, status, order_type, payment_method, customer_id")
+        supabase.from("orders").select("created_at, total, status, delivery_type, payment_method, customer_id")
           .eq("store_id", store.id).gte("created_at", since).limit(2000),
         supabase.from("order_items").select("product_name, quantity, subtotal, created_at")
           .eq("store_id", store.id).gte("created_at", since).limit(5000),
