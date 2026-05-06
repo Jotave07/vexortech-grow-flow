@@ -30,14 +30,12 @@ const AdminLayout = () => {
       return;
     }
     (async () => {
-      // Manual check for the requested admin email and role
-      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      if (user.email === "jvieira@vexortech.com.br" || (roleData as any)?.role === "super_admin") {
+      const roles = await getUserRoles(user.id);
+      if (roles.includes("super_admin")) {
         setIsAdmin(true);
         return;
       }
-      const { data } = await supabase.rpc("is_vexor_admin", { _user_id: user.id });
-      setIsAdmin(!!data);
+      setIsAdmin(false);
     })();
   }, [loading, user, navigate]);
 
