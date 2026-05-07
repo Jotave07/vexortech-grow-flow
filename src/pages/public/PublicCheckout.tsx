@@ -136,7 +136,7 @@ const PublicCheckout = () => {
       neighborhood: neigh,
       city: cty,
       state: st,
-      subtotal: itemSubtotal
+      subtotal: subtotal
     });
     setDeliveryQuote(quote);
     if (quote.region?.id) {
