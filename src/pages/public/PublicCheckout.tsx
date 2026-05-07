@@ -424,15 +424,36 @@ const PublicCheckout = () => {
                   </Button>
                 </div>
               </div>
-              <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Seu Bairro (Taxa)</Label>
-                <Select value={zoneId} onValueChange={setZoneId}>
-                  <SelectTrigger className="border-2 border-emerald-50 h-12 font-bold rounded-xl bg-white"><SelectValue placeholder="ONDE VOCÊ ESTÁ?" /></SelectTrigger>
-                  <SelectContent className="rounded-xl border-emerald-100">
-                    {zones.map(z => <SelectItem key={z.id} value={z.id} className="font-bold">{z.neighborhood.toUpperCase()} ({formatBRL(z.fee)})</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+
+              {deliveryQuote && (
+                <div className={cn("p-4 rounded-xl border-2 transition-all", deliveryQuote.available ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100")}>
+                  {deliveryQuote.available ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Entrega Disponível</span>
+                        <div className="flex items-center gap-1 text-emerald-600 font-black text-sm">
+                          <Truck className="h-4 w-4" /> {formatBRL(deliveryQuote.fee)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-bold text-emerald-800">
+                        <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {deliveryQuote.region?.name || deliveryQuote.region?.neighborhood}</div>
+                        <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {deliveryQuote.estimated_min}-{deliveryQuote.estimated_max} min</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 text-red-700">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-xs font-black uppercase tracking-tight">{deliveryQuote.reason}</p>
+                        {deliveryQuote.amount_to_min && (
+                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mínimo.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-3">
                   <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Rua / Av</Label>
@@ -442,6 +463,11 @@ const PublicCheckout = () => {
                   <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nº</Label>
                   <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" />
                 </div>
+              </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Complemento (Opcional)</Label>
+                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="APTO, BLOCO, FUNDOS..." />
               </div>
             </div>
           )}
