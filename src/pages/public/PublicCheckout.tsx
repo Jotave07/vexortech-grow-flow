@@ -293,6 +293,18 @@ const PublicCheckout = () => {
         payment_method: paymentMethod,
         change_for: paymentMethod === "dinheiro" ? Number(onlyDigits(changeFor)) / 100 || null : null,
         notes: notes.trim() || null,
+        // Novos campos de entrega
+        zip_code: onlyDigits(zipCode),
+        neighborhood: neighborhood.toUpperCase(),
+        city: city.toUpperCase(),
+        state: state.toUpperCase(),
+        street: street.toUpperCase(),
+        number: number,
+        complement: complement.trim() || null,
+        delivery_region_id: deliveryQuote?.region?.id || null,
+        estimated_min: deliveryQuote?.estimated_min || null,
+        estimated_max: deliveryQuote?.estimated_max || null,
+        delivery_source: deliveryQuote?.source || null,
       }).select("id, public_token").maybeSingle() as any);
       
       if (oErr) throw oErr;
