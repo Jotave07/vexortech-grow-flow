@@ -180,8 +180,7 @@ const PublicCheckout = () => {
     }
   };
 
-  const zone = zones.find((z) => z.id === zoneId);
-  const deliveryFee = orderType === "entrega" ? Number(zone?.fee ?? settings?.delivery_base_fee ?? 0) : 0;
+  const zone = deliveryQuote?.region;
   
   const discount = useMemo(() => {
     if (!coupon) return 0;
