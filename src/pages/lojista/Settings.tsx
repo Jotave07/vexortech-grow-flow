@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, MapPin, Palette, Plus, Save, Search, Settings2, Store, TimerReset, Trash2, Truck, Upload, Wallet, Copy, ExternalLink, ShieldCheck, Activity } from "lucide-react";
-import { fetchAddressByCep, ViaCepError, buildAddressLabel, normalizeCep } from "@/services/viacep";
+import { fetchAddressByCep } from "@/services/cep/viacepService";
+import { ViaCepError } from "@/services/viacep";
+import { buildAddressLabel, normalizeCep } from "@/services/viacep";
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
@@ -154,12 +156,12 @@ const Settings = () => {
       const address = await fetchAddressByCep(storeForm.zip_code ?? "");
       setStoreForm({
         ...storeForm,
-        zip_code: address.cep,
-        address: address.street || storeForm.address,
-        neighborhood: address.neighborhood || storeForm.neighborhood,
-        city: address.city || storeForm.city,
-        state: address.state || storeForm.state,
-        address_complement: storeForm.address_complement || address.complement || null,
+        zip_code: address.cep || storeForm.zip_code,
+        address: address.logradouro || storeForm.address,
+        neighborhood: address.bairro || storeForm.neighborhood,
+        city: address.localidade || storeForm.city,
+        state: address.uf || storeForm.state,
+        address_complement: storeForm.address_complement || address.complemento || null,
       });
       setCepLookup({ status: "success", message: "Endereco encontrado e preenchido. Revise os campos antes de salvar." });
       toast.success("Endereco localizado pelo CEP.");

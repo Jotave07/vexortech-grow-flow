@@ -333,8 +333,26 @@ const Orders = () => {
               <div className="space-y-1">
                 <div className="font-medium">{selected.customer_name}</div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone className="h-3 w-3" /> {selected.customer_phone}</div>
-                {selected.delivery_address && <div className="flex items-start gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3 mt-0.5" /> <span>{selected.delivery_address}{selected.delivery_neighborhood && ` — ${selected.delivery_neighborhood}`}{selected.delivery_reference && ` (Ref: ${selected.delivery_reference})`}</span></div>}
-                <div className="text-xs capitalize font-black"><Clock className="h-3 w-3 inline" /> {selected.delivery_type}</div>
+                
+                {selected.delivery_address && (
+                  <div className="flex items-start gap-1 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3 mt-0.5" /> 
+                    <div className="flex flex-col">
+                      <span>{selected.delivery_address}</span>
+                      {selected.zip_code && <span className="text-[10px]">CEP: {selected.zip_code} — {selected.neighborhood}, {selected.city}/{selected.state}</span>}
+                      {selected.delivery_reference && <span className="text-[10px] italic">Ref: {selected.delivery_reference}</span>}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="text-xs capitalize font-black"><Clock className="h-3 w-3 inline" /> {selected.delivery_type}</div>
+                  {selected.estimated_min && (
+                    <div className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">
+                      Estimado: {selected.estimated_min}-{selected.estimated_max} min
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="border-t border-border pt-3 space-y-2">

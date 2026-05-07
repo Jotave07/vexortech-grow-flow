@@ -308,37 +308,76 @@ export type Database = {
       }
       delivery_zones: {
         Row: {
+          additional_region_time: number | null
+          base_prep_time: number | null
           city: string | null
           created_at: string | null
           estimated_minutes: number | null
           fee: number | null
+          fee_per_km: number | null
           id: string
+          internal_notes: string | null
           is_active: boolean | null
+          max_fee: number | null
+          max_radius_km: number | null
+          min_fee: number | null
           min_order: number | null
+          minutes_per_km: number | null
+          name: string | null
           neighborhood: string
+          priority: number | null
+          state: string | null
           store_id: string
+          zip_end: string | null
+          zip_start: string | null
         }
         Insert: {
+          additional_region_time?: number | null
+          base_prep_time?: number | null
           city?: string | null
           created_at?: string | null
           estimated_minutes?: number | null
           fee?: number | null
+          fee_per_km?: number | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean | null
+          max_fee?: number | null
+          max_radius_km?: number | null
+          min_fee?: number | null
           min_order?: number | null
+          minutes_per_km?: number | null
+          name?: string | null
           neighborhood: string
+          priority?: number | null
+          state?: string | null
           store_id: string
+          zip_end?: string | null
+          zip_start?: string | null
         }
         Update: {
+          additional_region_time?: number | null
+          base_prep_time?: number | null
           city?: string | null
           created_at?: string | null
           estimated_minutes?: number | null
           fee?: number | null
+          fee_per_km?: number | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean | null
+          max_fee?: number | null
+          max_radius_km?: number | null
+          min_fee?: number | null
           min_order?: number | null
+          minutes_per_km?: number | null
+          name?: string | null
           neighborhood?: string
+          priority?: number | null
+          state?: string | null
           store_id?: string
+          zip_end?: string | null
+          zip_start?: string | null
         }
         Relationships: [
           {
@@ -497,6 +536,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           change_for: number | null
+          city: string | null
+          complement: string | null
           coupon_code: string | null
           coupon_id: string | null
           created_at: string | null
@@ -510,16 +551,23 @@ export type Database = {
           delivery_city: string | null
           delivery_fee: number | null
           delivery_neighborhood: string | null
+          delivery_region_id: string | null
+          delivery_source: string | null
           delivery_state: string | null
           delivery_type: string | null
           delivery_zip_code: string | null
           discount_amount: number | null
+          distance_km: number | null
           estimated_delivery_at: string | null
+          estimated_max: number | null
+          estimated_min: number | null
           estimated_ready_at: string | null
           id: string
           idempotency_key: string | null
           is_seen: boolean | null
+          neighborhood: string | null
           notes: string | null
+          number: string | null
           order_number: number
           out_for_delivery_at: string | null
           payment_method: string | null
@@ -529,17 +577,22 @@ export type Database = {
           ready_at: string | null
           refused_reason: string | null
           scheduled_at: string | null
+          state: string | null
           status: string | null
           store_id: string
+          street: string | null
           subtotal: number | null
           total: number
           updated_at: string | null
+          zip_code: string | null
         }
         Insert: {
           accepted_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           change_for?: number | null
+          city?: string | null
+          complement?: string | null
           coupon_code?: string | null
           coupon_id?: string | null
           created_at?: string | null
@@ -553,16 +606,23 @@ export type Database = {
           delivery_city?: string | null
           delivery_fee?: number | null
           delivery_neighborhood?: string | null
+          delivery_region_id?: string | null
+          delivery_source?: string | null
           delivery_state?: string | null
           delivery_type?: string | null
           delivery_zip_code?: string | null
           discount_amount?: number | null
+          distance_km?: number | null
           estimated_delivery_at?: string | null
+          estimated_max?: number | null
+          estimated_min?: number | null
           estimated_ready_at?: string | null
           id?: string
           idempotency_key?: string | null
           is_seen?: boolean | null
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           order_number?: number
           out_for_delivery_at?: string | null
           payment_method?: string | null
@@ -572,17 +632,22 @@ export type Database = {
           ready_at?: string | null
           refused_reason?: string | null
           scheduled_at?: string | null
+          state?: string | null
           status?: string | null
           store_id: string
+          street?: string | null
           subtotal?: number | null
           total: number
           updated_at?: string | null
+          zip_code?: string | null
         }
         Update: {
           accepted_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           change_for?: number | null
+          city?: string | null
+          complement?: string | null
           coupon_code?: string | null
           coupon_id?: string | null
           created_at?: string | null
@@ -596,16 +661,23 @@ export type Database = {
           delivery_city?: string | null
           delivery_fee?: number | null
           delivery_neighborhood?: string | null
+          delivery_region_id?: string | null
+          delivery_source?: string | null
           delivery_state?: string | null
           delivery_type?: string | null
           delivery_zip_code?: string | null
           discount_amount?: number | null
+          distance_km?: number | null
           estimated_delivery_at?: string | null
+          estimated_max?: number | null
+          estimated_min?: number | null
           estimated_ready_at?: string | null
           id?: string
           idempotency_key?: string | null
           is_seen?: boolean | null
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           order_number?: number
           out_for_delivery_at?: string | null
           payment_method?: string | null
@@ -615,11 +687,14 @@ export type Database = {
           ready_at?: string | null
           refused_reason?: string | null
           scheduled_at?: string | null
+          state?: string | null
           status?: string | null
           store_id?: string
+          street?: string | null
           subtotal?: number | null
           total?: number
           updated_at?: string | null
+          zip_code?: string | null
         }
         Relationships: [
           {
@@ -634,6 +709,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_delivery_region_id_fkey"
+            columns: ["delivery_region_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_zones"
             referencedColumns: ["id"]
           },
           {

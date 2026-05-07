@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut } from "lucide-react";
+import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut, Search } from "lucide-react";
 import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone, formatDoc } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -347,14 +347,42 @@ const CustomerDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="zip_code" className="text-[10px] font-black uppercase tracking-widest">CEP</Label>
-                <Input 
-                  id="zip_code" 
-                  value={formData.zip_code} 
-                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                  placeholder="00000-000"
-                  className="border-2 border-black rounded-none h-11 font-bold"
-                  required
-                />
+                <div className="flex gap-2">
+                  <Input 
+                    id="zip_code" 
+                    value={formData.zip_code} 
+                    onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                    placeholder="00000-000"
+                    className="border-2 border-black rounded-none h-11 font-bold flex-1"
+                    required
+                  />
+                  <Button 
+                    type="button" 
+                    size="icon" 
+                    variant="outline" 
+                    className="border-2 border-black rounded-none h-11 w-11 shrink-0"
+                    onClick={async () => {
+                      const cep = formData.zip_code.replace(/\D/g, "");
+                      if (cep.length !== 8) return toast.error("CEP inválido");
+                      try {
+                        const { fetchAddressByCep } = await import("@/services/cep/viacepService");
+                        const addr = await fetchAddressByCep(cep);
+                        setFormData(prev => ({
+                          ...prev,
+                          street: addr.logradouro || prev.street,
+                          neighborhood: addr.bairro || prev.neighborhood,
+                          city: addr.localidade || prev.city,
+                          state: addr.uf || prev.state
+                        }));
+                        toast.success("Endereço localizado!");
+                      } catch (e) {
+                        toast.error("Erro ao buscar CEP");
+                      }
+                    }}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 

@@ -10,17 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, CheckCircle2, Search, MapPin, Truck, ShoppingBag, CreditCard, Wallet, Copy, QrCode } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Search, MapPin, Truck, ShoppingBag, CreditCard, Wallet, Copy, QrCode, AlertTriangle, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment, syncPaymentStatus } from "@/functions/asaas";
-import { fetchAddressByCep } from "@/services/viacep";
+import { fetchAddressByCep } from "@/services/cep/viacepService";
+import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
+import { DeliveryQuote } from "@/types/delivery";
 import { cn } from "@/lib/utils";
-
-type Zone = { id: string; neighborhood: string; city: string | null; fee: number; min_order: number; estimated_minutes: number };
 
 const PublicCheckout = () => {
   const { slug } = useParams();
@@ -31,8 +31,8 @@ const PublicCheckout = () => {
 
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deliveryQuote, setDeliveryQuote] = useState<DeliveryQuote | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
   const [pixData, setPixData] = useState<any>(null);
@@ -122,15 +122,42 @@ const PublicCheckout = () => {
       const { data: s } = await supabase.from("stores").select("*").eq("slug", slug).maybeSingle();
       if (!s) { setLoading(false); return; }
       setStore(s);
-      const [settRes, zoneRes] = await Promise.all([
-        supabase.from("store_settings").select("*").eq("store_id", s.id).maybeSingle(),
-        supabase.from("delivery_zones").select("*").eq("store_id", s.id).eq("is_active", true).order("neighborhood"),
-      ]);
-      setSettings(settRes.data);
-      setZones((zoneRes.data ?? []) as Zone[]);
+      const { data: sett } = await supabase.from("store_settings").select("*").eq("store_id", s.id).maybeSingle();
+      setSettings(sett);
       setLoading(false);
     })();
   }, [slug]);
+
+  const updateDeliveryQuote = async (zip: string, neigh: string, cty: string, st: string) => {
+    if (!store?.id || orderType !== "entrega") return;
+    const quote = await calculateDeliveryQuote({
+      storeId: store.id,
+      cep: zip,
+      neighborhood: neigh,
+      city: cty,
+      state: st,
+      subtotal: subtotal
+    });
+    setDeliveryQuote(quote);
+    if (quote.region?.id) {
+      setZoneId(quote.region.id);
+    } else {
+      setZoneId("");
+    }
+    return quote;
+  };
+
+  useEffect(() => {
+    if (orderType === "entrega" && zipCode && neighborhood && city && state) {
+      const timer = setTimeout(() => {
+        updateDeliveryQuote(zipCode, neighborhood, city, state);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (orderType === "retirada") {
+      setDeliveryQuote(null);
+      setZoneId("");
+    }
+  }, [orderType, zipCode, neighborhood, city, state, itemSubtotal, store?.id]);
 
   const handleCepLookup = async () => {
     const cleanCep = onlyDigits(zipCode);
@@ -138,19 +165,13 @@ const PublicCheckout = () => {
     setLoadingCep(true);
     try {
       const addr = await fetchAddressByCep(cleanCep);
-      setStreet(addr.street);
-      setNeighborhood(addr.neighborhood);
-      setCity(addr.city);
-      setState(addr.state);
+      setStreet(addr.logradouro || "");
+      setNeighborhood(addr.bairro || "");
+      setCity(addr.localidade || "");
+      setState(addr.uf || "");
       
-      const matchingZone = zones.find(z => 
-        z.neighborhood.toLowerCase().trim() === addr.neighborhood.toLowerCase().trim()
-      );
-      if (matchingZone) {
-        setZoneId(matchingZone.id);
-      } else {
-        setZoneId("");
-        toast.info("Bairro não encontrado na lista de entregas da loja. Selecione a região manualmente.");
+      if (addr.localidade && addr.uf) {
+        await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf);
       }
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
@@ -159,8 +180,7 @@ const PublicCheckout = () => {
     }
   };
 
-  const zone = zones.find((z) => z.id === zoneId);
-  const deliveryFee = orderType === "entrega" ? Number(zone?.fee ?? settings?.delivery_base_fee ?? 0) : 0;
+  const zone = deliveryQuote?.region;
   
   const discount = useMemo(() => {
     if (!coupon) return 0;
@@ -169,9 +189,10 @@ const PublicCheckout = () => {
   }, [coupon, subtotal]);
   
   const actualDeliveryFee = useMemo(() => {
+    if (orderType === "retirada") return 0;
     if (settings?.free_delivery_above && subtotal >= Number(settings.free_delivery_above)) return 0;
-    return deliveryFee;
-  }, [deliveryFee, settings?.free_delivery_above, subtotal]);
+    return deliveryQuote?.fee || 0;
+  }, [deliveryQuote?.fee, settings?.free_delivery_above, subtotal, orderType]);
 
   const total = Math.max(0, subtotal + actualDeliveryFee - discount);
 
@@ -188,7 +209,7 @@ const PublicCheckout = () => {
     if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatório para pagamento via PIX");
     
     if (orderType === "entrega") {
-      if (!zoneId) return toast.error("Selecione o bairro");
+      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega não disponível.");
       if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
     }
 
@@ -272,6 +293,18 @@ const PublicCheckout = () => {
         payment_method: paymentMethod,
         change_for: paymentMethod === "dinheiro" ? Number(onlyDigits(changeFor)) / 100 || null : null,
         notes: notes.trim() || null,
+        // Novos campos de entrega
+        zip_code: onlyDigits(zipCode),
+        neighborhood: neighborhood.toUpperCase(),
+        city: city.toUpperCase(),
+        state: state.toUpperCase(),
+        street: street.toUpperCase(),
+        number: number,
+        complement: complement.trim() || null,
+        delivery_region_id: deliveryQuote?.region?.id || null,
+        estimated_min: deliveryQuote?.estimated_min || null,
+        estimated_max: deliveryQuote?.estimated_max || null,
+        delivery_source: deliveryQuote?.source || null,
       }).select("id, public_token").maybeSingle() as any);
       
       if (oErr) throw oErr;
@@ -391,15 +424,36 @@ const PublicCheckout = () => {
                   </Button>
                 </div>
               </div>
-              <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Seu Bairro (Taxa)</Label>
-                <Select value={zoneId} onValueChange={setZoneId}>
-                  <SelectTrigger className="border-2 border-emerald-50 h-12 font-bold rounded-xl bg-white"><SelectValue placeholder="ONDE VOCÊ ESTÁ?" /></SelectTrigger>
-                  <SelectContent className="rounded-xl border-emerald-100">
-                    {zones.map(z => <SelectItem key={z.id} value={z.id} className="font-bold">{z.neighborhood.toUpperCase()} ({formatBRL(z.fee)})</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+
+              {deliveryQuote && (
+                <div className={cn("p-4 rounded-xl border-2 transition-all", deliveryQuote.available ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100")}>
+                  {deliveryQuote.available ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Entrega Disponível</span>
+                        <div className="flex items-center gap-1 text-emerald-600 font-black text-sm">
+                          <Truck className="h-4 w-4" /> {formatBRL(deliveryQuote.fee)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-bold text-emerald-800">
+                        <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {deliveryQuote.region?.name || deliveryQuote.region?.neighborhood}</div>
+                        <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {deliveryQuote.estimated_min}-{deliveryQuote.estimated_max} min</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 text-red-700">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-xs font-black uppercase tracking-tight">{deliveryQuote.reason}</p>
+                        {deliveryQuote.amount_to_min && (
+                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mínimo.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-3">
                   <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Rua / Av</Label>
@@ -409,6 +463,11 @@ const PublicCheckout = () => {
                   <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nº</Label>
                   <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" />
                 </div>
+              </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Complemento (Opcional)</Label>
+                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="APTO, BLOCO, FUNDOS..." />
               </div>
             </div>
           )}
