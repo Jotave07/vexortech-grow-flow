@@ -122,15 +122,42 @@ const PublicCheckout = () => {
       const { data: s } = await supabase.from("stores").select("*").eq("slug", slug).maybeSingle();
       if (!s) { setLoading(false); return; }
       setStore(s);
-      const [settRes, zoneRes] = await Promise.all([
-        supabase.from("store_settings").select("*").eq("store_id", s.id).maybeSingle(),
-        supabase.from("delivery_zones").select("*").eq("store_id", s.id).eq("is_active", true).order("neighborhood"),
-      ]);
-      setSettings(settRes.data);
-      setZones((zoneRes.data ?? []) as Zone[]);
+      const { data: sett } = await supabase.from("store_settings").select("*").eq("store_id", s.id).maybeSingle();
+      setSettings(sett);
       setLoading(false);
     })();
   }, [slug]);
+
+  const updateDeliveryQuote = async (zip: string, neigh: string, cty: string, st: string) => {
+    if (!store?.id || orderType !== "entrega") return;
+    const quote = await calculateDeliveryQuote({
+      storeId: store.id,
+      cep: zip,
+      neighborhood: neigh,
+      city: cty,
+      state: st,
+      subtotal: itemSubtotal
+    });
+    setDeliveryQuote(quote);
+    if (quote.region?.id) {
+      setZoneId(quote.region.id);
+    } else {
+      setZoneId("");
+    }
+    return quote;
+  };
+
+  useEffect(() => {
+    if (orderType === "entrega" && zipCode && neighborhood && city && state) {
+      const timer = setTimeout(() => {
+        updateDeliveryQuote(zipCode, neighborhood, city, state);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (orderType === "retirada") {
+      setDeliveryQuote(null);
+      setZoneId("");
+    }
+  }, [orderType, zipCode, neighborhood, city, state, itemSubtotal, store?.id]);
 
   const handleCepLookup = async () => {
     const cleanCep = onlyDigits(zipCode);
@@ -138,19 +165,13 @@ const PublicCheckout = () => {
     setLoadingCep(true);
     try {
       const addr = await fetchAddressByCep(cleanCep);
-      setStreet(addr.street);
-      setNeighborhood(addr.neighborhood);
-      setCity(addr.city);
-      setState(addr.state);
+      setStreet(addr.logradouro || "");
+      setNeighborhood(addr.bairro || "");
+      setCity(addr.localidade || "");
+      setState(addr.uf || "");
       
-      const matchingZone = zones.find(z => 
-        z.neighborhood.toLowerCase().trim() === addr.neighborhood.toLowerCase().trim()
-      );
-      if (matchingZone) {
-        setZoneId(matchingZone.id);
-      } else {
-        setZoneId("");
-        toast.info("Bairro não encontrado na lista de entregas da loja. Selecione a região manualmente.");
+      if (addr.localidade && addr.uf) {
+        await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf);
       }
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
