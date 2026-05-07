@@ -31,8 +31,8 @@ const PublicCheckout = () => {
 
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deliveryQuote, setDeliveryQuote] = useState<DeliveryQuote | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
   const [pixData, setPixData] = useState<any>(null);
