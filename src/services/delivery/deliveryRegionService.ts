@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { DeliveryRegion } from "@/types/delivery";
 import { normalizeCep } from "@/utils/zipCode";
 
