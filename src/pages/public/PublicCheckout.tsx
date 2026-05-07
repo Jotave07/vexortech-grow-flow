@@ -10,17 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, CheckCircle2, Search, MapPin, Truck, ShoppingBag, CreditCard, Wallet, Copy, QrCode } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Search, MapPin, Truck, ShoppingBag, CreditCard, Wallet, Copy, QrCode, AlertTriangle, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment, syncPaymentStatus } from "@/functions/asaas";
-import { fetchAddressByCep } from "@/services/viacep";
+import { fetchAddressByCep } from "@/services/cep/viacepService";
+import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
+import { DeliveryQuote } from "@/types/delivery";
 import { cn } from "@/lib/utils";
-
-type Zone = { id: string; neighborhood: string; city: string | null; fee: number; min_order: number; estimated_minutes: number };
 
 const PublicCheckout = () => {
   const { slug } = useParams();
