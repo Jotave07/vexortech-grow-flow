@@ -11,24 +11,24 @@ export interface Address {
 export interface DeliveryRegion {
   id: string;
   store_id: string;
-  name: string;
-  is_active: boolean;
-  city: string;
-  state: string;
-  neighborhood?: string;
-  zip_start?: string;
-  zip_end?: string;
-  max_radius_km?: number;
-  fee: number;
-  fee_per_km?: number;
-  min_fee?: number;
-  max_fee?: number;
-  min_order: number;
-  estimated_minutes: number;
-  base_prep_time: number;
-  minutes_per_km: number;
-  additional_region_time: number;
-  priority: number;
+  name: string | null;
+  is_active: boolean | null;
+  city: string | null;
+  state: string | null;
+  neighborhood: string | null;
+  zip_start: string | null;
+  zip_end: string | null;
+  max_radius_km: number | null;
+  fee: number | null;
+  fee_per_km: number | null;
+  min_fee: number | null;
+  max_fee: number | null;
+  min_order: number | null;
+  estimated_minutes: number | null;
+  base_prep_time: number | null;
+  minutes_per_km: number | null;
+  additional_region_time: number | null;
+  priority: number | null;
 }
 
 export interface DeliveryQuote {
