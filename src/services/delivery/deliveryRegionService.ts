@@ -29,16 +29,16 @@ export const findBestRegion = (regions: DeliveryRegion[], address: { cep: string
   // 2. Check by Neighborhood + City + State
   const neighborhoodMatch = regions.find(r => 
     r.neighborhood?.toLowerCase().trim() === address.neighborhood.toLowerCase().trim() &&
-    r.city.toLowerCase().trim() === address.city.toLowerCase().trim() &&
-    r.state.toLowerCase().trim() === address.state.toLowerCase().trim()
+    r.city?.toLowerCase().trim() === address.city.toLowerCase().trim() &&
+    r.state?.toLowerCase().trim() === address.state.toLowerCase().trim()
   );
   if (neighborhoodMatch) return neighborhoodMatch;
 
   // 3. Check by City + State (Whole city rule)
   const cityMatch = regions.find(r => 
     (!r.neighborhood || r.neighborhood === "") &&
-    r.city.toLowerCase().trim() === address.city.toLowerCase().trim() &&
-    r.state.toLowerCase().trim() === address.state.toLowerCase().trim()
+    r.city?.toLowerCase().trim() === address.city.toLowerCase().trim() &&
+    r.state?.toLowerCase().trim() === address.state.toLowerCase().trim()
   );
   
   return cityMatch || null;
