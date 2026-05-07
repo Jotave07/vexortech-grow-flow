@@ -13,7 +13,7 @@ import { Loader2, Plus, Pencil, Trash2, Search, MapPin, Truck, Clock, AlertTrian
 import { formatBRL } from "@/lib/format";
 import { DeliveryRegion } from "@/types/delivery";
 import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
-import { normalizeCep, formatCep } from "@/utils/zipCode";
+import { isValidCep, normalizeCep, formatCep } from "@/utils/zipCode";
 
 const Zones = () => {
   const { store } = useOutletContext<{ store: any }>();
@@ -57,7 +57,7 @@ const Zones = () => {
       .select("*")
       .eq("store_id", store.id)
       .order("priority", { ascending: false });
-    setItems(data || []);
+    setItems((data as DeliveryRegion[]) || []);
     setLoading(false);
   }, [store?.id]);
 
@@ -80,16 +80,16 @@ const Zones = () => {
       state: z.state || "",
       zip_start: z.zip_start || "",
       zip_end: z.zip_end || "",
-      fee: String(z.fee), 
+      fee: String(z.fee || 0), 
       fee_per_km: String(z.fee_per_km || 0),
       min_fee: z.min_fee ? String(z.min_fee) : "",
       max_fee: z.max_fee ? String(z.max_fee) : "",
-      min_order: String(z.min_order), 
+      min_order: String(z.min_order || 0), 
       base_prep_time: String(z.base_prep_time || 30),
       minutes_per_km: String(z.minutes_per_km || 5),
       additional_region_time: String(z.additional_region_time || 0),
       priority: String(z.priority || 0),
-      is_active: z.is_active
+      is_active: !!z.is_active
     }); 
     setOpen(true); 
   };
@@ -149,11 +149,10 @@ const Zones = () => {
     if (!isValidCep(testCep)) return toast.error("CEP inválido");
     setTesting(true);
     try {
-      // Mock subtotal for testing
       const quote = await calculateDeliveryQuote({
         storeId: store.id,
         cep: testCep,
-        neighborhood: "", // The service will look up regions
+        neighborhood: "",
         city: "",
         state: "",
         subtotal: 100
@@ -174,7 +173,7 @@ const Zones = () => {
           <p className="text-muted-foreground">Gerencie regiões, bairros e faixas de CEP atendidos.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setTestCep("") || setTestResult(null) || setOpen(true)} className="hidden md:flex">
+          <Button variant="outline" onClick={() => { setTestCep(""); setTestResult(null); setOpen(true); }} className="hidden md:flex">
              Testar CEP
           </Button>
           <Button variant="hero" onClick={openNew}>
@@ -198,7 +197,7 @@ const Zones = () => {
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-lg">{z.name || z.neighborhood}</span>
                         {!z.is_active && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded uppercase font-bold">Inativo</span>}
-                        {z.priority > 0 && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase font-bold">Prio {z.priority}</span>}
+                        {(z.priority || 0) > 0 && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase font-bold">Prio {z.priority}</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {z.neighborhood || "Todos bairros"}, {z.city}</div>
@@ -206,18 +205,18 @@ const Zones = () => {
                       </div>
                       <div className="flex flex-wrap gap-3 mt-2">
                         <div className="bg-primary/10 text-primary-foreground text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                          <Truck className="h-3 w-3" /> Taxa: {formatBRL(z.fee)} {z.fee_per_km ? `+ ${formatBRL(z.fee_per_km)}/km` : ""}
+                          <Truck className="h-3 w-3" /> Taxa: {formatBRL(z.fee || 0)} {z.fee_per_km ? `+ ${formatBRL(z.fee_per_km)}/km` : ""}
                         </div>
                         <div className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {z.base_prep_time + (z.additional_region_time || 0)} min base
+                          <Clock className="h-3 w-3" /> {(z.base_prep_time || 30) + (z.additional_region_time || 0)} min base
                         </div>
                         <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">
-                          Mín: {formatBRL(z.min_order)}
+                          Mín: {formatBRL(z.min_order || 0)}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Switch checked={z.is_active} onCheckedChange={() => toggle(z)} />
+                      <Switch checked={!!z.is_active} onCheckedChange={() => toggle(z)} />
                       <Button variant="ghost" size="icon" onClick={() => openEdit(z)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => remove(z)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
@@ -267,14 +266,6 @@ const Zones = () => {
               )}
             </div>
           </Card>
-          
-          <Card className="p-6 bg-blue-50 border-blue-100">
-            <h3 className="font-bold text-blue-900 mb-2">Dica de Prioridade</h3>
-            <p className="text-sm text-blue-800 leading-relaxed">
-              O sistema busca primeiro por <strong>Faixa de CEP</strong>, depois por <strong>Bairro exato</strong>.
-              Use o campo <strong>Prioridade</strong> (maior número ganha) para resolver conflitos entre regras que se sobrepõem.
-            </p>
-          </Card>
         </div>
       </div>
 
@@ -294,12 +285,12 @@ const Zones = () => {
             <TabsContent value="basic" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <Label>Nome da Região (ex: Centro, Zona Sul) *</Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Entrega Grátis Centro" />
+                  <Label>Nome da Região *</Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Centro" />
                 </div>
                 <div>
                   <Label>Bairro</Label>
-                  <Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value.toUpperCase() })} placeholder="Opcional se usar CEP" />
+                  <Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value.toUpperCase() })} />
                 </div>
                 <div>
                   <Label>Cidade *</Label>
@@ -340,21 +331,18 @@ const Zones = () => {
                   <Input type="number" step="0.01" value={form.min_order} onChange={(e) => setForm({ ...form, min_order: e.target.value })} />
                 </div>
                 <div className="col-span-2 p-4 border rounded-lg space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="font-bold">Cálculo por KM (Opcional)</Label>
-                    <span className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded font-bold uppercase">Avançado</span>
-                  </div>
+                  <Label className="font-bold">Cálculo Avançado</Label>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs">Taxa p/ KM</Label>
                       <Input type="number" step="0.01" value={form.fee_per_km} onChange={(e) => setForm({ ...form, fee_per_km: e.target.value })} />
                     </div>
                     <div>
-                      <Label className="text-xs">Taxa Mínima</Label>
+                      <Label className="text-xs">Mínimo</Label>
                       <Input type="number" step="0.01" value={form.min_fee} onChange={(e) => setForm({ ...form, min_fee: e.target.value })} />
                     </div>
                     <div>
-                      <Label className="text-xs">Taxa Máxima</Label>
+                      <Label className="text-xs">Máximo</Label>
                       <Input type="number" step="0.01" value={form.max_fee} onChange={(e) => setForm({ ...form, max_fee: e.target.value })} />
                     </div>
                   </div>
@@ -365,19 +353,16 @@ const Zones = () => {
             <TabsContent value="time" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Tempo de Preparo (min)</Label>
+                  <Label>Preparo (min)</Label>
                   <Input type="number" value={form.base_prep_time} onChange={(e) => setForm({ ...form, base_prep_time: e.target.value })} />
-                  <p className="text-[10px] text-muted-foreground mt-1">Tempo base interno da loja.</p>
                 </div>
                 <div>
-                  <Label>Tempo Adicional Região (min)</Label>
+                  <Label>Extra Região (min)</Label>
                   <Input type="number" value={form.additional_region_time} onChange={(e) => setForm({ ...form, additional_region_time: e.target.value })} />
-                  <p className="text-[10px] text-muted-foreground mt-1">Tempo extra para esta zona específica.</p>
                 </div>
                 <div>
-                  <Label>Minutos por KM</Label>
+                  <Label>Minutos/KM</Label>
                   <Input type="number" value={form.minutes_per_km} onChange={(e) => setForm({ ...form, minutes_per_km: e.target.value })} />
-                  <p className="text-[10px] text-muted-foreground mt-1">Se houver distância calculada.</p>
                 </div>
               </div>
             </TabsContent>
@@ -387,7 +372,7 @@ const Zones = () => {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button variant="hero" onClick={save} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} 
-              {editing ? "Salvar Alterações" : "Criar Região"}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
