@@ -190,9 +190,10 @@ const PublicCheckout = () => {
   }, [coupon, subtotal]);
   
   const actualDeliveryFee = useMemo(() => {
+    if (orderType === "retirada") return 0;
     if (settings?.free_delivery_above && subtotal >= Number(settings.free_delivery_above)) return 0;
-    return deliveryFee;
-  }, [deliveryFee, settings?.free_delivery_above, subtotal]);
+    return deliveryQuote?.fee || 0;
+  }, [deliveryQuote?.fee, settings?.free_delivery_above, subtotal, orderType]);
 
   const total = Math.max(0, subtotal + actualDeliveryFee - discount);
 
@@ -209,7 +210,7 @@ const PublicCheckout = () => {
     if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatório para pagamento via PIX");
     
     if (orderType === "entrega") {
-      if (!zoneId) return toast.error("Selecione o bairro");
+      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega não disponível.");
       if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
     }
 
