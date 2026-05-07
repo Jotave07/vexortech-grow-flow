@@ -35,14 +35,15 @@ export const calculateDeliveryQuote = async (params: QuoteParams): Promise<Deliv
     }
 
     // Check minimum order
-    if (params.subtotal < region.min_order) {
+    const minOrder = Number(region.min_order || 0);
+    if (params.subtotal < minOrder) {
       return {
         available: false,
-        reason: `Pedido mínimo para esta região é R$ ${region.min_order.toFixed(2)}`,
+        reason: `Pedido mínimo para esta região é R$ ${minOrder.toFixed(2)}`,
         region,
         fee: calculateDeliveryFee(region, params.distanceKm),
-        min_order: region.min_order,
-        amount_to_min: region.min_order - params.subtotal,
+        min_order: minOrder,
+        amount_to_min: minOrder - params.subtotal,
         estimated_min: 0,
         estimated_max: 0,
         source: 'region'
