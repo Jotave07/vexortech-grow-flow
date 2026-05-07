@@ -308,37 +308,76 @@ export type Database = {
       }
       delivery_zones: {
         Row: {
+          additional_region_time: number | null
+          base_prep_time: number | null
           city: string | null
           created_at: string | null
           estimated_minutes: number | null
           fee: number | null
+          fee_per_km: number | null
           id: string
+          internal_notes: string | null
           is_active: boolean | null
+          max_fee: number | null
+          max_radius_km: number | null
+          min_fee: number | null
           min_order: number | null
+          minutes_per_km: number | null
+          name: string | null
           neighborhood: string
+          priority: number | null
+          state: string | null
           store_id: string
+          zip_end: string | null
+          zip_start: string | null
         }
         Insert: {
+          additional_region_time?: number | null
+          base_prep_time?: number | null
           city?: string | null
           created_at?: string | null
           estimated_minutes?: number | null
           fee?: number | null
+          fee_per_km?: number | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean | null
+          max_fee?: number | null
+          max_radius_km?: number | null
+          min_fee?: number | null
           min_order?: number | null
+          minutes_per_km?: number | null
+          name?: string | null
           neighborhood: string
+          priority?: number | null
+          state?: string | null
           store_id: string
+          zip_end?: string | null
+          zip_start?: string | null
         }
         Update: {
+          additional_region_time?: number | null
+          base_prep_time?: number | null
           city?: string | null
           created_at?: string | null
           estimated_minutes?: number | null
           fee?: number | null
+          fee_per_km?: number | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean | null
+          max_fee?: number | null
+          max_radius_km?: number | null
+          min_fee?: number | null
           min_order?: number | null
+          minutes_per_km?: number | null
+          name?: string | null
           neighborhood?: string
+          priority?: number | null
+          state?: string | null
           store_id?: string
+          zip_end?: string | null
+          zip_start?: string | null
         }
         Relationships: [
           {
