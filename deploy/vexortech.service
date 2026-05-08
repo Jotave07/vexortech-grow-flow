@@ -1,0 +1,17 @@
+[Unit]
+Description=VexorTech TanStack Start application
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/vexortech/current
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/etc/vexortech/vexortech.env
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

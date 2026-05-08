@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 
 -- 2. Ajustes na tabela orders (garantindo campos e constraints)
 -- Nota: ALTERS devem ser protegidos com IF NOT EXISTS ou checagem manual se necessário,
--- mas como estou em modo migration Lovable, vou assumir a criação dos que faltam.
+-- assume a criacao dos objetos que faltam nesta migracao.
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'estimated_ready_at') THEN

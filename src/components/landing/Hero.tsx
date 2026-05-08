@@ -35,7 +35,7 @@ export const Hero = () => {
               transition={{ delay: 0.3, duration: 0.6 }}
               className="mb-6 text-4xl font-bold leading-[1.05] md:text-6xl lg:text-7xl"
             >
-              HYPE Delivery
+              VexorTech
             </motion.h1>
 
             <motion.p 

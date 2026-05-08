@@ -44,7 +44,7 @@ export const AuthShell = ({ children, theme = "customer", title, subtitle }: Aut
       
       <div className="mt-8 text-center space-y-2">
         <p className={cn("text-xs font-bold uppercase tracking-widest", theme === "admin" ? "text-zinc-500" : "text-muted-foreground")}>
-          © {new Date().getFullYear()} Vexortech Commerce Engine
+          © {new Date().getFullYear()} VexorTech
         </p>
       </div>
     </div>

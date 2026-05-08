@@ -45,7 +45,7 @@ const MerchantSignup = () => {
   };
 
   return (
-    <AuthShell theme="merchant" title="Crie sua Loja" subtitle="Junte-se a milhares de lojistas no HYPE">
+    <AuthShell theme="merchant" title="Crie sua Loja" subtitle="Junte-se a VexorTech">
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="full_name">Seu Nome Completo</Label>

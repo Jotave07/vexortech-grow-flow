@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
       
-      let profileData = data as any;
+      const profileData = data as any;
       
       if (profileData) {
         // Fetch roles from the user_roles table to be sure
