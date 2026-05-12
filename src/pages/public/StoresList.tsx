@@ -1,14 +1,26 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, MapPin, Star, ShoppingBag, X } from "lucide-react";
-import { Navbar } from "@/components/landing/Navbar";
+import { Loader2, Search, MapPin, ShoppingBag, User, ChevronDown, Filter } from "lucide-react";
 import { Footer } from "@/components/landing/Footer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchAddressByCep } from "@/services/viacep";
+import { toast } from "sonner";
+import { onlyDigits, formatCEP, formatBRL } from "@/lib/format";
+import { BrandMark } from "@/components/BrandMark";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { onlyDigits, formatCEP } from "@/lib/format";
 
