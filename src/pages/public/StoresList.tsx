@@ -349,6 +349,8 @@ export default function StoresList() {
             ))}
           </div>
         )}
+      </main>
+
       <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
         <DialogContent className="max-w-md rounded-2xl border-none p-0 overflow-hidden">
           <div className="bg-white p-8">
