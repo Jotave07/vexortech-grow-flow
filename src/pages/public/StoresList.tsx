@@ -21,8 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
-import { onlyDigits, formatCEP } from "@/lib/format";
 
 export default function StoresList() {
   const [stores, setStores] = useState<any[]>([]);
