@@ -82,9 +82,9 @@ export const CartDrawer = ({
                 onClick={() => {
                   onOpenChange(false);
                   if (!user) {
-                    navigate(`/entrar?redirect=${encodeURIComponent(`/loja/${slug}/checkout`)}`);
+                    navigate(`/entrar?redirect=${encodeURIComponent(`/vendas/loja/${slug}/checkout`)}`);
                   } else {
-                    navigate(`/loja/${slug}/checkout`);
+                    navigate(`/vendas/loja/${slug}/checkout`);
                   }
                 }}
               >
