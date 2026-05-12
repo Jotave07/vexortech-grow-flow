@@ -110,7 +110,7 @@ export default function StoresList() {
     <div className="min-h-screen bg-white">
       <div className="hidden">
         {/* SEO Metadata */}
-        <title>Restaurantes | VexorTech</title>
+        <title>Marketplace | VexorTech</title>
         <meta name="description" content="Encontre restaurantes, explore opções disponíveis e faça seu pedido de forma simples pela VexorTech." />
       </div>
       {/* Header Desktop */}

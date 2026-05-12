@@ -86,7 +86,7 @@ const App = () => {
 
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-                <Route path="/lojas" element={<StoresList />} />
+                <Route path="/vendas/lojas" element={<StoresList />} />
                 <Route path="/loja/:slug" element={<PublicStore />} />
                 <Route path="/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
                 <Route path="/pedido/:token" element={<OrderTracking />} />
