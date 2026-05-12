@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 const PublicStore = () => {
   const { slug } = useParams<{ slug: string }>();
   const { setStoreSlug, count, subtotal } = useCart();
+  const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
