@@ -103,7 +103,7 @@ export default function StoresList() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/");
+    navigate("/vendas");
   };
 
   return (
