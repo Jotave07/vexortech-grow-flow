@@ -104,7 +104,7 @@ const PublicStore = () => {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {store.logo_url && <img src={store.logo_url} alt="" className="h-8 w-8 object-contain" />}
-            <span className="font-black uppercase tracking-tighter text-sm italic">{publicStoreName}</span>
+            <span className="font-black uppercase tracking-tighter text-sm italic cursor-pointer" onClick={() => navigate("/")}>{publicStoreName}</span>
           </div>
           <div className="flex items-center gap-3">
             {user ? (
