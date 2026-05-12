@@ -349,37 +349,47 @@ export default function StoresList() {
             ))}
           </div>
         )}
-      </main>
-      </main>
-
       <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
-        <DialogContent className="max-w-md rounded-3xl border-2 border-emerald-100 p-0 overflow-hidden">
-          <div className="bg-emerald-900 p-6 text-white text-center">
-            <MapPin className="h-10 w-10 mx-auto mb-3 text-emerald-400" />
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter italic text-white">Onde você está?</DialogTitle>
-            <p className="text-emerald-200 text-sm mt-2">Informe seu CEP para vermos quem entrega aí.</p>
-          </div>
-          <div className="p-8 space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Seu CEP</label>
-              <div className="flex gap-2">
+        <DialogContent className="max-w-md rounded-2xl border-none p-0 overflow-hidden">
+          <div className="bg-white p-8">
+            <div className="flex justify-between items-center mb-6">
+               <DialogTitle className="text-xl font-bold text-gray-900 italic uppercase tracking-tight">Onde você quer receber seu pedido?</DialogTitle>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input 
                   value={formatCEP(tempCep)} 
                   onChange={(e) => setTempCep(e.target.value)} 
-                  placeholder="00000-000"
-                  className="h-14 border-2 border-emerald-50 rounded-2xl font-bold focus:border-emerald-500"
+                  placeholder="Buscar endereço e número (ou CEP)"
+                  className="h-14 pl-12 border-gray-100 bg-gray-50 rounded-xl font-medium focus:bg-white focus:border-primary transition-all"
                 />
-                <Button 
-                  onClick={handleCepLookup} 
-                  disabled={loadingCep}
-                  className="h-14 w-14 bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-lg shadow-emerald-200"
-                >
-                  {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
-                </Button>
               </div>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Ou use sua localização</p>
+
+              <Button 
+                onClick={handleCepLookup} 
+                disabled={loadingCep}
+                className="w-full h-14 bg-primary hover:brightness-110 text-white font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20"
+              >
+                {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirmar Localização"}
+              </Button>
+
+              <button className="w-full flex items-center justify-center gap-2 text-primary font-bold text-sm uppercase tracking-widest hover:underline">
+                 <MapPin className="h-4 w-4" />
+                 Usar minha localização atual
+              </button>
+
+              {!user && (
+                <div className="pt-6 border-t border-gray-100 text-center">
+                   <p className="text-sm text-gray-500 font-medium mb-4 text-balance">
+                      Entre para ver seus endereços salvos e pedir mais rápido.
+                   </p>
+                   <Button variant="outline" className="w-full h-12 font-bold uppercase tracking-widest rounded-xl border-gray-200" onClick={() => navigate("/entrar")}>
+                      Entrar ou Cadastrar
+                   </Button>
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>
