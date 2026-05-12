@@ -46,7 +46,7 @@ const AppLayout = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/", { replace: true });
+    navigate("/vendas", { replace: true });
   };
 
   if (loading || !store) {
