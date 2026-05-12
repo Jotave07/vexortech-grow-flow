@@ -19,7 +19,7 @@ const menu = [
   { to: "/lojista/configuracoes", icon: Settings, label: "Configuracoes" },
   { to: "/lojista/assinatura", icon: CreditCard, label: "Assinatura" },
   { to: "/lojista/usuarios", icon: UserCog, label: "Usuarios" },
-  { to: "/", icon: ExternalLink, label: "Ver Marketplace" },
+  { to: "/vendas", icon: ExternalLink, label: "Ver Marketplace" },
   { to: "/admin", icon: ShieldCheck, label: "Global Admin", superAdminOnly: true },
 ];
 
@@ -46,7 +46,7 @@ const AppLayout = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/", { replace: true });
+    navigate("/vendas", { replace: true });
   };
 
   if (loading || !store) {
@@ -74,7 +74,7 @@ const AppLayout = () => {
           <BrandMark compact className="mb-5" />
           <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm">
             <div className="truncate text-xs font-black uppercase tracking-tight text-orange-900">{store.name}</div>
-            <a href={`/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600 hover:text-orange-700 hover:underline">
+            <a href={`/vendas/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600 hover:text-orange-700 hover:underline">
               Visualizar loja <ExternalLink className="h-3 w-3" />
             </a>
           </div>

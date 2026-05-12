@@ -18,7 +18,7 @@ export const Footer = () => {
               <li><a href="#beneficios" className="hover:text-foreground">Benefícios</a></li>
               <li><a href="#como-funciona" className="hover:text-foreground">Como Funciona</a></li>
               <li><a href="#planos" className="hover:text-foreground">Planos e Preços</a></li>
-              <li><Link to="/lojas" className="hover:text-foreground font-medium text-emerald-600">Ver Marketplace</Link></li>
+              <li><Link to="/" className="hover:text-foreground font-medium text-emerald-600">Ver Marketplace</Link></li>
             </ul>
           </div>
           <div>

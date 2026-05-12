@@ -70,7 +70,8 @@ const App = () => {
               <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                 <Routes>
                 {/* Public Routes */}
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<StoresList />} />
+                <Route path="/vendas" element={<Index />} />
                 <Route path="/entrar" element={<Login />} />
                 <Route path="/cadastrar" element={<Signup />} />
                 <Route path="/recuperar-senha" element={<ForgotPassword />} />
@@ -85,12 +86,12 @@ const App = () => {
 
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-                <Route path="/lojas" element={<StoresList />} />
-                <Route path="/loja/:slug" element={<PublicStore />} />
-                <Route path="/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
-                <Route path="/pedido/:token" element={<OrderTracking />} />
-                <Route path="/pedido/:token/sucesso" element={<PaymentSuccess />} />
-                <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
+                <Route path="/vendas/lojas" element={<StoresList />} />
+                <Route path="/vendas/loja/:slug" element={<PublicStore />} />
+                <Route path="/vendas/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
+                <Route path="/vendas/pedido/:token" element={<OrderTracking />} />
+                <Route path="/vendas/pedido/:token/sucesso" element={<PaymentSuccess />} />
+                <Route path="/vendas/pedido/:token/cancelado" element={<PaymentCancelled />} />
                 
                 {/* Painel do Consumidor */}
                 <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerLayout /></ProtectedRoute>}>

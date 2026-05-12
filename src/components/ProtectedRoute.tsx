@@ -47,7 +47,7 @@ export const ProtectedRoute = ({
     // Se a rota exige ser cliente, lojistas e admins também podem acessar
     if (requiredRole === "customer") {
       if (!isCustomer && !isStoreOwner && !isSuperAdmin) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/vendas" replace />;
       }
     } 
     // Se a rota exige ser lojista, apenas lojistas e admins podem acessar (admins podem acessar tudo)
@@ -59,20 +59,20 @@ export const ProtectedRoute = ({
     // Se a rota exige ser admin, apenas admins podem acessar
     else if (requiredRole === "super_admin") {
       if (!isSuperAdmin) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/vendas" replace />;
       }
     }
   }
 
   // Proteção extra contra acesso cruzado baseado no prefixo da rota
   if (path.startsWith("/admin") && profile?.role !== "super_admin") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/vendas" replace />;
   }
   if (path.startsWith("/lojista") && profile?.role !== "store_owner" && profile?.role !== "super_admin") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/vendas" replace />;
   }
   if (path.startsWith("/cliente") && profile?.role !== "customer" && profile?.role !== "store_owner" && profile?.role !== "super_admin") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/vendas" replace />;
   }
 
   return <>{children}</>;

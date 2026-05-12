@@ -14,7 +14,7 @@ const menu = [
   { to: "/admin/lojas", icon: Building2, label: "Lojas" },
   { to: "/admin/planos", icon: CreditCard, label: "Planos" },
   { to: "/admin/configuracoes", icon: Settings2, label: "Configurações" },
-  { to: "/", icon: Globe, label: "Ir para Marketplace" },
+  { to: "/vendas", icon: Globe, label: "Ir para Marketplace" },
 ];
 
 const AdminLayout = () => {
@@ -102,7 +102,7 @@ const AdminLayout = () => {
           ))}
         </nav>
         <div className="border-t border-zinc-800 p-3">
-          <Button variant="ghost" className="w-full justify-start text-zinc-400 hover:bg-red-900/20 hover:text-red-400 font-bold" onClick={async () => { await signOut(); navigate("/"); }}>
+          <Button variant="ghost" className="w-full justify-start text-zinc-400 hover:bg-red-900/20 hover:text-red-400 font-bold" onClick={async () => { await signOut(); navigate("/vendas"); }}>
             <LogOut className="h-4 w-4 mr-2" /> Sair do Sistema
           </Button>
         </div>

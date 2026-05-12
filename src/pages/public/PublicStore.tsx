@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 const PublicStore = () => {
   const { slug } = useParams<{ slug: string }>();
   const { setStoreSlug, count, subtotal } = useCart();
+  const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -103,13 +104,13 @@ const PublicStore = () => {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {store.logo_url && <img src={store.logo_url} alt="" className="h-8 w-8 object-contain" />}
-            <span className="font-black uppercase tracking-tighter text-sm italic">{publicStoreName}</span>
+            <span className="font-black uppercase tracking-tighter text-sm italic cursor-pointer" onClick={() => navigate("/")}>{publicStoreName}</span>
           </div>
           <div className="flex items-center gap-3">
             {user ? (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" asChild className="hidden sm:flex gap-2 font-bold uppercase text-[10px] tracking-widest border border-black/5">
-                  <Link to={profile?.role === 'store_owner' ? "/lojista" : "/cliente"}>
+                  <Link to={profile?.role === 'super_admin' ? "/admin" : (profile?.role === 'store_owner' ? "/lojista" : "/cliente")}>
                     <User className="h-3 w-3" />
                     {profile?.role === 'store_owner' ? 'Painel Admin' : (profile?.full_name?.split(' ')[0] || 'Minha Conta')}
                   </Link>
@@ -120,6 +121,7 @@ const PublicStore = () => {
                   onClick={async () => {
                     await signOut();
                     toast.success("Você saiu da conta.");
+                    navigate("/vendas");
                   }}
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5"
                   title="Sair"
