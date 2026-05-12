@@ -108,6 +108,11 @@ export default function StoresList() {
 
   return (
     <div className="min-h-screen bg-white">
+      <div className="hidden">
+        {/* SEO Metadata */}
+        <title>Restaurantes | VexorTech</title>
+        <meta name="description" content="Encontre restaurantes, explore opções disponíveis e faça seu pedido de forma simples pela VexorTech." />
+      </div>
       {/* Header Desktop */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
