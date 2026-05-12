@@ -14,7 +14,7 @@ const menu = [
   { to: "/admin/lojas", icon: Building2, label: "Lojas" },
   { to: "/admin/planos", icon: CreditCard, label: "Planos" },
   { to: "/admin/configuracoes", icon: Settings2, label: "Configurações" },
-  { to: "/", icon: Globe, label: "Ir para Marketplace" },
+  { to: "/vendas", icon: Globe, label: "Ir para Marketplace" },
 ];
 
 const AdminLayout = () => {

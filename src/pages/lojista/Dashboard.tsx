@@ -197,7 +197,7 @@ const Dashboard = () => {
             Continue oferecendo o melhor serviço para seus clientes.
           </p>
           <Button variant="outline" className="w-full bg-white text-primary border-white hover:bg-white/90 font-bold uppercase tracking-widest text-xs" asChild>
-            <a href={`/loja/${store.slug}`} target="_blank" rel="noreferrer">
+            <a href={`/vendas/loja/${store.slug}`} target="_blank" rel="noreferrer">
               Abrir Visualização
             </a>
           </Button>
