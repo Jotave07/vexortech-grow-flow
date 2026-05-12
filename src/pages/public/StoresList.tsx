@@ -30,6 +30,20 @@ export default function StoresList() {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [tempCep, setTempCep] = useState("");
   const [loadingCep, setLoadingCep] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("Restaurantes");
+
+  const { user, profile, signOut } = useAuth();
+  const { count, subtotal } = useCart();
+  const navigate = useNavigate();
+
+  const categories = [
+    { name: "Restaurantes", icon: "🍔" },
+    { name: "Mercados", icon: "🛒" },
+    { name: "Bebidas", icon: "🥤" },
+    { name: "Farmácia", icon: "💊" },
+    { name: "Promoções", icon: "🏷️" },
+    { name: "Mais pedidos", icon: "⭐" },
+  ];
 
   useEffect(() => {
     const saved = localStorage.getItem("delivery_address");
@@ -64,7 +78,7 @@ export default function StoresList() {
         .from("stores")
         .select(`
           *,
-          store_settings(is_open, business_hours)
+          store_settings(is_open, business_hours, avg_prep_time_minutes)
         `)
         .eq("is_suspended", false);
       
@@ -74,23 +88,188 @@ export default function StoresList() {
     loadStores();
   }, []);
 
-  const filteredStores = stores.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.city?.toLowerCase().includes(search.toLowerCase());
-    
-    // In a real scenario, we would filter by delivery zones here
-    // For now, we'll just show all stores but could implement radius/zone logic
-    return matchesSearch;
-  }).sort((a, b) => {
-    // Show open stores first
-    if (a.store_settings?.is_open && !b.store_settings?.is_open) return -1;
-    if (!a.store_settings?.is_open && b.store_settings?.is_open) return 1;
-    return 0;
-  });
+  const filteredStores = useMemo(() => {
+    return stores.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.city?.toLowerCase().includes(search.toLowerCase());
+      
+      return matchesSearch;
+    }).sort((a, b) => {
+      if (a.store_settings?.is_open && !b.store_settings?.is_open) return -1;
+      if (!a.store_settings?.is_open && b.store_settings?.is_open) return 1;
+      return 0;
+    });
+  }, [stores, search]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
-    <div className="min-h-screen bg-[#F0FDF4]">
-      {/* Navbar removida para usar o novo header customizado */}
+    <div className="min-h-screen bg-white">
+      {/* Header Desktop */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+        <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-8 shrink-0">
+            <BrandMark to="/" className="scale-90" />
+            
+            <nav className="hidden lg:flex items-center gap-6">
+              <button 
+                onClick={() => setActiveCategory("Início")}
+                className={`text-sm font-bold uppercase tracking-widest transition-colors ${activeCategory === "Início" ? "text-primary" : "text-gray-500 hover:text-gray-900"}`}
+              >
+                Início
+              </button>
+              <button 
+                onClick={() => setActiveCategory("Restaurantes")}
+                className={`text-sm font-bold uppercase tracking-widest transition-colors ${activeCategory === "Restaurantes" ? "text-primary" : "text-gray-500 hover:text-gray-900"}`}
+              >
+                Restaurantes
+              </button>
+              <button 
+                onClick={() => setActiveCategory("Mercados")}
+                className={`text-sm font-bold uppercase tracking-widest transition-colors ${activeCategory === "Mercados" ? "text-primary" : "text-gray-500 hover:text-gray-900"}`}
+              >
+                Mercados
+              </button>
+            </nav>
+          </div>
+
+          <div className="flex-1 max-w-2xl hidden md:flex items-center gap-4 bg-gray-50 px-4 h-12 rounded-lg border border-transparent focus-within:border-gray-200 focus-within:bg-white transition-all">
+            <Search className="h-5 w-5 text-gray-400" />
+            <input 
+              type="text"
+              placeholder="Busque por restaurante, item ou categoria"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-medium"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+            <button 
+              onClick={() => setShowAddressModal(true)}
+              className="hidden sm:flex items-center gap-2 px-3 h-12 hover:bg-gray-50 rounded-lg transition-colors group"
+            >
+              <MapPin className="h-5 w-5 text-primary" />
+              <div className="text-left hidden lg:block">
+                <p className="text-[10px] uppercase font-bold text-gray-400 leading-none mb-0.5">Entregar em</p>
+                <p className="text-sm font-bold text-gray-900 leading-none truncate max-w-[150px]">
+                  {address ? `${address.neighborhood}, ${address.city}` : "Escolha um endereço"}
+                </p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
+            </button>
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-full transition-colors">
+                    <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center border border-gray-200">
+                      <User className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 mt-2">
+                  <DropdownMenuLabel>
+                    <p className="text-sm font-bold truncate">{profile?.full_name || user.email}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">
+                      {profile?.role === 'store_owner' ? 'Lojista' : 'Cliente'}
+                    </p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(profile?.role === 'store_owner' ? "/lojista" : "/cliente")}>
+                    Minha Conta
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button 
+                onClick={() => navigate("/entrar")}
+                className="text-sm font-bold text-primary hover:bg-primary/5 px-4 h-12 rounded-lg transition-colors"
+              >
+                Entrar
+              </button>
+            )}
+
+            <button 
+              onClick={() => {
+                // Abre o carrinho ou navega para a loja ativa
+                const slug = localStorage.getItem("vexor_active_store_slug");
+                if (slug) navigate(`/loja/${slug}`);
+              }}
+              className="flex items-center gap-2 bg-primary text-white px-4 h-12 rounded-lg hover:brightness-110 transition-all shadow-lg shadow-primary/20"
+            >
+              <div className="relative">
+                <ShoppingBag className="h-5 w-5" />
+                {count > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full border-2 border-primary">
+                    {count}
+                  </span>
+                )}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-[10px] uppercase font-bold text-white/70 leading-none mb-0.5">Carrinho</p>
+                <p className="text-sm font-bold leading-none">{formatBRL(subtotal)}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Categories Bar */}
+        <div className="bg-white border-t border-gray-100 overflow-hidden">
+          <div className="container mx-auto px-4 overflow-x-auto no-scrollbar flex items-center gap-4 py-3">
+            {categories.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => setActiveCategory(cat.name)}
+                className={`flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-full border transition-all ${
+                  activeCategory === cat.name 
+                    ? "bg-gray-900 border-gray-900 text-white font-bold" 
+                    : "bg-white border-gray-100 text-gray-600 hover:border-gray-300 font-medium"
+                }`}
+              >
+                <span className="text-base">{cat.icon}</span>
+                <span className="text-sm uppercase tracking-wider">{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Header Compact */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 px-4 py-2">
+         <div className="flex items-center justify-between mb-2">
+            <BrandMark to="/" className="scale-75 origin-left" />
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowAddressModal(true)}
+                className="flex items-center gap-1 text-xs font-bold text-gray-600"
+              >
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="truncate max-w-[100px]">
+                  {address ? address.neighborhood : "Endereço"}
+                </span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </div>
+         </div>
+         <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input 
+              type="text"
+              placeholder="Busque por restaurante ou item"
+              className="w-full bg-gray-100 border-none rounded-lg py-2 pl-9 text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+         </div>
+      </header>
       
       <main className="container mx-auto px-4 pt-24 pb-20">
         <div className="mb-10 text-center">
