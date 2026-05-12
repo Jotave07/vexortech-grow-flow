@@ -121,7 +121,7 @@ export default function StoresList() {
             
             <nav className="hidden lg:flex items-center gap-6">
               <button 
-                onClick={() => setActiveCategory("Início")}
+                onClick={() => navigate("/vendas")}
                 className={`text-sm font-bold uppercase tracking-widest transition-colors ${activeCategory === "Início" ? "text-primary" : "text-gray-500 hover:text-gray-900"}`}
               >
                 Início
