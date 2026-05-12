@@ -15,6 +15,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 
 
+
 const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
   { key: "aguardando_pagamento", label: "Aguardando PIX" },
   { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Aceitar" },
@@ -25,6 +26,7 @@ const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: st
 ];
 
 const Orders = () => {
+  const navigate = useNavigate();
   const { store } = useOutletContext<{ store: any }>();
   const { accessState, message } = useSubscriptionStatus();
   const [orders, setOrders] = useState<any[]>([]);
