@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ const PaymentSuccess = () => {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
   const [order, setOrder] = useState<any>(null);
+  const navigate = useNavigate();
   const [polls, setPolls] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +40,7 @@ const PaymentSuccess = () => {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, navigate]);
 
   if (loading) {
     return (
