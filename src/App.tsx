@@ -70,7 +70,8 @@ const App = () => {
               <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                 <Routes>
                 {/* Public Routes */}
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<StoresList />} />
+                <Route path="/vendas" element={<Index />} />
                 <Route path="/entrar" element={<Login />} />
                 <Route path="/cadastrar" element={<Signup />} />
                 <Route path="/recuperar-senha" element={<ForgotPassword />} />
