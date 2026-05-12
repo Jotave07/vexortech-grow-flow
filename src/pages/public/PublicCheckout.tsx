@@ -60,7 +60,6 @@ const PublicCheckout = () => {
   const [coupon, setCoupon] = useState<any>(null);
   const [loadingCep, setLoadingCep] = useState(false);
 
-  const createOrderPaymentFn = useServerFn(createOrderPayment);
 
   useEffect(() => {
     if (slug) setStoreSlug(slug);
