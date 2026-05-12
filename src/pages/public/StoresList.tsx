@@ -117,7 +117,7 @@ export default function StoresList() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-8 shrink-0">
-            <BrandMark to="/" className="scale-90" />
+            <BrandMark to="/vendas" className="scale-90" />
             
             <nav className="hidden lg:flex items-center gap-6">
               <button 
@@ -250,7 +250,7 @@ export default function StoresList() {
       {/* Mobile Header Compact */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 px-4 py-2">
          <div className="flex items-center justify-between mb-2">
-            <BrandMark to="/" className="scale-75 origin-left" />
+            <BrandMark to="/vendas" className="scale-75 origin-left" />
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setShowAddressModal(true)}
