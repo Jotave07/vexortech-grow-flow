@@ -360,7 +360,7 @@ const MerchantSignup = () => {
         <section className="bg-slate-950 py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tight text-white md:text-5xl">
-              Pronto para <span className="text-orange-600 text-glow-orange">escalar</span> seu negócio?
+              Pronto para <span className="text-orange-600">escalar</span> seu negócio?
             </h2>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-slate-400">
               Não perca mais tempo com processos manuais. Junte-se a centenas de lojistas que já estão lucrando com nossa plataforma.
