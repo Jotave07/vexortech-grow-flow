@@ -123,7 +123,7 @@ const Orders = () => {
       clearInterval(pollInterval);
     };
     // eslint-disable-next-line
-  }, [store?.id]);
+  }, [store?.id, navigate]);
 
   const openDetails = async (o: any) => {
     setSelected(o);
