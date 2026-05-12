@@ -7,8 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SubscriptionGuard } from "@/components/SubscriptionGuard";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import MerchantLogin from "./pages/auth/MerchantLogin";
 import AdminLogin from "./pages/auth/AdminLogin";
@@ -57,7 +57,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <QueryClientProvider client={queryClient}>
