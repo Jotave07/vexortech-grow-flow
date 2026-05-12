@@ -133,7 +133,7 @@ const PublicStore = () => {
               <Button variant="hero" size="sm" asChild className="font-black uppercase text-[10px] tracking-widest px-4">
                 <Link to={`/entrar?redirect=${encodeURIComponent(window.location.pathname)}`}>
                   Entrar / Cadastrar
-            </button>
+                </Link>
               </Button>
             )}
           </div>
