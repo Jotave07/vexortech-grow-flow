@@ -90,7 +90,7 @@ export default function StoresList() {
 
   return (
     <div className="min-h-screen bg-[#F0FDF4]">
-      <Navbar />
+      {/* Navbar removida para usar o novo header customizado */}
       
       <main className="container mx-auto px-4 pt-24 pb-20">
         <div className="mb-10 text-center">
