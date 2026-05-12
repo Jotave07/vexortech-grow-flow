@@ -1,4 +1,4 @@
-import { router } from "../router";
+import type { router } from "../router";
 
 declare module "@tanstack/react-start" {
   interface Register {
