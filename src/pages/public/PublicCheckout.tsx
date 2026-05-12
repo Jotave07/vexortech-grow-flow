@@ -39,6 +39,7 @@ const PublicCheckout = () => {
   const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [isPaid, setIsPaid] = useState(false);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
+  const createOrderPaymentFn = useServerFn(createOrderPayment);
 
   const [name, setName] = useState("");
   const [document, setDocument] = useState("");
