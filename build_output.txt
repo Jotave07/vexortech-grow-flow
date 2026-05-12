@@ -1,0 +1,473 @@
+
+> build
+> vite build
+
+vite v7.3.3 building client environment for production...
+transforming...
+✓ 3570 modules transformed.
+rendering chunks...
+computing gzip size...
+.output/public/assets/styles-DY7AyJrA.css               129.11 kB │ gzip:  20.44 kB
+.output/public/assets/_-Dt-KQBr5.js                       0.11 kB │ gzip:   0.11 kB
+.output/public/assets/index-Dt-KQBr5.js                   0.11 kB │ gzip:   0.11 kB
+.output/public/assets/zipCode-Tb7KmUsB.js                 0.16 kB │ gzip:   0.14 kB
+.output/public/assets/plus-_44MeNx2.js                    0.16 kB │ gzip:   0.15 kB
+.output/public/assets/search-Ct5OG7oq.js                  0.18 kB │ gzip:   0.17 kB
+.output/public/assets/menu-DHDHNPk_.js                    0.20 kB │ gzip:   0.16 kB
+.output/public/assets/dollar-sign-C4yIhBG1.js             0.23 kB │ gzip:   0.19 kB
+.output/public/assets/index-m73roBOs.js                   0.23 kB │ gzip:   0.17 kB
+.output/public/assets/upload-CsTenOuk.js                  0.24 kB │ gzip:   0.20 kB
+.output/public/assets/message-square-BDTUBeoD.js          0.24 kB │ gzip:   0.20 kB
+.output/public/assets/activity-Csy2jOyX.js                0.24 kB │ gzip:   0.20 kB
+.output/public/assets/globe-Dh2MQeQ4.js                   0.24 kB │ gzip:   0.19 kB
+.output/public/assets/settings-2-D2_Uxfbk.js              0.25 kB │ gzip:   0.20 kB
+.output/public/assets/chart-column-_7K3tjgH.js            0.26 kB │ gzip:   0.20 kB
+.output/public/assets/external-link-B8g20aMZ.js           0.26 kB │ gzip:   0.20 kB
+.output/public/assets/triangle-alert-AsIh47B7.js          0.27 kB │ gzip:   0.22 kB
+.output/public/assets/pencil-uH5Yb5sS.js                  0.28 kB │ gzip:   0.23 kB
+.output/public/assets/useServerFn-S4PtauMr.js             0.31 kB │ gzip:   0.24 kB
+.output/public/assets/phone-DgLXABcq.js                   0.33 kB │ gzip:   0.23 kB
+.output/public/assets/save-D2fg8yq3.js                    0.33 kB │ gzip:   0.23 kB
+.output/public/assets/trash-2-C4PJyce6.js                 0.33 kB │ gzip:   0.22 kB
+.output/public/assets/layout-dashboard-DSID8TYJ.js        0.36 kB │ gzip:   0.21 kB
+.output/public/assets/building-2-DezQ9sfu.js              0.39 kB │ gzip:   0.25 kB
+.output/public/assets/truck-lBsVCDzH.js                   0.41 kB │ gzip:   0.27 kB
+.output/public/assets/viacepService-BP_ys5sD.js           0.41 kB │ gzip:   0.29 kB
+.output/public/assets/wallet-DHJoNGz6.js                  0.48 kB │ gzip:   0.31 kB
+.output/public/assets/opening-hours-CyzHfeWy.js           0.64 kB │ gzip:   0.41 kB
+.output/public/assets/user-cog-oVsNsnFh.js                0.65 kB │ gzip:   0.34 kB
+.output/public/assets/qr-code-DH3bKllT.js                 0.66 kB │ gzip:   0.32 kB
+.output/public/assets/PaymentCancelled-BT4Gcqa-.js        0.94 kB │ gzip:   0.55 kB
+.output/public/assets/viacep-CbjwDIV1.js                  1.39 kB │ gzip:   0.75 kB
+.output/public/assets/deliveryQuoteService-BMo25t7x.js    2.28 kB │ gzip:   0.97 kB
+.output/public/assets/switch-B77GEzmI.js                  2.52 kB │ gzip:   1.26 kB
+.output/public/assets/AdminDashboard-D_KS0fJf.js          2.83 kB │ gzip:   0.99 kB
+.output/public/assets/PaymentSuccess-CmlF0ozD.js          3.17 kB │ gzip:   1.31 kB
+.output/public/assets/CustomerLayout-B0u6vivk.js          3.19 kB │ gzip:   1.38 kB
+.output/public/assets/Users-C3pANP8B.js                   3.23 kB │ gzip:   1.39 kB
+.output/public/assets/tabs-wodeDaSI.js                    3.23 kB │ gzip:   1.37 kB
+.output/public/assets/AdminLayout-CES9_fUW.js             3.90 kB │ gzip:   1.77 kB
+.output/public/assets/index-BXeD-AvG.js                   3.92 kB │ gzip:   1.85 kB
+.output/public/assets/radio-group-DD0uytfA.js             4.00 kB │ gzip:   1.81 kB
+.output/public/assets/Categories-Dvv1gFGJ.js              4.04 kB │ gzip:   1.48 kB
+.output/public/assets/Customers-CJh3tnVy.js               4.57 kB │ gzip:   1.73 kB
+.output/public/assets/AppLayout-DgqoaAIE.js               4.65 kB │ gzip:   2.03 kB
+.output/public/assets/asaas-9VX-Exqn.js                   4.92 kB │ gzip:   2.22 kB
+.output/public/assets/AdminPlans-FdsH0VOj.js              4.95 kB │ gzip:   1.78 kB
+.output/public/assets/Coupons-C56IfvyE.js                 5.45 kB │ gzip:   1.93 kB
+.output/public/assets/StoresList-CuqQJNb6.js              6.34 kB │ gzip:   2.27 kB
+.output/public/assets/AdminSettings-vzktUBJU.js           6.65 kB │ gzip:   2.49 kB
+.output/public/assets/Dashboard-BU8rxstU.js               6.95 kB │ gzip:   2.45 kB
+.output/public/assets/dialog-DU3qhmjk.js                  8.35 kB │ gzip:   3.17 kB
+.output/public/assets/AdminStores-Bd_7HTxP.js            10.50 kB │ gzip:   3.58 kB
+.output/public/assets/Zones-CDu73BXU.js                  11.97 kB │ gzip:   3.42 kB
+.output/public/assets/Products-Ai4qKuo_.js               12.10 kB │ gzip:   3.78 kB
+.output/public/assets/Orders-DWcB273m.js                 13.05 kB │ gzip:   4.62 kB
+.output/public/assets/Subscription-BNkVHONQ.js           13.21 kB │ gzip:   4.95 kB
+.output/public/assets/Dashboard-CT75q0oX.js              14.94 kB │ gzip:   4.17 kB
+.output/public/assets/PublicStore-CqC1a1yn.js            20.97 kB │ gzip:   6.23 kB
+.output/public/assets/PublicCheckout-mVE6C3Gx.js         21.36 kB │ gzip:   5.89 kB
+.output/public/assets/select-CKCcMrLc.js                 22.19 kB │ gzip:   7.80 kB
+.output/public/assets/OrderTracking-onc8IhxR.js          26.17 kB │ gzip:   9.23 kB
+.output/public/assets/Settings-Bk8cYBLw.js               34.82 kB │ gzip:   9.89 kB
+.output/public/assets/index-CcTZf-Pn.js                 324.77 kB │ gzip: 103.53 kB
+.output/public/assets/Reports-cVfvafnn.js               380.08 kB │ gzip: 112.15 kB
+.output/public/assets/App_legacy-roJqaDro.js            703.91 kB │ gzip: 206.05 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 9.71s
+vite v7.3.3 building ssr environment for production...
+transforming...
+"createRequestHandler", "defineHandlerCallback", "transformPipeableStreamWithRouter" and "transformReadableStreamWithRouter" are imported from external module "@tanstack/router-core/ssr/server" but never used in "node_modules/@tanstack/start-server-core/dist/esm/index.js".
+"RawStream" is imported from external module "@tanstack/router-core" but never used in "node_modules/@tanstack/start-client-core/dist/esm/index.js".
+"hydrate" and "json" are imported from external module "@tanstack/router-core/ssr/client" but never used in "node_modules/@tanstack/start-client-core/dist/esm/index.js".
+✓ 149 modules transformed.
+rendering chunks...
+node_modules/.nitro/vite/services/ssr/assets/styles-DY7AyJrA.css                             129.11 kB
+node_modules/.nitro/vite/services/ssr/assets/start-HYkvq4Ni.js                                 0.06 kB
+node_modules/.nitro/vite/services/ssr/assets/__23tanstack-start-plugin-adapters-Cwee5PKy.js    0.14 kB
+node_modules/.nitro/vite/services/ssr/assets/zipCode-CfTxXhri.js                               0.41 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-CxivXtln.js            0.58 kB
+node_modules/.nitro/vite/services/ssr/assets/useServerFn-DL2oePlL.js                           0.59 kB
+node_modules/.nitro/vite/services/ssr/assets/_-Ba1PqoDv.js                                     0.64 kB
+node_modules/.nitro/vite/services/ssr/assets/index-Ba1PqoDv.js                                 0.64 kB
+node_modules/.nitro/vite/services/ssr/assets/viacepService-CvoIq7Fe.js                         0.71 kB
+node_modules/.nitro/vite/services/ssr/assets/switch-D2FGlY04.js                                1.14 kB
+node_modules/.nitro/vite/services/ssr/assets/radio-group-DdvS0Ld2.js                           1.30 kB
+node_modules/.nitro/vite/services/ssr/assets/opening-hours-BwQcWk6q.js                         1.39 kB
+node_modules/.nitro/vite/services/ssr/assets/PaymentCancelled-BAldgjzN.js                      1.59 kB
+node_modules/.nitro/vite/services/ssr/assets/tabs-iK78Fyyf.js                                  1.68 kB
+node_modules/.nitro/vite/services/ssr/assets/asaas-B2thoG2E.js                                 2.25 kB
+node_modules/.nitro/vite/services/ssr/assets/viacep-XFu1qGbC.js                                2.42 kB
+node_modules/.nitro/vite/services/ssr/assets/dialog-yoACStQx.js                                3.18 kB
+node_modules/.nitro/vite/services/ssr/assets/deliveryQuoteService-Bxn0nC-v.js                  4.11 kB
+node_modules/.nitro/vite/services/ssr/assets/AdminDashboard-DvfOctbZ.js                        4.78 kB
+node_modules/.nitro/vite/services/ssr/assets/select-_A72HWb3.js                                4.82 kB
+node_modules/.nitro/vite/services/ssr/assets/CustomerLayout-D4VDUGEm.js                        4.85 kB
+node_modules/.nitro/vite/services/ssr/assets/PaymentSuccess-D5UvCasi.js                        5.09 kB
+node_modules/.nitro/vite/services/ssr/assets/Users-BV7h1Rjq.js                                 5.45 kB
+node_modules/.nitro/vite/services/ssr/assets/AdminLayout-DyMDy_e1.js                           5.70 kB
+node_modules/.nitro/vite/services/ssr/assets/router-D2IScTl_.js                                5.90 kB
+node_modules/.nitro/vite/services/ssr/assets/AppLayout-BFQYuz0D.js                             6.19 kB
+node_modules/.nitro/vite/services/ssr/assets/Categories-Yykpmwao.js                            6.98 kB
+node_modules/.nitro/vite/services/ssr/assets/Customers-ZR6OYjZD.js                             7.71 kB
+node_modules/.nitro/vite/services/ssr/assets/AdminPlans-beAC6Lpr.js                            8.39 kB
+node_modules/.nitro/vite/services/ssr/assets/Coupons-DGadXdlt.js                               9.40 kB
+node_modules/.nitro/vite/services/ssr/assets/StoresList-Bnv4ezYu.js                           10.24 kB
+node_modules/.nitro/vite/services/ssr/assets/AdminSettings-Ts2vDJx5.js                        10.61 kB
+node_modules/.nitro/vite/services/ssr/assets/Reports-BjceEwxH.js                              11.11 kB
+node_modules/.nitro/vite/services/ssr/assets/Dashboard-DVqTmVQS.js                            11.13 kB
+node_modules/.nitro/vite/services/ssr/assets/asaas-BsNaRFLO.js                                16.33 kB
+node_modules/.nitro/vite/services/ssr/assets/Subscription-BZ6YQiWs.js                         18.17 kB
+node_modules/.nitro/vite/services/ssr/assets/AdminStores-D9f3cf43.js                          19.25 kB
+node_modules/.nitro/vite/services/ssr/assets/Products-D5VIuUXs.js                             19.30 kB
+node_modules/.nitro/vite/services/ssr/assets/Zones-ClAVn6lc.js                                20.54 kB
+node_modules/.nitro/vite/services/ssr/assets/Orders-weQP3WcJ.js                               23.06 kB
+node_modules/.nitro/vite/services/ssr/assets/OrderTracking-BGNLxZHp.js                        24.03 kB
+node_modules/.nitro/vite/services/ssr/assets/Dashboard-BErJVcXI.js                            25.14 kB
+node_modules/.nitro/vite/services/ssr/assets/PublicStore-A8P01mov.js                          34.27 kB
+node_modules/.nitro/vite/services/ssr/assets/PublicCheckout-DDt5WubD.js                       34.71 kB
+node_modules/.nitro/vite/services/ssr/index.js                                                55.73 kB
+node_modules/.nitro/vite/services/ssr/assets/Settings-CBm7XGI7.js                             60.70 kB
+node_modules/.nitro/vite/services/ssr/assets/App_legacy-B9laAO14.js                          144.55 kB
+✓ built in 1.26s
+
+[nitro] ◐ Building [Nitro] (preset: node-server, compatibility: 2026-05-12)
+[nitro] ✔ Generated public .output/public
+vite v7.3.3 building nitro environment for production...
+transforming...
+node_modules/@tanstack/react-router/dist/esm/index.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/index.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/ClientOnly.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/ClientOnly.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useNavigate.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useNavigate.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/RouterProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/RouterProvider.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useLocation.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useLocation.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useRouterState.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useRouterState.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useBlocker.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useBlocker.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/HeadContent.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/HeadContent.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useRouter.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useRouter.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useMatch.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useMatch.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/link.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/link.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Match.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Match.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Matches.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Matches.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Asset.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Asset.js" was ignored.
+node_modules/next-themes/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/next-themes/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-toast/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-toast/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-tooltip/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-tooltip/dist/index.mjs" was ignored.
+node_modules/sonner/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/sonner/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-accordion/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-accordion/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-router/dist/esm/utils.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/utils.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/routerContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/routerContext.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Transitioner.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Transitioner.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/matchContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/matchContext.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useQueries.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useQueries.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useMutationState.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useMutationState.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useMutation.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useMutation.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useIsFetching.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useIsFetching.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js" was ignored.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js" was ignored.
+node_modules/lucide-react/dist/esm/context.mjs (2:0): Module level directives cause errors when bundled, "use client" in "node_modules/lucide-react/dist/esm/context.mjs" was ignored.
+node_modules/lucide-react/dist/esm/Icon.mjs (2:0): Module level directives cause errors when bundled, "use client" in "node_modules/lucide-react/dist/esm/Icon.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/AnimatePresence/PresenceChild.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/AnimatePresence/PresenceChild.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/LayoutGroup/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/LayoutGroup/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/AnimatePresence/PopChild.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/AnimatePresence/PopChild.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/MotionConfig/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/MotionConfig/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/LazyMotion/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/LazyMotion/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/motion/utils/use-visual-state.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/motion/utils/use-visual-state.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-force-update.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-force-update.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-isomorphic-effect.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-isomorphic-effect.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-unmount-effect.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-unmount-effect.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/dom/features-animation.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/dom/features-animation.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/dom/features-max.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/dom/features-max.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-motion-value-event.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-motion-value-event.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/dom/features-min.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/dom/features-min.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-motion-value.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-motion-value.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-motion-template.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-motion-template.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-follow-value.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-follow-value.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-spring.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-spring.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-scroll.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-scroll.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-time.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-time.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-velocity.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-velocity.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-transform.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-transform.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-will-change/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-will-change/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion-config.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion-config.mjs" was ignored.
+node_modules/framer-motion/dist/es/animation/hooks/use-animate.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/animation/hooks/use-animate.mjs" was ignored.
+node_modules/framer-motion/dist/es/animation/hooks/use-animate-style.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/animation/hooks/use-animate-style.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/AnimatePresence/use-presence.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/AnimatePresence/use-presence.mjs" was ignored.
+node_modules/framer-motion/dist/es/animation/hooks/use-animation.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/animation/hooks/use-animation.mjs" was ignored.
+node_modules/framer-motion/dist/es/events/use-dom-event.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/events/use-dom-event.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-animation-frame.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-animation-frame.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/AnimatePresence/use-presence-data.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/AnimatePresence/use-presence-data.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-cycle.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-cycle.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-instant-transition.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-instant-transition.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-in-view.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-in-view.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-page-in-view.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-page-in-view.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/LayoutGroupContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/LayoutGroupContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/MotionContext/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/MotionContext/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/MotionConfigContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/MotionConfigContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/PresenceContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/PresenceContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/SwitchLayoutGroupContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/SwitchLayoutGroupContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/animation/hooks/use-animated-state.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/animation/hooks/use-animated-state.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/DeprecatedLayoutGroupContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/DeprecatedLayoutGroupContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/AnimateSharedLayout.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/AnimateSharedLayout.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-inverted-scale.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-inverted-scale.mjs" was ignored.
+node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-menu/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-menu/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-collapsible/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collapsible/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js" was ignored.
+node_modules/@radix-ui/react-switch/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-switch/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dialog/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-select/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-select/dist/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/AnimatePresence/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/AnimatePresence/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/useBaseQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useBaseQuery.js" was ignored.
+node_modules/@radix-ui/react-tabs/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-tabs/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-progress/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-progress/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-radio-group/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-radio-group/dist/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-constant.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-constant.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/LazyContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/LazyContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/utils/use-is-mounted.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/utils/use-is-mounted.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-combine-values.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-combine-values.mjs" was ignored.
+node_modules/framer-motion/dist/es/value/use-computed.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/value/use-computed.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/Reorder/Item.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/Reorder/Item.mjs" was ignored.
+node_modules/framer-motion/dist/es/components/Reorder/Group.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/components/Reorder/Group.mjs" was ignored.
+node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-roving-focus/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-roving-focus/dist/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/motion/features/layout/MeasureLayout.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/motion/features/layout/MeasureLayout.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/ReorderContext.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/ReorderContext.mjs" was ignored.
+node_modules/framer-motion/dist/es/motion/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/motion/index.mjs" was ignored.
+node_modules/framer-motion/dist/es/context/MotionContext/create.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/context/MotionContext/create.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/dom/use-render.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/dom/use-render.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/html/use-html-visual-state.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/html/use-html-visual-state.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/svg/use-svg-visual-state.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/svg/use-svg-visual-state.mjs" was ignored.
+node_modules/framer-motion/dist/es/motion/utils/use-motion-ref.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/motion/utils/use-motion-ref.mjs" was ignored.
+node_modules/framer-motion/dist/es/motion/utils/use-visual-element.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/motion/utils/use-visual-element.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/svg/use-props.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/svg/use-props.mjs" was ignored.
+node_modules/framer-motion/dist/es/render/html/use-props.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/framer-motion/dist/es/render/html/use-props.mjs" was ignored.
+✓ 3254 modules transformed.
+ℹ Tracing dependencies:
+- tslib (2.8.1)
+✔ Traced 1 dependencies (4 files) in 78ms.
+ℹ Ensure your production environment matches the builder OS and architecture (linux-x64) to avoid native module issues.
+rendering chunks...
+.output/server/_libs/crossws.mjs                                         0.00 kB
+.output/server/_libs/hookable.mjs                                        0.00 kB
+.output/server/_libs/unctx.mjs                                           0.00 kB
+.output/server/_libs/ohash.mjs                                           0.00 kB
+.output/server/_libs/ocache.mjs                                          0.00 kB
+.output/server/_libs/unstorage.mjs                                       0.00 kB
+.output/server/_libs/croner.mjs                                          0.00 kB
+.output/server/_libs/tanstack__store.mjs                                 0.00 kB
+.output/server/_libs/detect-node-es.mjs                                  0.00 kB
+.output/server/_libs/tslib.mjs                                           0.00 kB
+.output/server/_libs/@radix-ui/react-use-effect-event+[...].mjs          0.02 kB
+.output/server/_ssr/start-HYkvq4Ni.mjs                                   0.06 kB
+.output/server/_libs/tanstack__react-store.mjs                           0.06 kB
+.output/server/_libs/radix-ui__number.mjs                                0.11 kB
+.output/server/__23tanstack-start-plugin-adapters-Cwee5PKy.mjs           0.14 kB
+.output/server/_libs/tiny-invariant.mjs                                  0.14 kB
+.output/server/_libs/get-nonce.mjs                                       0.16 kB
+.output/server/_libs/@radix-ui/react-use-layout-effect+[...].mjs         0.17 kB
+.output/server/_libs/rou3.mjs                                            0.21 kB
+.output/server/_libs/radix-ui__react-direction.mjs                       0.28 kB
+.output/server/_libs/@radix-ui/react-use-callback-ref+[...].mjs          0.34 kB
+.output/server/_libs/radix-ui__primitive.mjs                             0.35 kB
+.output/server/_libs/radix-ui__react-use-previous.mjs                    0.39 kB
+.output/server/_libs/redux-thunk.mjs                                     0.41 kB
+.output/server/_ssr/zipCode-CfTxXhri.mjs                                 0.41 kB
+.output/server/_libs/tanstack__react-query.mjs                           0.46 kB
+.output/server/_libs/clsx.mjs                                            0.51 kB
+.output/server/_libs/radix-ui__react-id.mjs                              0.51 kB
+.output/server/_tanstack-start-manifest_v-CxivXtln.mjs                   0.58 kB
+.output/server/_chunks/ssr-renderer.mjs                                  0.61 kB
+.output/server/_libs/@radix-ui/react-use-escape-keydown+[...].mjs        0.69 kB
+.output/server/_libs/radix-ui__react-label.mjs                           0.69 kB
+.output/server/_ssr/useServerFn-DL2oePlL.mjs                             0.70 kB
+.output/server/_libs/radix-ui__react-arrow.mjs                           0.71 kB
+.output/server/_ssr/viacepService-CvoIq7Fe.mjs                           0.71 kB
+.output/server/_libs/radix-ui__react-portal.mjs                          0.83 kB
+.output/server/_libs/@radix-ui/react-visually-hidden+[...].mjs           0.92 kB
+.output/server/_libs/radix-ui__react-focus-guards.mjs                    0.93 kB
+.output/server/_libs/radix-ui__react-compose-refs.mjs                    0.96 kB
+.output/server/_ssr/switch-D2FGlY04.mjs                                  1.16 kB
+.output/server/_libs/internmap.mjs                                       1.17 kB
+.output/server/_libs/radix-ui__react-use-size.mjs                        1.26 kB
+.output/server/_libs/ufo.mjs                                             1.31 kB
+.output/server/_ssr/radio-group-DdvS0Ld2.mjs                             1.34 kB
+.output/server/_libs/next-themes.mjs                                     1.36 kB
+.output/server/_libs/victory-vendor.mjs                                  1.37 kB
+.output/server/_ssr/opening-hours-BwQcWk6q.mjs                           1.39 kB
+.output/server/_libs/cookie-es.mjs                                       1.46 kB
+.output/server/_libs/seroval-plugins.mjs                                 1.47 kB
+.output/server/_libs/react-style-singleton.mjs                           1.67 kB
+.output/server/_ssr/tabs-iK78Fyyf.mjs                                    1.71 kB
+.output/server/_libs/use-callback-ref.mjs                                1.75 kB
+.output/server/_libs/class-variance-authority.mjs                        2.14 kB
+.output/server/_ssr/asaas-B2thoG2E.mjs                                   2.25 kB
+.output/server/_libs/@radix-ui/react-use-controllable-state+[...].mjs    2.29 kB
+.output/server/_ssr/viacep-XFu1qGbC.mjs                                  2.42 kB
+.output/server/_libs/isbot.mjs                                           2.56 kB
+.output/server/_libs/use-sidecar.mjs                                     2.65 kB
+.output/server/_libs/radix-ui__react-primitive.mjs                       2.66 kB
+.output/server/_-Ba1PqoDv.mjs                                            3.04 kB
+.output/server/_ssr/index-Ba1PqoDv.mjs                                   3.10 kB
+.output/server/_libs/radix-ui__react-collection.mjs                      3.22 kB
+.output/server/_ssr/dialog-yoACStQx.mjs                                  3.33 kB
+.output/server/_libs/d3-path.mjs                                         3.36 kB
+.output/server/_libs/radix-ui__react-progress.mjs                        3.56 kB
+.output/server/_libs/react-remove-scroll-bar.mjs                         3.96 kB
+.output/server/_libs/aria-hidden.mjs                                     4.06 kB
+.output/server/_ssr/deliveryQuoteService-Bxn0nC-v.mjs                    4.11 kB
+.output/server/_ssr/PaymentCancelled-BAldgjzN.mjs                        4.23 kB
+.output/server/_libs/d3-interpolate.mjs                                  4.34 kB
+.output/server/_libs/radix-ui__react-presence.mjs                        4.86 kB
+.output/server/_libs/radix-ui__react-switch.mjs                          4.91 kB
+.output/server/_libs/motion-utils.mjs                                    4.96 kB
+.output/server/_ssr/select-_A72HWb3.mjs                                  5.11 kB
+.output/server/_libs/react-is.mjs                                        5.30 kB
+.output/server/_libs/radix-ui__react-collapsible.mjs                     5.68 kB
+.output/server/_libs/radix-ui__react-context.mjs                         5.93 kB
+.output/server/_libs/tanstack__history.mjs                               5.99 kB
+.output/server/_libs/react-redux.mjs                                     6.03 kB
+.output/server/_libs/radix-ui__react-tabs.mjs                            6.49 kB
+.output/server/_libs/eventemitter3.mjs                                   6.52 kB
+.output/server/_ssr/router-D2IScTl_.mjs                                  6.76 kB
+.output/server/_libs/d3-array.mjs                                        7.16 kB
+.output/server/_libs/reselect.mjs                                        7.35 kB
+.output/server/_ssr/AdminDashboard-DvfOctbZ.mjs                          7.82 kB
+.output/server/_ssr/CustomerLayout-D4VDUGEm.mjs                          7.85 kB
+.output/server/_libs/redux.mjs                                           7.99 kB
+.output/server/_libs/radix-ui__react-focus-scope.mjs                     8.07 kB
+.output/server/_ssr/PaymentSuccess-D5UvCasi.mjs                          8.20 kB
+.output/server/_libs/floating-ui__react-dom.mjs                          8.42 kB
+.output/server/_ssr/Users-BV7h1Rjq.mjs                                   8.44 kB
+.output/server/_libs/use-sync-external-store.mjs                         8.59 kB
+.output/server/_ssr/AdminLayout-DyMDy_e1.mjs                             8.80 kB
+.output/server/_libs/@radix-ui/react-dismissable-layer+[...].mjs         9.06 kB
+.output/server/_ssr/AppLayout-BFQYuz0D.mjs                               9.25 kB
+.output/server/_libs/floating-ui__utils.mjs                              9.47 kB
+.output/server/_libs/radix-ui__react-roving-focus.mjs                    9.53 kB
+.output/server/_libs/radix-ui__react-radio-group.mjs                     9.61 kB
+.output/server/_libs/d3-format.mjs                                       9.81 kB
+.output/server/_libs/h3-v2.mjs                                           9.98 kB
+.output/server/_ssr/Categories-Yykpmwao.mjs                             10.36 kB
+.output/server/_libs/d3-color.mjs                                       10.63 kB
+.output/server/_libs/d3-time.mjs                                        10.78 kB
+.output/server/_ssr/Customers-ZR6OYjZD.mjs                              11.16 kB
+.output/server/_libs/radix-ui__react-accordion.mjs                      11.52 kB
+.output/server/_libs/radix-ui__react-popper.mjs                         11.68 kB
+.output/server/_libs/radix-ui__react-dropdown-menu.mjs                  11.79 kB
+.output/server/_libs/supabase__functions-js.mjs                         11.82 kB
+.output/server/_ssr/AdminPlans-beAC6Lpr.mjs                             12.02 kB
+.output/server/_libs/react-router-dom.mjs                               12.03 kB
+.output/server/_ssr/Coupons-DGadXdlt.mjs                                13.15 kB
+.output/server/_libs/react-remove-scroll.mjs                            13.37 kB
+.output/server/_libs/radix-ui__react-dialog.mjs                         13.47 kB
+.output/server/_ssr/StoresList-Bnv4ezYu.mjs                             13.81 kB
+.output/server/_ssr/AdminSettings-Ts2vDJx5.mjs                          14.33 kB
+.output/server/_libs/h3.mjs                                             14.36 kB
+.output/server/_ssr/Dashboard-DVqTmVQS.mjs                              14.80 kB
+.output/server/_libs/iceberg-js.mjs                                     15.70 kB
+.output/server/_ssr/Reports-BjceEwxH.mjs                                15.75 kB
+.output/server/_libs/radix-ui__react-tooltip.mjs                        15.76 kB
+.output/server/_ssr/asaas-BsNaRFLO.mjs                                  16.98 kB
+.output/server/_libs/d3-time-format.mjs                                 18.50 kB
+.output/server/_libs/react.mjs                                          20.14 kB
+.output/server/_libs/remix-run__router.mjs                              20.44 kB
+.output/server/_libs/floating-ui__dom.mjs                               21.28 kB
+.output/server/_libs/react-router.mjs                                   21.49 kB
+.output/server/_ssr/Subscription-BZ6YQiWs.mjs                           22.45 kB
+.output/server/_libs/radix-ui__react-slot.mjs                           22.75 kB
+.output/server/_libs/canvas-confetti.mjs                                23.00 kB
+.output/server/_libs/supabase__supabase-js.mjs                          23.42 kB
+.output/server/_ssr/AdminStores-D9f3cf43.mjs                            23.91 kB
+.output/server/_libs/floating-ui__core.mjs                              24.06 kB
+.output/server/_ssr/Products-D5VIuUXs.mjs                               24.21 kB
+.output/server/_libs/d3-shape.mjs                                       24.56 kB
+.output/server/_ssr/Zones-ClAVn6lc.mjs                                  25.70 kB
+.output/server/index.mjs                                                26.61 kB
+.output/server/_libs/decimal.js-light.mjs                               26.70 kB
+.output/server/_libs/radix-ui__react-toast.mjs                          27.10 kB
+.output/server/_libs/srvx.mjs                                           27.42 kB
+.output/server/_ssr/Orders-weQP3WcJ.mjs                                 27.62 kB
+.output/server/_ssr/OrderTracking-BGNLxZHp.mjs                          28.87 kB
+.output/server/_libs/d3-scale.mjs                                       29.02 kB
+.output/server/_ssr/Dashboard-BErJVcXI.mjs                              29.90 kB
+.output/server/_libs/reduxjs__toolkit.mjs                               30.27 kB
+.output/server/_libs/lucide-react.mjs                                   33.52 kB
+.output/server/_libs/radix-ui__react-menu.mjs                           34.50 kB
+.output/server/_libs/tanstack__react-router.mjs                         40.03 kB
+.output/server/_ssr/PublicStore-A8P01mov.mjs                            40.21 kB
+.output/server/_ssr/PublicCheckout-DDt5WubD.mjs                         40.50 kB
+.output/server/_libs/immer.mjs                                          44.20 kB
+.output/server/_libs/seroval.mjs                                        48.40 kB
+.output/server/_libs/radix-ui__react-select.mjs                         50.64 kB
+.output/server/_libs/supabase__phoenix.mjs                              53.84 kB
+.output/server/_libs/tanstack__query-core.mjs                           54.77 kB
+.output/server/_ssr/index.mjs                                           56.08 kB
+.output/server/_libs/sonner.mjs                                         56.10 kB
+.output/server/_libs/es-toolkit.mjs                                     57.76 kB
+.output/server/_ssr/Settings-CBm7XGI7.mjs                               68.63 kB
+.output/server/_libs/framer-motion.mjs                                  71.32 kB
+.output/server/_libs/supabase__realtime-js.mjs                          71.89 kB
+.output/server/_libs/tailwind-merge.mjs                                 96.41 kB
+.output/server/_libs/supabase__storage-js.mjs                           96.96 kB
+.output/server/_libs/zod.mjs                                           121.94 kB
+.output/server/_libs/supabase__postgrest-js.mjs                        132.53 kB
+.output/server/_libs/tanstack__router-core.mjs                         158.22 kB
+.output/server/_ssr/App_legacy-B9laAO14.mjs                            158.22 kB
+.output/server/_libs/motion-dom.mjs                                    205.45 kB
+.output/server/_libs/supabase__auth-js.mjs                             297.80 kB
+.output/server/_libs/react-dom.mjs                                     509.17 kB
+.output/server/_libs/recharts.mjs                                      538.17 kB
+✓ built in 14.23s
+ℹ Generated .output/nitro.json
+
+[nitro] ✔ You can preview this build using npx vite preview
+
+ ╭────────── [Build Info] ────────────╮
+ │                                    │
+ │  - Build Directory: .output        │
+ │  - Date: 5/12/2026, 5:11:21 PM     │
+ │  - Nitro Version: 3.0.260429-beta  │
+ │  - Nitro Preset: node-server       │
+ │                                    │
+ ╰────────────────────────────────────╯
+
+
+ ╭─────────────── [Environment Variables] ─────────────────╮
+ │                                                         │
+ │  Loaded variables from .env files (preview mode only).  │
+ │  Set platform environment variables for production:     │
+ │   - SUPABASE_PUBLISHABLE_KEY                            │
+ │   - SUPABASE_URL                                        │
+ │   - VITE_SUPABASE_PROJECT_ID                            │
+ │   - VITE_SUPABASE_PUBLISHABLE_KEY                       │
+ │   - VITE_SUPABASE_URL                                   │
+ │   - VITE_VEXOR_SUPABASE_ANON_KEY                        │
+ │   - VITE_VEXOR_SUPABASE_URL                             │
+ │                                                         │
+ ╰─────────────────────────────────────────────────────────╯
+
+[prerender] Prerendering pages...
+[prerender] Concurrency: 16
+[prerender] Crawling: /
+[prerender] Prerendered 1 pages:
+[prerender] - /
