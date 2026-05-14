@@ -50,7 +50,7 @@ const Login = () => {
       navigate("/lojista", { replace: true });
     } else {
       // Por padrão vai para a lista de lojas para clientes
-      navigate("/lojas", { replace: true });
+      navigate("/", { replace: true });
     }
   };
 

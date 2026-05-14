@@ -7,7 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SubscriptionGuard } from "@/components/SubscriptionGuard";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import MerchantLogin from "./pages/auth/MerchantLogin";
@@ -46,14 +45,7 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
 const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 const StoresList = lazy(() => import("./pages/public/StoresList"));
-const PartnerLanding = lazy(() => import("./pages/Index")); // Alias para clareza
-const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
-const AdminStores = lazy(() => import("./pages/admin/AdminStores"));
-const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
-const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
-const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
-const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
-const StoresList = lazy(() => import("./pages/public/StoresList"));
+const PartnerLanding = lazy(() => import("./pages/Index"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
