@@ -27,65 +27,93 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json()
-    const { event, payment } = body
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.error('Error parsing webhook body:', e);
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    }
 
-    console.log(`Received Asaas event: ${event}`, JSON.stringify(payment))
+    const { event, payment } = body;
+    console.log(`Received Asaas event: ${event} for payment: ${payment?.id}`);
+    
+    if (!payment) {
+      console.error('Payment data missing in webhook body');
+      return new Response(JSON.stringify({ error: 'Payment data missing' }), { status: 400 });
+    }
 
     if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
+      console.log('Processing confirmed payment:', payment.id);
       
       // 1. Process Subscription (Platform Owner Account)
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .or(`asaas_subscription_id.eq.${payment.subscription},store_id.eq.${payment.externalReference}`)
-        .maybeSingle()
-
-      if (subscription) {
-        await supabase
+      if (payment.subscription || (payment.externalReference && payment.externalReference.length > 20)) {
+        console.log('Checking subscription for:', payment.subscription || payment.externalReference);
+        const { data: subscription, error: subError } = await supabase
           .from('subscriptions')
-          .update({ 
-            status: 'ativa',
-            last_payment_at: new Date().toISOString()
-          })
-          .eq('id', subscription.id)
-          
-        console.log(`Subscription ${subscription.id} updated to active`)
+          .select('*')
+          .or(`asaas_subscription_id.eq.${payment.subscription},store_id.eq.${payment.externalReference}`)
+          .maybeSingle();
+
+        if (subError) console.error('Error fetching subscription:', subError);
+
+        if (subscription) {
+          const { error: updateSubError } = await supabase
+            .from('subscriptions')
+            .update({ 
+              status: 'ativa',
+              last_payment_at: new Date().toISOString()
+            })
+            .eq('id', subscription.id);
+            
+          if (updateSubError) console.error('Error updating subscription:', updateSubError);
+          else console.log(`Subscription ${subscription.id} updated to active`);
+        }
       }
 
       // 2. Process Store Customer Payment (Individual Store Account)
-      const { data: orderPayment } = await supabase
+      console.log('Checking order payment for external_id:', payment.id, 'or ref:', payment.externalReference);
+      const { data: orderPayment, error: payError } = await supabase
         .from('payments')
         .select('*, orders(*)')
         .or(`external_id.eq.${payment.id},order_id.eq.${payment.externalReference}`)
-        .maybeSingle()
+        .maybeSingle();
+
+      if (payError) console.error('Error fetching payment:', payError);
 
       if (orderPayment) {
-        await supabase
+        console.log('Updating order and payment for order_id:', orderPayment.order_id);
+        const { error: updatePayError } = await supabase
           .from('payments')
           .update({ 
             status: 'pago', 
             paid_at: new Date().toISOString(),
             external_id: payment.id
           })
-          .eq('id', orderPayment.id)
+          .eq('id', orderPayment.id);
 
-        await supabase
+        if (updatePayError) console.error('Error updating payment record:', updatePayError);
+
+        const { error: updateOrderError } = await supabase
           .from('orders')
           .update({ 
-            status: 'novo', // Move from 'aguardando_pagamento' to 'novo' (Novos Pedidos)
+            status: 'novo',
             payment_status: 'pago' 
           })
-          .eq('id', orderPayment.order_id)
+          .eq('id', orderPayment.order_id);
+          
+        if (updateOrderError) console.error('Error updating order status:', updateOrderError);
           
         await supabase.from('order_status_history').insert({
           order_id: orderPayment.order_id,
           store_id: orderPayment.store_id,
           status: 'novo',
-          notes: 'Pagamento PIX confirmado via Webhook'
-        })
+          notes: 'Pagamento PIX confirmado via Webhook (Asaas)'
+        });
           
-        console.log(`Order ${orderPayment.order_id} updated to paid/new`)
+        console.log(`Order ${orderPayment.order_id} update flow completed`);
+      } else {
+        console.log('No matching subscription or order payment found for this webhook event');
       }
     }
 
@@ -93,9 +121,9 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Error processing webhook:', error)
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 400,
+    console.error('Critical error processing webhook:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), { 
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
