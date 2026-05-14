@@ -46,6 +46,14 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
 const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 const StoresList = lazy(() => import("./pages/public/StoresList"));
+const PartnerLanding = lazy(() => import("./pages/Index")); // Alias para clareza
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminStores = lazy(() => import("./pages/admin/AdminStores"));
+const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
+const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
+const StoresList = lazy(() => import("./pages/public/StoresList"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,7 +79,7 @@ const App = () => {
                 <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<StoresList />} />
-                <Route path="/vendas" element={<Index />} />
+                <Route path="/vendas" element={<PartnerLanding />} />
                 <Route path="/entrar" element={<Login />} />
                 <Route path="/cadastrar" element={<Signup />} />
                 <Route path="/recuperar-senha" element={<ForgotPassword />} />
