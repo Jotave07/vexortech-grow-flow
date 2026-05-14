@@ -32,17 +32,29 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const { email, password, full_name, name, slug, whatsapp, document, city, state } = await req.json()
+    let payload;
+    try {
+      payload = await req.json();
+    } catch (e) {
+      console.error('Error parsing request body:', e);
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { email, password, full_name, name, slug, whatsapp, document, city, state } = payload;
+    console.log(`Creating store: ${name} (${slug}) for user: ${email}`);
 
     // 1. Create the user in Auth
     const { data: userData, error: createUserError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name.toUpperCase() }
+      user_metadata: { full_name: full_name?.toUpperCase() || '' }
     })
 
-    if (createUserError) throw createUserError
+    if (createUserError) {
+      console.error('Error creating auth user:', createUserError);
+      throw createUserError;
+    }
 
     const newUser = userData.user
 
@@ -64,23 +76,33 @@ serve(async (req) => {
       .single()
 
     if (storeErr) {
+      console.error('Error creating store record:', storeErr);
       // Rollback user creation if store fails
       await supabase.auth.admin.deleteUser(newUser.id)
       throw storeErr
     }
 
+    console.log(`Store created successfully: ${store.id}`);
+
     // 3. Update profile and roles
-    await Promise.all([
-      supabase.from('store_settings').insert({ store_id: store.id }),
-      supabase.from('profiles').update({ store_id: store.id, role: 'store_owner' }).eq('user_id', newUser.id),
-      supabase.from('user_roles').insert({ user_id: newUser.id, role: 'store_owner', store_id: store.id }),
-    ])
+    try {
+      await Promise.all([
+        supabase.from('store_settings').insert({ store_id: store.id }),
+        supabase.from('profiles').update({ store_id: store.id, role: 'store_owner' }).eq('user_id', newUser.id),
+        supabase.from('user_roles').insert({ user_id: newUser.id, role: 'store_owner', store_id: store.id }),
+      ])
+    } catch (profileErr) {
+      console.error('Error updating profiles/settings:', profileErr);
+      // We don't throw here to avoid failing the whole process if just the profile update fails, 
+      // but the user and store are already created.
+    }
 
     return new Response(JSON.stringify({ success: true, store_id: store.id, user_id: newUser.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
+    console.error('Unhandled error in admin-create-store:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), { 
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
