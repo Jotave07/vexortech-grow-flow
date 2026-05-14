@@ -58,7 +58,7 @@ const Signup = () => {
     if (redirect) {
       navigate(redirect, { replace: true });
     } else {
-      navigate("/lojas", { replace: true });
+      navigate("/", { replace: true });
     }
   };
 

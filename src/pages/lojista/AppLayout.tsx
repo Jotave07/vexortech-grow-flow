@@ -19,7 +19,7 @@ const menu = [
   { to: "/lojista/configuracoes", icon: Settings, label: "Configuracoes" },
   { to: "/lojista/assinatura", icon: CreditCard, label: "Assinatura" },
   { to: "/lojista/usuarios", icon: UserCog, label: "Usuarios" },
-  { to: "/vendas", icon: ExternalLink, label: "Ver Marketplace" },
+  { to: "/", icon: ExternalLink, label: "Ver Marketplace" },
   { to: "/admin", icon: ShieldCheck, label: "Global Admin", superAdminOnly: true },
 ];
 
@@ -46,7 +46,7 @@ const AppLayout = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/vendas", { replace: true });
+    navigate("/", { replace: true });
   };
 
   if (loading || !store) {
