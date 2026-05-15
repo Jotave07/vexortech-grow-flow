@@ -93,10 +93,14 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     const asaasCustomer = await asaas.createCustomer({
       name: (order as any).customer_name || "Cliente",
-      email: (order as any).customer_email || "",
+      email: (order as any).customer_email || "cliente@sememail.com.br",
       cpfCnpj: (order as any).customer_document || "",
       mobilePhone: (order as any).customer_phone || undefined,
     }, storeSettings.asaas_api_key);
+
+    if (asaasCustomer.errors) {
+      throw new Error(`Erro Asaas (Cliente): ${asaasCustomer.errors[0].description}`);
+    }
 
     const payment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
       customer: asaasCustomer.id,
