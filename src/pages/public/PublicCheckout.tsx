@@ -327,7 +327,7 @@ const PublicCheckout = () => {
       }
 
       if (paymentMethod === "pix") {
-        const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } });
+        const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } }).catch(e => ({ error: e.message }));
         if ((pixResult as any).error) {
           toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Você poderá tentar pagar na tela de acompanhamento.`);
         }

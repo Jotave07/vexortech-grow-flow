@@ -111,8 +111,9 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     }
 
     if (!payment?.id) {
-      console.error("[asaas] Payment created but ID is missing:", payment);
-      throw new Error("Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.");
+      console.error("[asaas] Payment created but ID is missing or error occurred:", payment);
+      const errorMsg = payment?.errors?.[0]?.description || "Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.";
+      throw new Error(errorMsg);
     }
 
     console.log(`[asaas] Payment created: ${payment.id}. Fetching PIX QR Code...`);
