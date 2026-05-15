@@ -183,7 +183,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
         if (order && order.payment_method === "pix") {
           const asaasCustomer = await asaas.createCustomer({
             name: (order as any).customer_name || "Cliente",
-            email: (order as any).customer_email || "",
+            email: (order as any).customer_email || "cliente@sememail.com.br",
             cpfCnpj: (order as any).customer_document || "",
             mobilePhone: (order as any).customer_phone || undefined,
           }, storeSettings.asaas_api_key);
