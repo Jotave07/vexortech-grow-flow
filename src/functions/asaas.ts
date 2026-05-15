@@ -93,10 +93,14 @@ export const createOrderPayment = createServerFn({ method: "POST" })
 
     const asaasCustomer = await asaas.createCustomer({
       name: (order as any).customer_name || "Cliente",
-      email: (order as any).customer_email || "",
+      email: (order as any).customer_email || "cliente@sememail.com.br",
       cpfCnpj: (order as any).customer_document || "",
       mobilePhone: (order as any).customer_phone || undefined,
     }, storeSettings.asaas_api_key);
+
+    if (asaasCustomer.errors) {
+      throw new Error(`Erro Asaas (Cliente): ${asaasCustomer.errors[0].description}`);
+    }
 
     const payment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
       customer: asaasCustomer.id,
@@ -111,8 +115,9 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     }
 
     if (!payment?.id) {
-      console.error("[asaas] Payment created but ID is missing:", payment);
-      throw new Error("Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.");
+      console.error("[asaas] Payment created but ID is missing or error occurred:", payment);
+      const errorMsg = payment?.errors?.[0]?.description || "Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.";
+      throw new Error(errorMsg);
     }
 
     console.log(`[asaas] Payment created: ${payment.id}. Fetching PIX QR Code...`);
@@ -178,7 +183,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
         if (order && order.payment_method === "pix") {
           const asaasCustomer = await asaas.createCustomer({
             name: (order as any).customer_name || "Cliente",
-            email: (order as any).customer_email || "",
+            email: (order as any).customer_email || "cliente@sememail.com.br",
             cpfCnpj: (order as any).customer_document || "",
             mobilePhone: (order as any).customer_phone || undefined,
           }, storeSettings.asaas_api_key);

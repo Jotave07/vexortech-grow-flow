@@ -42,7 +42,13 @@ async function asaasRequest(endpoint: string, method: string, apiKey: string, bo
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.error("Asaas JSON Parse Error:", e);
+      data = { message: "Erro ao processar resposta do gateway" };
+    }
     
     if (!response.ok) {
       console.error(`Asaas Error (${response.status}):`, JSON.stringify(data));
