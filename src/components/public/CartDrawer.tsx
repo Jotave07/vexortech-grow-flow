@@ -81,10 +81,11 @@ export const CartDrawer = ({
                 className="w-full"
                 onClick={() => {
                   onOpenChange(false);
+                  const checkoutPath = `/loja/${slug}/checkout`;
                   if (!user) {
-                    navigate(`/entrar?redirect=${encodeURIComponent(`/vendas/loja/${slug}/checkout`)}`);
+                    navigate(`/entrar?redirect=${encodeURIComponent(checkoutPath)}`);
                   } else {
-                    navigate(`/vendas/loja/${slug}/checkout`);
+                    navigate(checkoutPath);
                   }
                 }}
               >

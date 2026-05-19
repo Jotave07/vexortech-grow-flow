@@ -31,15 +31,15 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "VexorTech" },
       { name: "theme-color", content: "#000000" },
-      { name: "description", content: "VexorTech e uma plataforma para e-commerce, delivery, checkout, pedidos e gestao de lojas." },
+      { name: "description", content: "VexorTech separa o delivery em vexortech.com.br e o portal exclusivo de lojas parceiras em parceiros.vexortech.com.br." },
       { name: "author", content: "VexorTech" },
       { property: "og:title", content: "VexorTech" },
-      { property: "og:description", content: "VexorTech e uma plataforma para e-commerce, delivery, checkout, pedidos e gestao de lojas." },
+      { property: "og:description", content: "VexorTech separa o delivery em vexortech.com.br e o portal exclusivo de lojas parceiras em parceiros.vexortech.com.br." },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://www.vexortech.com.br" },
+      { property: "og:url", content: "https://vexortech.com.br" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "VexorTech" },
-      { name: "twitter:description", content: "VexorTech e uma plataforma para e-commerce, delivery, checkout, pedidos e gestao de lojas." },
+      { name: "twitter:description", content: "VexorTech separa o delivery em vexortech.com.br e o portal exclusivo de lojas parceiras em parceiros.vexortech.com.br." },
     ],
     links: [
       {
@@ -55,7 +55,7 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>

@@ -18,6 +18,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import Onboarding from "./pages/auth/Onboarding";
 import { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
+import { isPartnersDomain } from "@/lib/domains";
 
 // Lazy load layouts and complex pages to prevent initial load crashes
 const AppLayout = lazy(() => import("./pages/lojista/AppLayout"));
@@ -47,6 +48,8 @@ const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 const StoresList = lazy(() => import("./pages/public/StoresList"));
 const PartnerLanding = lazy(() => import("./pages/Index"));
 
+const DomainHome = () => (isPartnersDomain() ? <PartnerLanding /> : <StoresList />);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -70,7 +73,7 @@ const App = () => {
               <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                 <Routes>
                 {/* Public Routes */}
-                <Route path="/" element={<StoresList />} />
+                <Route path="/" element={<DomainHome />} />
                 <Route path="/vendas" element={<PartnerLanding />} />
                 <Route path="/entrar" element={<Login />} />
                 <Route path="/cadastrar" element={<Signup />} />
@@ -85,6 +88,13 @@ const App = () => {
                 <Route path="/admin/entrar" element={<AdminLogin />} />
 
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+
+                <Route path="/lojas" element={<StoresList />} />
+                <Route path="/loja/:slug" element={<PublicStore />} />
+                <Route path="/loja/:slug/checkout" element={<ProtectedRoute requiredRole="customer"><PublicCheckout /></ProtectedRoute>} />
+                <Route path="/pedido/:token" element={<OrderTracking />} />
+                <Route path="/pedido/:token/sucesso" element={<PaymentSuccess />} />
+                <Route path="/pedido/:token/cancelado" element={<PaymentCancelled />} />
 
                 <Route path="/vendas/lojas" element={<StoresList />} />
                 <Route path="/vendas/loja/:slug" element={<PublicStore />} />

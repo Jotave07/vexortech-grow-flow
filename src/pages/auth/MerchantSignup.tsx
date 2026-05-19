@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatDoc } from "@/lib/format";
 import { BrandMark } from "@/components/BrandMark";
+import { buildDeliveryUrl } from "@/lib/domains";
 import {
   Accordion,
   AccordionContent,
@@ -380,9 +381,9 @@ const MerchantSignup = () => {
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <BrandMark compact className="opacity-80" />
             <div className="flex gap-8">
-              <Link to="/" className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Página Inicial</Link>
-              <Link to="/lojas" className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Lojas</Link>
-              <Link to="/entrar" className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Sou Cliente</Link>
+              <Link to="/" className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Portal Parceiro</Link>
+              <a href={buildDeliveryUrl("/")} className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Delivery</a>
+              <a href={buildDeliveryUrl("/entrar")} className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Sou Cliente</a>
             </div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">
               © {new Date().getFullYear()} VexorTech. Todos os direitos reservados.

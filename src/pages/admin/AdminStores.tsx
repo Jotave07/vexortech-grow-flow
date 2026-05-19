@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { formatBRL } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { buildDeliveryUrl } from "@/lib/domains";
 
 const AdminStores = () => {
   const [stores, setStores] = useState<any[]>([]);
@@ -255,7 +256,7 @@ const AdminStores = () => {
 
               <div className="flex flex-col gap-2 pt-2">
                 <Button asChild variant="outline">
-                  <a href={`/loja/${selected.slug}`} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /> Abrir loja pública</a>
+                  <a href={buildDeliveryUrl(`/loja/${selected.slug}`)} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /> Abrir loja pública</a>
                 </Button>
                 <Button variant={selected.is_suspended ? "default" : "outline"} onClick={() => toggleSuspend(selected)}>
                   {selected.is_suspended ? <><Play className="h-4 w-4" /> Reativar</> : <><Pause className="h-4 w-4" /> Suspender</>}

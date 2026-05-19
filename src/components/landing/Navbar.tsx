@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, LayoutDashboard, Store, ShoppingBag, Settings } from "lucide-react";
+import { buildDeliveryUrl } from "@/lib/domains";
 
 export const Navbar = () => {
   const { user, profile, signOut } = useAuth();
@@ -45,7 +46,7 @@ export const Navbar = () => {
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         <BrandMark to="/" animated className="max-w-[10rem]" />
         <div className="hidden items-center gap-7 md:flex">
-          <Link to="/" className="text-sm font-bold text-emerald-600 transition-smooth hover:text-emerald-800 uppercase tracking-widest italic">Comprar Agora</Link>
+          <a href={buildDeliveryUrl("/")} className="text-sm font-bold text-emerald-600 transition-smooth hover:text-emerald-800 uppercase tracking-widest italic">Ver Delivery</a>
           <a href="#beneficios" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Beneficios</a>
           <a href="#nichos" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Segmentos</a>
           <a href="#planos" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Planos</a>
@@ -103,10 +104,10 @@ export const Navbar = () => {
           ) : (
             <>
               <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
-                <Link to="/entrar">Entrar</Link>
+                <Link to="/lojista/entrar">Entrar</Link>
               </Button>
               <Button variant="hero" size="sm" asChild>
-                <Link to="/cadastrar">Começar Agora</Link>
+                <Link to="/cadastrar-loja">Abrir Loja</Link>
               </Button>
             </>
           )}

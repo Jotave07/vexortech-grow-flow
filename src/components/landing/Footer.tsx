@@ -1,4 +1,5 @@
 import { BrandMark } from "@/components/BrandMark";
+import { buildDeliveryUrl, buildPartnersUrl } from "@/lib/domains";
 import { Link } from "react-router-dom";
 
 export const Footer = () => {
@@ -9,7 +10,7 @@ export const Footer = () => {
           <div>
             <BrandMark className="mb-4" />
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Marketplace de delivery moderno para negócios locais venderem com autonomia e inteligência.
+              VexorTech separa o delivery em vexortech.com.br e o portal exclusivo de lojas parceiras em parceiros.vexortech.com.br.
             </p>
           </div>
           <div>
@@ -18,7 +19,7 @@ export const Footer = () => {
               <li><a href="#beneficios" className="hover:text-foreground">Benefícios</a></li>
               <li><a href="#como-funciona" className="hover:text-foreground">Como Funciona</a></li>
               <li><a href="#planos" className="hover:text-foreground">Planos e Preços</a></li>
-              <li><Link to="/" className="hover:text-foreground font-medium text-emerald-600">Ver Marketplace</Link></li>
+              <li><a href={buildDeliveryUrl("/")} className="hover:text-foreground font-medium text-emerald-600">Ver Delivery</a></li>
             </ul>
           </div>
           <div>
@@ -28,6 +29,7 @@ export const Footer = () => {
               <li><Link to="/lojista/entrar" className="hover:text-foreground">Portal do Lojista</Link></li>
               <li><Link to="/admin/entrar" className="hover:text-foreground">Portal Administrativo</Link></li>
               <li><Link to="/cadastrar-loja" className="hover:text-foreground font-medium text-primary">Abrir minha Loja</Link></li>
+              <li><a href={buildPartnersUrl("/")} className="hover:text-foreground">Dominio de Parceiros</a></li>
             </ul>
           </div>
           <div>

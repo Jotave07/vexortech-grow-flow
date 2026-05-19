@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, PlayCircle, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { HeroAnimation } from "./HeroAnimation";
+import { buildDeliveryUrl } from "@/lib/domains";
 
 export const Hero = () => {
   return (
@@ -26,7 +27,7 @@ export const Hero = () => {
               className="mb-6 inline-flex items-center gap-2 border border-black/10 bg-black/5 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.12em] text-black backdrop-blur"
             >
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              Operação própria para vender sem intermediários
+              Portal exclusivo para lojas parceiras
             </motion.div>
 
             <motion.h1 
@@ -35,7 +36,7 @@ export const Hero = () => {
               transition={{ delay: 0.3, duration: 0.6 }}
               className="mb-6 text-4xl font-bold leading-[1.05] md:text-6xl lg:text-7xl"
             >
-              VexorTech
+              VexorTech Parceiros
             </motion.h1>
 
             <motion.p 
@@ -44,7 +45,7 @@ export const Hero = () => {
               transition={{ delay: 0.4, duration: 0.6 }}
               className="mb-10 max-w-2xl text-lg leading-relaxed text-black/70 md:text-xl"
             >
-              Cardápio online, pedidos, clientes, entregas e relatórios em um painel feito para restaurantes e negócios locais assumirem o controle do delivery.
+              O parceiros.vexortech.com.br sera exclusivo para lojas parceiras criarem, configurarem e administrarem suas operacoes. O vexortech.com.br sera a area de delivery, com vitrine, cardapio, checkout, pedidos, pagamentos, entrega e acompanhamento revisados para funcionar de ponta a ponta.
             </motion.p>
 
             <motion.div 
@@ -54,15 +55,15 @@ export const Hero = () => {
               className="flex flex-col gap-3 sm:flex-row"
             >
               <Button variant="hero" size="xl" className="group" asChild>
-                <Link to="/lojas">
-                  Pedir Agora
+                <Link to="/cadastrar-loja">
+                  Cadastrar loja parceira
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
               <Button variant="outline" size="xl" className="border-black/15 bg-black/5 text-black hover:border-primary hover:bg-black/10" asChild>
-                <a href="#como-funciona">
+                <a href={buildDeliveryUrl("/")}>
                   <PlayCircle className="h-5 w-5" />
-                  Ver fluxo
+                  Ver delivery
                 </a>
               </Button>
             </motion.div>
@@ -73,9 +74,9 @@ export const Hero = () => {
               transition={{ delay: 0.7, duration: 0.8 }}
               className="mt-12 grid max-w-2xl grid-cols-1 gap-3 text-sm text-black/60 sm:grid-cols-3"
             >
-              <span className="border-l border-primary pl-3">Sem comissão por pedido</span>
-              <span className="border-l border-primary pl-3">Checkout próprio</span>
-              <span className="border-l border-primary pl-3">Pedidos em tempo real</span>
+              <span className="border-l border-primary pl-3">Parceiros em ambiente exclusivo</span>
+              <span className="border-l border-primary pl-3">Delivery em vexortech.com.br</span>
+              <span className="border-l border-primary pl-3">Fluxo revisado de ponta a ponta</span>
             </motion.div>
           </motion.div>
 

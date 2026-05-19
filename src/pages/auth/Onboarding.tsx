@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { slugify, formatPhone, formatDoc } from "@/lib/format";
 import { z } from "zod";
+import { getDeliveryBaseUrl } from "@/lib/domains";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(100),
@@ -28,7 +29,7 @@ const Onboarding = () => {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", document: "", city: "", state: "" });
   const [loading, setLoading] = useState(false);
-  const publicBaseUrl = `${window.location.host}/loja/`;
+  const publicBaseUrl = `${getDeliveryBaseUrl()}/loja/`;
 
   useEffect(() => {
     if (!authLoading) {

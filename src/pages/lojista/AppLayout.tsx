@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { BarChart3, CreditCard, ExternalLink, LayoutDashboard, Loader2, LogOut, Menu, Settings, ShoppingBag, Tags, Ticket, Truck, UserCog, Users, UtensilsCrossed, X, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildDeliveryUrl } from "@/lib/domains";
 
 const menu = [
   { to: "/lojista", icon: LayoutDashboard, label: "Dashboard", end: true },
@@ -74,7 +75,7 @@ const AppLayout = () => {
           <BrandMark compact className="mb-5" />
           <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm">
             <div className="truncate text-xs font-black uppercase tracking-tight text-orange-900">{store.name}</div>
-            <a href={`/vendas/loja/${store.slug}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600 hover:text-orange-700 hover:underline">
+            <a href={buildDeliveryUrl(`/loja/${store.slug}`)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600 hover:text-orange-700 hover:underline">
               Visualizar loja <ExternalLink className="h-3 w-3" />
             </a>
           </div>

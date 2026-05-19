@@ -25,8 +25,8 @@ export const CTA = () => {
           transition={{ duration: 0.6 }}
           className="max-w-2xl"
         >
-          <p className="mb-3 text-sm font-semibold uppercase text-primary-foreground/70">Pronto para operar</p>
-          <h2 className="text-3xl font-bold md:text-5xl">Venda no seu link, acompanhe no seu painel, mantenha sua margem.</h2>
+          <p className="mb-3 text-sm font-semibold uppercase text-primary-foreground/70">Operacao separada por dominio</p>
+          <h2 className="text-3xl font-bold md:text-5xl">parceiros.vexortech.com.br para lojas parceiras. vexortech.com.br para o delivery completo.</h2>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -36,8 +36,8 @@ export const CTA = () => {
           className="shrink-0 md:w-auto"
         >
           <Button variant="secondary" size="xl" className="group w-full md:w-auto" asChild>
-            <Link to="/cadastrar">
-              Criar minha loja
+            <Link to="/cadastrar-loja">
+              Criar loja parceira
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>
           </Button>

@@ -121,7 +121,7 @@ const PublicStore = () => {
                   onClick={async () => {
                     await signOut();
                     toast.success("Você saiu da conta.");
-                    navigate("/vendas");
+                    navigate("/");
                   }}
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5"
                   title="Sair"
