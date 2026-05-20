@@ -17,12 +17,14 @@ import { fetchAddressByCep } from "@/services/cep/viacepService";
 import { ViaCepError } from "@/services/viacep";
 import { buildAddressLabel, fetchAddressFromCurrentLocation, geocodeAddressCoordinates, normalizeCep } from "@/services/viacep";
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
+import { STORE_SEGMENT_OPTIONS, normalizeStoreSegment } from "@/lib/store-segments";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
 import { useServerFn } from "@tanstack/react-start";
 import { testAsaasConnection } from "@/functions/asaas";
 
 type StoreRow = Tables<"stores">;
+type StoreFormRow = StoreRow & { store_type?: string | null };
 type StoreSettingsRow = Tables<"store_settings">;
 type PlanRow = Tables<"plans">;
 type SubscriptionRow = Tables<"subscriptions"> & { plans?: PlanRow | null };
@@ -62,9 +64,21 @@ const DEFAULT_BUSINESS_HOURS: BusinessHours = {
   sun: { enabled: true, open: "18:00", close: "23:00" },
 };
 
+const STORE_TYPE_LABELS: Record<string, string> = {
+  Restaurantes: "Restaurante",
+  Lanches: "Lanchonete / Lanches",
+  Pizza: "Pizzaria / Pizza",
+  Açaí: "Açaí / Sorvetes",
+  Mercados: "Mercado / Conveniência",
+  Bebidas: "Distribuidora / Bebidas",
+  Farmácia: "Farmácia / Drogaria",
+  Pet: "Pet shop",
+  Outros: "Outros",
+};
+
 const Settings = () => {
   const { store } = useOutletContext<{ store: { id: string } }>();
-  const [storeForm, setStoreForm] = useState<StoreRow | null>(null);
+  const [storeForm, setStoreForm] = useState<StoreFormRow | null>(null);
   const [storeSettings, setStoreSettings] = useState<StoreSettingsRow | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [plans, setPlans] = useState<PlanRow[]>([]);
@@ -261,6 +275,7 @@ const Settings = () => {
     };
     const extendedStorePayload = {
       public_name: nullableText(storeForm.public_name?.toUpperCase()),
+      store_type: normalizeStoreSegment(storeForm.store_type) ?? "Restaurantes",
       address_number: nullableText(storeForm.address_number),
       address_complement: nullableText(storeForm.address_complement?.toUpperCase()),
       neighborhood: nullableText(storeForm.neighborhood?.toUpperCase()),
@@ -412,6 +427,20 @@ const Settings = () => {
                   onChange={(e) => setStoreForm({ ...storeForm, public_name: e.target.value.toUpperCase() })}
                   placeholder="Como a loja aparece para clientes"
                 />
+              </Field>
+              <Field>
+                <Label>Tipo de loja</Label>
+                <Select
+                  value={normalizeStoreSegment(storeForm.store_type) ?? "Restaurantes"}
+                  onValueChange={(value) => setStoreForm({ ...storeForm, store_type: value })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STORE_SEGMENT_OPTIONS.map((segment) => (
+                      <SelectItem key={segment} value={segment}>{STORE_TYPE_LABELS[segment] ?? segment}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
 
@@ -1085,9 +1114,10 @@ const parseExcludedNeighborhoods = (value: Json | undefined) => {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 };
 
-const buildStoreForm = (store: StoreRow): StoreRow => ({
+const buildStoreForm = (store: StoreFormRow): StoreFormRow => ({
   ...store,
   public_name: store.public_name ?? null,
+  store_type: normalizeStoreSegment(store.store_type) ?? "Restaurantes",
   neighborhood: store.neighborhood ?? null,
   address_number: store.address_number ?? null,
   address_complement: store.address_complement ?? null,
@@ -1180,6 +1210,7 @@ const shouldRetryWithLegacySchema = (error: { message?: string } | null) =>
     error.message.includes("schema cache") ||
     error.message.includes("column") ||
     error.message.includes("public_name") ||
+    error.message.includes("store_type") ||
     error.message.includes("delivery_radius_km") ||
     error.message.includes("delivery_base_fee") ||
     error.message.includes("delivery_fee_per_km") ||

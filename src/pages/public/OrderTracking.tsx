@@ -395,13 +395,17 @@ const OrderTracking = () => {
           <ul className="space-y-3">
             {items.map((it) => {
               const itemOptionsSum = it.options?.reduce((acc: number, opt: any) => acc + Number(opt.extra_price || 0), 0) || 0;
-              const itemTotal = (Number(it.unit_price) + itemOptionsSum) * it.quantity;
+              const itemUnitTotal = Number(it.unit_price || 0) + itemOptionsSum;
+              const itemTotal = Number(it.item_subtotal || 0) > 0 ? Number(it.item_subtotal) : itemUnitTotal * it.quantity;
               
               return (
                 <li key={it.id} className="flex flex-col gap-1 border-b border-dashed border-border pb-2">
                   <div className="flex justify-between gap-4">
                     <div className="flex-1">
                       <div className="font-bold text-sm uppercase tracking-tight">{it.quantity}× {it.product_name}</div>
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                        {formatBRL(itemUnitTotal)} cada
+                      </div>
                       {it.notes && <div className="text-[10px] text-muted-foreground italic font-medium leading-tight mt-1">"{it.notes}"</div>}
                     </div>
                     <div className="font-black text-sm">{formatBRL(itemTotal)}</div>

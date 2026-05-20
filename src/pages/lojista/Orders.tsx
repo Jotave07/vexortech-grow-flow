@@ -44,7 +44,7 @@ const COLUMNS: OrderColumn[] = [
   {
     key: "aguardando_pagamento",
     label: "Aguardando PIX",
-    helper: "So entra na cozinha quando o PIX confirmar.",
+    helper: "Só entra na cozinha quando o PIX confirmar.",
     statuses: ["aguardando_pagamento"],
   },
   {
@@ -81,8 +81,8 @@ const COLUMNS: OrderColumn[] = [
   },
   {
     key: "entregue",
-    label: "Concluidos",
-    helper: "Historico recente da loja.",
+    label: "Concluídos",
+    helper: "Histórico recente da loja.",
     statuses: ["entregue"],
   },
   {
@@ -126,7 +126,16 @@ const getItemTotal = (item: any) => {
     (sum: number, option: any) => sum + Number(option.extra_price || 0),
     0,
   );
-  return (Number(item.unit_price || 0) + optionsTotal) * Number(item.quantity || 0);
+  const calculated = (Number(item.unit_price || 0) + optionsTotal) * Number(item.quantity || 0);
+  return Number(item.subtotal || 0) > 0 ? Number(item.subtotal) : calculated;
+};
+
+const getItemUnitTotal = (item: any) => {
+  const optionsTotal = (item.order_item_options || []).reduce(
+    (sum: number, option: any) => sum + Number(option.extra_price || 0),
+    0,
+  );
+  return Number(item.unit_price || 0) + optionsTotal;
 };
 
 const getNextAction = (order: any) => {
@@ -135,7 +144,7 @@ const getNextAction = (order: any) => {
   const nextStatus = column.nextStatus;
   return {
     status: nextStatus,
-    label: typeof column.nextLabel === "function" ? column.nextLabel(order) : column.nextLabel || "Avancar",
+    label: typeof column.nextLabel === "function" ? column.nextLabel(order) : column.nextLabel || "Avançar",
   };
 };
 
@@ -372,7 +381,7 @@ const Orders = () => {
   };
 
   const cancelOrder = async (orderId: string) => {
-    if (!confirm("Cancelar este pedido? Se o PIX ja estiver pago, o sistema tentara estornar automaticamente.")) return;
+    if (!confirm("Cancelar este pedido? Se o PIX já estiver pago, o sistema tentará estornar automaticamente.")) return;
 
     const order = orders.find((item) => item.id === orderId) || selected;
     if (order?.payment_method === "pix" && order?.payment_status === "pago") {
@@ -383,7 +392,7 @@ const Orders = () => {
         }
       } catch (error) {
         console.error("Refund failed:", error);
-        toast.error("Aviso: o estorno automatico falhou. Verifique no painel do Asaas.");
+        toast.error("Aviso: o estorno automático falhou. Verifique no painel do Asaas.");
       }
     }
 
@@ -399,10 +408,31 @@ const Orders = () => {
         toast.success("Pagamento confirmado!");
         await load();
       } else {
-        toast.info("Pagamento ainda nao identificado.");
+        toast.info("Pagamento ainda não identificado.");
       }
     } catch (error) {
       toast.error("Erro ao verificar pagamento");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const syncPendingPixPayments = async () => {
+    const pendingPixOrders = orders.filter((order) => order.status === "aguardando_pagamento" && order.payment_method === "pix");
+    if (!pendingPixOrders.length) {
+      toast.info("Nenhum PIX pendente para sincronizar.");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      await Promise.allSettled(
+        pendingPixOrders.map((order) => syncPaymentStatusFn({ data: { orderId: order.id, storeId: store.id } })),
+      );
+      await load();
+      toast.success("Pagamentos PIX sincronizados.");
+    } catch (error) {
+      toast.error("Erro ao sincronizar pagamentos PIX.");
     } finally {
       setSyncing(false);
     }
@@ -436,13 +466,14 @@ const Orders = () => {
   }
 
   const selectedAction = selected ? getNextAction(selected) : null;
+  const selectedItemsTotal = items.reduce((sum, item) => sum + getItemTotal(item), 0);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-black uppercase tracking-tight">Gestao de pedidos</h1>
-          <p className="font-medium text-muted-foreground">Fila operacional com pagamento, entrega e avisos automaticos ao cliente.</p>
+          <h1 className="text-3xl font-black uppercase tracking-tight">Gestão de pedidos</h1>
+          <p className="font-medium text-muted-foreground">Fila operacional com pagamento, entrega e avisos automáticos ao cliente.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className={cn(
@@ -457,6 +488,12 @@ const Orders = () => {
               Sync {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </div>
           )}
+          {summary.waitingPayment > 0 && (
+            <Button variant="outline" size="sm" onClick={syncPendingPixPayments} disabled={syncing} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
+              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+              Sincronizar PIX
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={load} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
@@ -466,9 +503,9 @@ const Orders = () => {
       <div className="grid gap-3 md:grid-cols-5">
         <SummaryCard icon={Activity} label="Ativos" value={String(summary.active)} helper="Na fila agora" />
         <SummaryCard icon={Wallet} label="PIX pendente" value={String(summary.waitingPayment)} helper="Aguardando gateway" />
-        <SummaryCard icon={TimerReset} label="Atencao" value={String(summary.urgent)} helper="Mais de 25 min" tone={summary.urgent > 0 ? "warning" : "default"} />
-        <SummaryCard icon={Truck} label="Rota/pronto" value={String(summary.route)} helper="Saida ou retirada" />
-        <SummaryCard icon={CheckCircle2} label="Vendas" value={formatBRL(summary.completedRevenue)} helper="Pagas/concluidas" />
+        <SummaryCard icon={TimerReset} label="Atenção" value={String(summary.urgent)} helper="Mais de 25 min" tone={summary.urgent > 0 ? "warning" : "default"} />
+        <SummaryCard icon={Truck} label="Rota/pronto" value={String(summary.route)} helper="Saída ou retirada" />
+        <SummaryCard icon={CheckCircle2} label="Vendas" value={formatBRL(summary.completedRevenue)} helper="Pagas/concluídas" />
       </div>
 
       <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 md:mx-0 md:px-0">
@@ -633,6 +670,9 @@ const Orders = () => {
                           <span>{item.quantity}x {item.product_name}</span>
                           <span>{formatBRL(getItemTotal(item))}</span>
                         </div>
+                        <div className="mt-0.5 pl-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          {formatBRL(getItemUnitTotal(item))} cada
+                        </div>
                         {item.order_item_options?.length > 0 && (
                           <ul className="mt-1 pl-4 text-xs text-muted-foreground">
                             {item.order_item_options.map((option: any) => (
@@ -663,7 +703,7 @@ const Orders = () => {
                     {selected.change_for && <div className="text-xs text-muted-foreground">Troco para: {formatBRL(selected.change_for)}</div>}
                     {selected.payment_method !== "pix" && selected.status !== "entregue" && (
                       <div className="rounded-lg border border-dashed border-border bg-white p-3 text-[11px] font-medium text-muted-foreground">
-                        Receba no ato da entrega/retirada. Ao concluir o pedido, o pagamento sera marcado como pago automaticamente.
+                        Receba no ato da entrega/retirada. Ao concluir o pedido, o pagamento será marcado como pago automaticamente.
                       </div>
                     )}
                     {selected.status === "aguardando_pagamento" && (
@@ -678,6 +718,7 @@ const Orders = () => {
                 <section className="rounded-xl border border-border bg-white p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resumo financeiro</div>
                   <div className="space-y-1">
+                    {items.length > 0 && <div className="flex justify-between"><span>Itens</span><span>{formatBRL(selectedItemsTotal)}</span></div>}
                     <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(selected.subtotal)}</span></div>
                     {selected.delivery_type === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
                     {Number(selected.discount_amount) > 0 && (
@@ -695,7 +736,7 @@ const Orders = () => {
                 </section>
 
                 <section className="rounded-xl border border-border bg-muted/20 p-4">
-                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Acoes rapidas</div>
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ações rápidas</div>
                   <div className="flex flex-col gap-2">
                     {selectedAction && (
                       <Button variant="hero" size="sm" onClick={() => updateStatus(selected.id, selectedAction.status)} disabled={updatingId === selected.id}>
@@ -704,7 +745,7 @@ const Orders = () => {
                       </Button>
                     )}
                     <Button asChild variant="outline" size="sm">
-                      <a href={buildWhatsAppLink(selected.customer_phone, `Ola ${selected.customer_name}, sobre seu pedido #${selected.order_number}`)} target="_blank" rel="noreferrer">
+                      <a href={buildWhatsAppLink(selected.customer_phone, `Olá ${selected.customer_name}, sobre seu pedido #${selected.order_number}`)} target="_blank" rel="noreferrer">
                         <MessageSquare className="h-4 w-4" /> Chamar no WhatsApp
                       </a>
                     </Button>

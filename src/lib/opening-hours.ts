@@ -18,73 +18,78 @@ const DAYS_MAP: { [key: number]: string } = {
   6: "sat",
 };
 
+const DAY_LABELS: Record<string, string> = {
+  sun: "Domingo",
+  mon: "Segunda",
+  tue: "Terça",
+  wed: "Quarta",
+  thu: "Quinta",
+  fri: "Sexta",
+  sat: "Sábado",
+};
+
+const getBrazilDate = () => new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
+const toMinutes = (time?: string) => {
+  const [hours, minutes] = String(time || "").split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return hours * 60 + minutes;
+};
+
+const isWithinRange = (current: number, open: number, close: number) => {
+  if (close < open) return current >= open || current <= close;
+  return current >= open && current <= close;
+};
+
 export function isStoreOpen(businessHours: BusinessHours, manualStatus?: boolean): boolean {
   if (manualStatus === false) return false;
   if (!businessHours) return false;
-  
-  // Usar fuso horário de Brasília (BRT) para garantir consistência
-  // Independentemente de onde o dispositivo do cliente esteja
-  const now = new Date();
-  const brTime = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    weekday: "long"
-  }).formatToParts(now);
 
-  const getPart = (type: string) => brTime.find(p => p.type === type)?.value;
-  const hour = getPart("hour");
-  const minute = getPart("minute");
-  const currentTimeStr = `${hour}:${minute}`;
-  
-  // Mapeamento de dia da semana do Intl para o nosso DAYS_MAP
-  const weekday = getPart("weekday")?.toLowerCase() || "";
-  let dayName = "mon";
-  if (weekday.includes("domingo")) dayName = "sun";
-  else if (weekday.includes("segunda")) dayName = "mon";
-  else if (weekday.includes("terça")) dayName = "tue";
-  else if (weekday.includes("quarta")) dayName = "wed";
-  else if (weekday.includes("quinta")) dayName = "thu";
-  else if (weekday.includes("sexta")) dayName = "fri";
-  else if (weekday.includes("sábado")) dayName = "sat";
+  const now = getBrazilDate();
+  const currentDayIndex = getDay(now);
+  const currentTime = toMinutes(format(now, "HH:mm"));
+  if (currentTime === null) return false;
 
-  const config = businessHours[dayName];
+  const todayName = DAYS_MAP[currentDayIndex];
+  const today = businessHours[todayName];
+  const todayOpen = toMinutes(today?.open);
+  const todayClose = toMinutes(today?.close);
 
-  if (!config || !config.enabled) return false;
-
-  const openTime = config.open;
-  const closeTime = config.close;
-
-  // Lógica para horários que atravessam a meia-noite (ex: 18:00 às 02:00)
-  if (closeTime < openTime) {
-    return currentTimeStr >= openTime || currentTimeStr <= closeTime;
+  if (today?.enabled && todayOpen !== null && todayClose !== null && isWithinRange(currentTime, todayOpen, todayClose)) {
+    return true;
   }
 
-  return currentTimeStr >= openTime && currentTimeStr <= closeTime;
+  const previousDayName = DAYS_MAP[(currentDayIndex + 6) % 7];
+  const previous = businessHours[previousDayName];
+  const previousOpen = toMinutes(previous?.open);
+  const previousClose = toMinutes(previous?.close);
+
+  return Boolean(
+    previous?.enabled &&
+    previousOpen !== null &&
+    previousClose !== null &&
+    previousClose < previousOpen &&
+    currentTime <= previousClose,
+  );
 }
 
 export function getNextOpeningTime(businessHours: BusinessHours): string {
   if (!businessHours) return "Indisponível";
-  
-  const now = new Date();
+
+  const now = getBrazilDate();
   const currentDay = getDay(now);
+  const currentTime = toMinutes(format(now, "HH:mm")) ?? 0;
 
   for (let i = 0; i < 7; i++) {
     const nextDay = (currentDay + i) % 7;
     const dayName = DAYS_MAP[nextDay];
     const config = businessHours[dayName];
+    const openTime = toMinutes(config?.open);
 
-    if (config && config.enabled) {
-      if (i === 0) {
-        const currentTimeStr = format(now, "HH:mm");
-        if (config.open > currentTimeStr) {
-          return `Hoje às ${config.open}`;
-        }
-      } else {
-        const dayLabel = i === 1 ? "Amanhã" : dayName.charAt(0).toUpperCase() + dayName.slice(1);
-        return `${dayLabel} às ${config.open}`;
-      }
+    if (config?.enabled && openTime !== null) {
+      if (i === 0 && openTime <= currentTime) continue;
+      const dayLabel = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : DAY_LABELS[dayName];
+      return `${dayLabel} às ${config.open}`;
     }
   }
 

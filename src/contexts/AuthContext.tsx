@@ -1,6 +1,6 @@
-import { Session, User } from "@supabase/supabase-js";
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { LocalSession as Session, LocalUser as User } from "@/integrations/supabase/compat-types";
 import { getPrimaryRoleFromRoles, getUserRoles, normalizeUserRole, UserRole } from "@/lib/auth/roles";
 
 export type Profile = {

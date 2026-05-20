@@ -14,6 +14,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { detectStoreSegment, getSegmentCover } from "@/lib/store-segments";
+import { isStoreOpen } from "@/lib/opening-hours";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -140,11 +141,17 @@ export default function StoresList() {
         }, new Map<string, string[]>());
       }
 
-      setStores(loadedStores.map((store) => ({
-        ...store,
-        menu_categories: categoryMap.get(store.id) || [],
-        delivery_kind: detectStoreSegment(store, categoryMap.get(store.id) || []),
-      })));
+      setStores(loadedStores.map((store) => {
+        const settings = Array.isArray(store.store_settings) ? store.store_settings[0] : store.store_settings;
+        const menuCategories = categoryMap.get(store.id) || [];
+        return {
+          ...store,
+          store_settings: settings,
+          menu_categories: menuCategories,
+          delivery_kind: detectStoreSegment(store, menuCategories),
+          store_is_open: settings ? isStoreOpen(settings.business_hours, settings.is_open) : false,
+        };
+      }));
       setLoading(false);
     }
     loadStores();
@@ -169,8 +176,8 @@ export default function StoresList() {
       
       return matchesSearch && matchesCategory;
     }).sort((a, b) => {
-      if (a.store_settings?.is_open && !b.store_settings?.is_open) return -1;
-      if (!a.store_settings?.is_open && b.store_settings?.is_open) return 1;
+      if (a.store_is_open && !b.store_is_open) return -1;
+      if (!a.store_is_open && b.store_is_open) return 1;
       return 0;
     });
   }, [stores, search, activeCategory]);
@@ -387,8 +394,8 @@ export default function StoresList() {
                     <img src={store.cover_url || getSegmentCover(store.delivery_kind)} alt={store.name} className="w-full h-full object-cover opacity-90" />
                     <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
                     <div className="absolute top-3 right-3">
-                      <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${store.store_settings?.is_open ? 'bg-primary text-primary-foreground shadow-panel' : 'bg-stone-600 text-white'}`}>
-                        {store.store_settings?.is_open ? 'Aberto' : 'Fechado'}
+                      <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${store.store_is_open ? 'bg-primary text-primary-foreground shadow-panel' : 'bg-stone-600 text-white'}`}>
+                        {store.store_is_open ? 'Aberto' : 'Fechado'}
                       </div>
                     </div>
                     <div className="absolute left-4 -bottom-8 flex items-end gap-3">

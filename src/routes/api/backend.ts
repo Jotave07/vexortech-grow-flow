@@ -1,0 +1,53 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { parseBearerToken } from "@/backend/db";
+import { handleAuthAction } from "@/backend/auth";
+import { invokeFunction } from "@/backend/functions";
+import { executeQueryPayload } from "@/backend/query";
+import { executeRpc } from "@/backend/rpc";
+import { createRealtimeStream } from "@/backend/realtime";
+import { uploadStorageFile } from "@/backend/storage";
+
+export const Route = createFileRoute("/api/backend")({
+  server: {
+    handlers: {
+      GET: async () => createRealtimeStream(),
+      POST: async ({ request }) => {
+        const token = parseBearerToken(request);
+        const contentType = request.headers.get("content-type") || "";
+
+        if (contentType.includes("multipart/form-data")) {
+          const form = await request.formData();
+          const kind = String(form.get("kind") || "");
+          const action = String(form.get("action") || "");
+          if (kind === "storage" && action === "upload") {
+            const result = await uploadStorageFile(form, token);
+            return Response.json(result, { status: result.error ? 400 : 200 });
+          }
+          return Response.json({ error: "Multipart action desconhecida" }, { status: 400 });
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const kind = String(body.kind || "");
+
+        if (kind === "auth") {
+          const result = await handleAuthAction(String(body.action || ""), body, token || body.token);
+          return Response.json(result, { status: result.error ? 400 : 200 });
+        }
+        if (kind === "query") {
+          const result = await executeQueryPayload(body.query, { token });
+          return Response.json(result, { status: result.error ? 400 : 200 });
+        }
+        if (kind === "rpc") {
+          const result = await executeRpc(String(body.name || ""), body.args || {}, { token });
+          return Response.json(result, { status: result.error ? 400 : 200 });
+        }
+        if (kind === "function") {
+          const result = await invokeFunction(String(body.name || ""), body.body || {}, token);
+          return Response.json(result, { status: result.error ? 400 : 200 });
+        }
+
+        return Response.json({ error: "Acao desconhecida" }, { status: 400 });
+      },
+    },
+  },
+});

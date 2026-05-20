@@ -47,6 +47,9 @@ const getAvailablePaymentMethods = (settings: any): PaymentMethod[] => {
   return methods;
 };
 
+const isMissingColumnError = (error: any, column: string) =>
+  Boolean(error?.message?.toLowerCase().includes(column.toLowerCase()));
+
 const PublicCheckout = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -517,13 +520,25 @@ const PublicCheckout = () => {
         const itemPayload = {
           order_id: order.id, store_id: store.id, product_id: it.product_id,
           product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity,
+          subtotal: itemSubtotal(it),
           notes: it.notes || null,
         };
-        let orderItemResult = await (supabase.from("order_items" as any).insert(itemPayload).select("id").single() as any);
-        if (orderItemResult.error?.message?.includes("notes")) {
-          const legacyPayload = { ...itemPayload };
-          delete (legacyPayload as any).notes;
-          orderItemResult = await (supabase.from("order_items" as any).insert(legacyPayload).select("id").single() as any);
+        let orderItemPayload: Record<string, any> = itemPayload;
+        let orderItemResult: any = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          orderItemResult = await (supabase.from("order_items" as any).insert(orderItemPayload).select("id").single() as any);
+          if (!orderItemResult.error) break;
+          if (isMissingColumnError(orderItemResult.error, "subtotal") && "subtotal" in orderItemPayload) {
+            orderItemPayload = { ...orderItemPayload };
+            delete orderItemPayload.subtotal;
+            continue;
+          }
+          if (isMissingColumnError(orderItemResult.error, "notes") && "notes" in orderItemPayload) {
+            orderItemPayload = { ...orderItemPayload };
+            delete orderItemPayload.notes;
+            continue;
+          }
+          break;
         }
         if (orderItemResult.error) throw orderItemResult.error;
         const oi = orderItemResult.data;

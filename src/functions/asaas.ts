@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { asaas } from "@/server/asaas.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { sendOrderStatusNotification } from "@/functions/evolution";
+import { sendOrderStatusNotification } from "@/functions/evolution.server";
 
 export const testAsaasConnection = createServerFn({ method: "POST" })
   .inputValidator(z.object({
