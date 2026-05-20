@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { formatBRL } from "@/lib/format";
 import { motion, Variants } from "framer-motion";
 
@@ -46,7 +46,7 @@ export const Pricing = () => {
   const [plans, setPlans] = useState<any[]>([]);
 
   useEffect(() => {
-    supabase.from("plans").select("*").eq("is_active", true).order("sort_order").then(({ data }) => {
+    backend.from("plans").select("*").eq("is_active", true).order("sort_order").then(({ data }) => {
       setPlans(data ?? []);
     });
   }, []);

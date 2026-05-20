@@ -1,6 +1,6 @@
-ï»¿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ const CustomerDashboard = () => {
       if (!user?.id) return;
       
       try {
-        const { data: customerRecords, error: customerError } = await supabase
+        const { data: customerRecords, error: customerError } = await backend
           .from("customers")
           .select("id")
           .eq("user_id", user.id);
@@ -68,7 +68,7 @@ const CustomerDashboard = () => {
           return;
         }
 
-        const { data, error } = await (supabase
+        const { data, error } = await (backend
           .from("orders" as any)
           .select("*, stores(name, slug, whatsapp)")
           .in("customer_id", customerIds)
@@ -106,7 +106,7 @@ const CustomerDashboard = () => {
     loadOrders();
 
     // Add Real-time subscription for orders
-    const channel = supabase
+    const channel = backend
       .channel(`customer-orders-${user.id}`)
       .on(
         "postgres_changes",
@@ -122,7 +122,7 @@ const CustomerDashboard = () => {
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void backend.removeChannel(channel);
     };
   }, [user, profile, authLoading, navigate, isProfileComplete]);
 
@@ -132,13 +132,13 @@ const CustomerDashboard = () => {
     if (!user) return;
 
     if (!formData.document || formData.document.replace(/\D/g, "").length < 11) {
-      toast.error("Informe um CPF ou CNPJ vÃ¡lido");
+      toast.error("Informe um CPF ou CNPJ válido");
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await (supabase
+      const { error } = await (backend
         .from("profiles" as any)
         .update({
           full_name: formData.full_name,
@@ -203,9 +203,9 @@ const CustomerDashboard = () => {
               <Card className="p-20 text-center border-2 border-dashed border-border bg-white">
                 <ShoppingBag className="h-12 w-12 mx-auto text-black/10 mb-4" />
                 <h3 className="font-black uppercase tracking-tight text-xl">Nenhum pedido ainda</h3>
-                <p className="text-muted-foreground text-sm">Seus pedidos aparecerÃ£o aqui assim que vocÃª realizar sua primeira compra.</p>
+                <p className="text-muted-foreground text-sm">Seus pedidos aparecerão aqui assim que você realizar sua primeira compra.</p>
                 <Button className="mt-6 font-black uppercase" variant="hero" asChild>
-                  <Link to="/">Ver lojas disponÃ­veis</Link>
+                  <Link to="/">Ver lojas disponíveis</Link>
                 </Button>
               </Card>
             ) : (
@@ -232,7 +232,7 @@ const CustomerDashboard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
-                        <MapPin className="h-3 w-3" /> EndereÃ§o de entrega
+                        <MapPin className="h-3 w-3" /> Endereço de entrega
                       </div>
                       <p className="font-medium text-xs leading-relaxed">{order.delivery_address || 'Retirada no local'}</p>
                     </div>
@@ -247,7 +247,7 @@ const CustomerDashboard = () => {
                   <div className="flex gap-2 border-t-2 border-border/5 pt-4 mt-4">
                     {order.stores?.whatsapp && (
                       <Button variant="outline" size="sm" className="flex-1 rounded-xl border-border bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366] hover:text-white font-black uppercase text-[10px] h-10 transition-colors" asChild>
-                        <a href={buildWhatsAppLink(order.stores.whatsapp, `OlÃ¡! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
+                        <a href={buildWhatsAppLink(order.stores.whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
                           <MessageSquare className="h-4 w-4 mr-2" /> WhatsApp da Loja
                         </a>
                       </Button>
@@ -260,30 +260,30 @@ const CustomerDashboard = () => {
 
           <TabsContent value="perfil" className="space-y-6">
             <Card className="p-8 border border-border rounded-xl bg-white shadow-elegant">
-              <h2 className="text-xl font-black uppercase tracking-tight mb-6 italic border-b border-border pb-2">InformaÃ§Ãµes Pessoais</h2>
+              <h2 className="text-xl font-black uppercase tracking-tight mb-6 italic border-b border-border pb-2">Informações Pessoais</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome Completo</label>
-                  <p className="font-bold text-lg">{profile?.full_name || 'NÃ£o informado'}</p>
+                  <p className="font-bold text-lg">{profile?.full_name || 'Não informado'}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">CPF / CNPJ</label>
-                  <p className="font-bold text-lg">{profile?.document ? formatDoc(profile.document) : 'NÃ£o informado'}</p>
+                  <p className="font-bold text-lg">{profile?.document ? formatDoc(profile.document) : 'Não informado'}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">E-mail</label>
-                  <p className="font-bold text-lg">{user?.email || 'NÃ£o informado'}</p>
+                  <p className="font-bold text-lg">{user?.email || 'Não informado'}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">WhatsApp</label>
-                  <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'NÃ£o informado'}</p>
+                  <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'Não informado'}</p>
                 </div>
                 <div className="col-span-full space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">EndereÃ§o Principal</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Endereço Principal</label>
                   <p className="font-bold text-sm">
                     {profile?.street ? (
                       `${profile.street}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} | ${profile.neighborhood} - ${profile.city}/${profile.state}`
-                    ) : 'EndereÃ§o nÃ£o cadastrado'}
+                    ) : 'Endereço não cadastrado'}
                   </p>
                 </div>
               </div>
@@ -307,7 +307,7 @@ const CustomerDashboard = () => {
             </DialogTitle>
             <DialogDescription className="font-bold text-xs uppercase tracking-widest text-muted-foreground">
               {!isProfileComplete
-                ? "Para acessar seu painel e realizar compras, precisamos de alguns dados obrigatÃ³rios."
+                ? "Para acessar seu painel e realizar compras, precisamos de alguns dados obrigatórios."
                 : "Mantenha seus dados atualizados para facilitar seus pedidos."}
             </DialogDescription>
           </DialogHeader>
@@ -363,7 +363,7 @@ const CustomerDashboard = () => {
                     className="border border-border rounded-xl h-11 w-11 shrink-0"
                     onClick={async () => {
                       const cep = formData.zip_code.replace(/\D/g, "");
-                      if (cep.length !== 8) return toast.error("CEP invÃ¡lido");
+                      if (cep.length !== 8) return toast.error("CEP inválido");
                       try {
                         const { fetchAddressByCep } = await import("@/services/cep/viacepService");
                         const addr = await fetchAddressByCep(cep);
@@ -374,7 +374,7 @@ const CustomerDashboard = () => {
                           city: addr.localidade || prev.city,
                           state: addr.uf || prev.state
                         }));
-                        toast.success("EndereÃ§o localizado!");
+                        toast.success("Endereço localizado!");
                       } catch (e) {
                         toast.error("Erro ao buscar CEP");
                       }
@@ -398,7 +398,7 @@ const CustomerDashboard = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="number" className="text-[10px] font-black uppercase tracking-widest">NÃºmero</Label>
+                <Label htmlFor="number" className="text-[10px] font-black uppercase tracking-widest">Número</Label>
                 <Input 
                   id="number" 
                   value={formData.number} 
@@ -473,7 +473,7 @@ const CustomerDashboard = () => {
                 className="font-black uppercase tracking-widest text-xs h-12 flex-1"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {!isProfileComplete ? "Finalizar Cadastro" : "Salvar AlteraÃ§Ãµes"}
+                {!isProfileComplete ? "Finalizar Cadastro" : "Salvar Alterações"}
               </Button>
             </DialogFooter>
           </form>

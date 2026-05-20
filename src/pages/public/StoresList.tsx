@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,7 +114,7 @@ export default function StoresList() {
 
   useEffect(() => {
     async function loadStores() {
-      const { data } = await supabase
+      const { data } = await backend
         .from("stores")
         .select(`
           *,
@@ -128,7 +128,7 @@ export default function StoresList() {
       let categoryMap = new Map<string, string[]>();
 
       if (storeIds.length > 0) {
-        const { data: menuCategories } = await supabase
+        const { data: menuCategories } = await backend
           .from("categories")
           .select("store_id, name")
           .in("store_id", storeIds)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/format";
@@ -34,18 +34,18 @@ const Dashboard = () => {
       startToday.setHours(0, 0, 0, 0);
       const startMonth = new Date(startToday.getFullYear(), startToday.getMonth(), 1);
 
-      const { data: today } = await supabase
+      const { data: today } = await backend
         .from("orders")
         .select("total, status")
         .eq("store_id", store.id)
         .gte("created_at", startToday.toISOString());
-      const { data: month } = await supabase
+      const { data: month } = await backend
         .from("orders")
         .select("total")
         .eq("store_id", store.id)
         .gte("created_at", startMonth.toISOString())
         .neq("status", "cancelado");
-      const { data: countByStatus } = await supabase
+      const { data: countByStatus } = await backend
         .from("orders")
         .select("status")
         .eq("store_id", store.id)
@@ -71,7 +71,7 @@ const Dashboard = () => {
         monthRevenue,
       });
 
-      const { data: items } = await supabase
+      const { data: items } = await backend
         .from("order_items")
         .select("product_name, quantity")
         .eq("store_id", store.id)

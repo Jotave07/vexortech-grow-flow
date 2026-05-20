@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,13 +36,13 @@ const AdminStores = () => {
   const load = async () => {
     setLoading(true);
     const [{ data: s }, { data: p }] = await Promise.all([
-      supabase.from("stores").select("*, subscriptions(status, plan_id, plans(name, price_monthly))").order("created_at", { ascending: false }),
-      supabase.from("plans").select("*").order("sort_order"),
+      backend.from("stores").select("*, subscriptions(status, plan_id, plans(name, price_monthly))").order("created_at", { ascending: false }),
+      backend.from("plans").select("*").order("sort_order"),
     ]);
 
     const ownerUserIds = Array.from(new Set((s ?? []).map((store) => store.owner_user_id).filter(Boolean)));
     const { data: profilesData } = ownerUserIds.length
-      ? await supabase
+      ? await backend
           .from("profiles")
           .select("id, user_id, store_id, is_exempt, role, email")
           .in("user_id", ownerUserIds)
@@ -67,7 +67,7 @@ const AdminStores = () => {
   }, [stores, search]);
 
   const toggleSuspend = async (store: any) => {
-    const { error } = await supabase.from("stores").update({ is_suspended: !store.is_suspended }).eq("id", store.id);
+    const { error } = await backend.from("stores").update({ is_suspended: !store.is_suspended }).eq("id", store.id);
     if (error) return toast.error(error.message);
     toast.success(store.is_suspended ? "Loja reativada" : "Loja suspensa");
     load();
@@ -78,7 +78,7 @@ const AdminStores = () => {
       return toast.error("Dono da loja não encontrado no sistema de perfis.");
     }
     const newValue = !store.is_exempt;
-    const { error } = await supabase.from("profiles").update({ is_exempt: newValue }).eq("id", store.owner_profile_id);
+    const { error } = await backend.from("profiles").update({ is_exempt: newValue }).eq("id", store.owner_profile_id);
     if (error) return toast.error(error.message);
     toast.success(newValue ? "Loja marcada como Isenta (Acesso Total)" : "Isenção removida");
     load();
@@ -94,13 +94,13 @@ const AdminStores = () => {
       
       const sub = store.subscriptions?.[0];
       if (sub) {
-        await supabase.from("subscriptions").update({ 
+        await backend.from("subscriptions").update({ 
           plan_id: targetPlanId, 
           status: "ativa",
           trial_ends_at: null
         }).eq("store_id", store.id);
       } else {
-        await supabase.from("subscriptions").insert({ 
+        await backend.from("subscriptions").insert({ 
           store_id: store.id, 
           plan_id: targetPlanId, 
           status: "ativa" 
@@ -108,17 +108,17 @@ const AdminStores = () => {
       }
       // Also update the store's plan_id to keep it in sync
       if (targetPlanId) {
-        await supabase.from("stores").update({ plan_id: targetPlanId, is_active: true }).eq("id", store.id);
+        await backend.from("stores").update({ plan_id: targetPlanId, is_active: true }).eq("id", store.id);
       }
       toast.success("Plano Cortesia ativado");
     } else {
       const sub = store.subscriptions?.[0];
       if (sub) {
-        await supabase.from("subscriptions").update({ plan_id: planId, status: "ativa" }).eq("store_id", store.id);
+        await backend.from("subscriptions").update({ plan_id: planId, status: "ativa" }).eq("store_id", store.id);
       } else {
-        await supabase.from("subscriptions").insert({ store_id: store.id, plan_id: planId, status: "ativa" });
+        await backend.from("subscriptions").insert({ store_id: store.id, plan_id: planId, status: "ativa" });
       }
-      await supabase.from("stores").update({ plan_id: planId, is_active: true }).eq("id", store.id);
+      await backend.from("stores").update({ plan_id: planId, is_active: true }).eq("id", store.id);
       toast.success("Plano alterado");
     }
     load();
@@ -128,7 +128,7 @@ const AdminStores = () => {
     if (!confirm(`EXCLUIR PERMANENTEMENTE a loja "${store.name}"? Isso apaga TODOS os dados, inclusive o acesso do lojista.`)) return;
     
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("admin-delete-store", {
+    const { data, error } = await backend.functions.invoke("admin-delete-store", {
       body: { store_id: store.id }
     });
 
@@ -146,7 +146,7 @@ const AdminStores = () => {
     e.preventDefault();
     setCreating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-create-store", {
+      const { data, error } = await backend.functions.invoke("admin-create-store", {
         body: newStore
       });
 

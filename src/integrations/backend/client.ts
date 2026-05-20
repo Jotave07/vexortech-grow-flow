@@ -267,7 +267,7 @@ const executeQuery = (payload: QueryPayload) =>
     query: payload,
   });
 
-const supabaseClient = {
+const backendClient = {
   auth: new LocalAuthClient(),
   from(table: string) {
     return new LocalQueryBuilder(table, executeQuery);
@@ -298,4 +298,4 @@ const supabaseClient = {
   },
 };
 
-export const supabase = supabaseClient;
+export const backend = backendClient;

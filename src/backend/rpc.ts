@@ -1,4 +1,4 @@
-import type { BackendResult } from "@/integrations/supabase/compat-types";
+import type { BackendResult } from "@/integrations/backend/compat-types";
 import { query } from "./db";
 import { getActor } from "./auth";
 

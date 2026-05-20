@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { DeliveryQuote } from "@/types/delivery";
 import { getDeliveryRegions, findBestRegion } from "./deliveryRegionService";
 import { calculateDeliveryFee } from "./deliveryPricingService";
@@ -97,8 +97,8 @@ export const calculateDeliveryQuote = async (params: QuoteParams): Promise<Deliv
 
 const getStoreDeliveryDefaults = async (storeId: string) => {
   const [storeResult, settingsResult] = await Promise.all([
-    supabase.from("stores").select("address,address_number,neighborhood,city,state,zip_code,delivery_fee,min_order_amount,latitude,longitude").eq("id", storeId).maybeSingle(),
-    supabase.from("store_settings").select("*").eq("store_id", storeId).maybeSingle(),
+    backend.from("stores").select("address,address_number,neighborhood,city,state,zip_code,delivery_fee,min_order_amount,latitude,longitude").eq("id", storeId).maybeSingle(),
+    backend.from("store_settings").select("*").eq("store_id", storeId).maybeSingle(),
   ]);
 
   if (storeResult.error) throw storeResult.error;

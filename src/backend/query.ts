@@ -1,4 +1,4 @@
-import type { QueryFilter, QueryPayload } from "@/integrations/supabase/compat-types";
+import type { QueryFilter, QueryPayload } from "@/integrations/backend/compat-types";
 import { query, quoteIdent } from "./db";
 import { getActor } from "./auth";
 import { publishRealtime } from "./realtime";
@@ -168,51 +168,63 @@ const accessSql = async (table: string, operation: QueryPayload["operation"], ct
   }
 
   const owned = actor.ownedStoreIds;
-  params.push(actor.user.id);
-  const userParam = `$${params.length}`;
-  params.push(owned);
-  const storesParam = `$${params.length}`;
+  let userParam: string | null = null;
+  let storesParam: string | null = null;
+  const userSql = () => {
+    if (!userParam) {
+      params.push(actor.user.id);
+      userParam = `$${params.length}`;
+    }
+    return userParam;
+  };
+  const storesSql = () => {
+    if (!storesParam) {
+      params.push(owned);
+      storesParam = `$${params.length}`;
+    }
+    return storesParam;
+  };
 
   if (table === "stores") {
     return mutating
-      ? `${quoteIdent("owner_user_id")} = ${userParam}`
-      : `(${quoteIdent("owner_user_id")} = ${userParam} OR (COALESCE(${quoteIdent("is_active")}, true) IS TRUE AND COALESCE(${quoteIdent("is_suspended")}, false) IS FALSE))`;
+      ? `${quoteIdent("owner_user_id")} = ${userSql()}`
+      : `(${quoteIdent("owner_user_id")} = ${userSql()} OR (COALESCE(${quoteIdent("is_active")}, true) IS TRUE AND COALESCE(${quoteIdent("is_suspended")}, false) IS FALSE))`;
   }
-  if (table === "profiles") return `(${quoteIdent("user_id")} = ${userParam} OR ${quoteIdent("store_id")} = ANY(${storesParam}::uuid[]))`;
-  if (table === "user_roles") return `(${quoteIdent("user_id")} = ${userParam} OR ${quoteIdent("store_id")} = ANY(${storesParam}::uuid[]))`;
-  if (table === "customer_addresses" || table === "customer_favorites") return `${quoteIdent("user_id")} = ${userParam}`;
+  if (table === "profiles") return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
+  if (table === "user_roles") return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
+  if (table === "customer_addresses" || table === "customer_favorites") return `${quoteIdent("user_id")} = ${userSql()}`;
   if (storeIdTables.has(table)) {
     if (!mutating && publicReadable.has(table)) return "TRUE";
-    if (table === "customers") return `(${quoteIdent("user_id")} = ${userParam} OR ${quoteIdent("store_id")} = ANY(${storesParam}::uuid[]))`;
+    if (table === "customers") return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
     if (table === "orders") {
-      return `(${quoteIdent("store_id")} = ANY(${storesParam}::uuid[]) OR EXISTS (SELECT 1 FROM public.customers c WHERE c.id = ${quoteIdent("customer_id")} AND c.user_id = ${userParam}))`;
+      return `(${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]) OR EXISTS (SELECT 1 FROM public.customers c WHERE c.id = ${quoteIdent("customer_id")} AND c.user_id = ${userSql()}))`;
     }
     if (table === "order_items") {
-      return `(${quoteIdent("store_id")} = ANY(${storesParam}::uuid[]) OR EXISTS (
+      return `(${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]) OR EXISTS (
         SELECT 1 FROM public.orders o
         JOIN public.customers c ON c.id = o.customer_id
-        WHERE o.id = ${quoteIdent("order_id")} AND c.user_id = ${userParam}
+        WHERE o.id = ${quoteIdent("order_id")} AND c.user_id = ${userSql()}
       ))`;
     }
     if (table === "payments") {
-      return `(${quoteIdent("store_id")} = ANY(${storesParam}::uuid[]) OR EXISTS (
+      return `(${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]) OR EXISTS (
         SELECT 1 FROM public.orders o
         JOIN public.customers c ON c.id = o.customer_id
-        WHERE o.id = ${quoteIdent("order_id")} AND c.user_id = ${userParam}
+        WHERE o.id = ${quoteIdent("order_id")} AND c.user_id = ${userSql()}
       ))`;
     }
-    return `${quoteIdent("store_id")} = ANY(${storesParam}::uuid[])`;
+    return `${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[])`;
   }
   if (table === "product_options") {
     if (!mutating) return "TRUE";
-    return `EXISTS (SELECT 1 FROM public.products p WHERE p.id = ${quoteIdent("product_id")} AND p.store_id = ANY(${storesParam}::uuid[]))`;
+    return `EXISTS (SELECT 1 FROM public.products p WHERE p.id = ${quoteIdent("product_id")} AND p.store_id = ANY(${storesSql()}::uuid[]))`;
   }
   if (table === "product_option_items") {
     if (!mutating) return "TRUE";
     return `EXISTS (
       SELECT 1 FROM public.product_options po
       JOIN public.products p ON p.id = po.product_id
-      WHERE po.id = ${quoteIdent("option_id")} AND p.store_id = ANY(${storesParam}::uuid[])
+      WHERE po.id = ${quoteIdent("option_id")} AND p.store_id = ANY(${storesSql()}::uuid[])
     )`;
   }
   if (table === "order_item_options") {
@@ -221,7 +233,7 @@ const accessSql = async (table: string, operation: QueryPayload["operation"], ct
       LEFT JOIN public.orders o ON o.id = oi.order_id
       LEFT JOIN public.customers c ON c.id = o.customer_id
       WHERE oi.id = ${quoteIdent("order_item_id")}
-        AND (oi.store_id = ANY(${storesParam}::uuid[]) OR c.user_id = ${userParam})
+        AND (oi.store_id = ANY(${storesSql()}::uuid[]) OR c.user_id = ${userSql()})
     )`;
   }
 
@@ -297,7 +309,7 @@ const ensureMutationRowsAllowed = async (table: string, values: unknown, ctx: Qu
   }
 };
 
-const insertRows = async (table: string, values: unknown, returning: boolean) => {
+const insertRows = async (table: string, values: unknown) => {
   const rows = normalizeRows(values);
   if (!rows.length) return [];
   const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
@@ -313,10 +325,10 @@ const insertRows = async (table: string, values: unknown, returning: boolean) =>
     VALUES ${valueSql.join(", ")}
     RETURNING *`;
   const result = await query(sql, params);
-  return returning ? result.rows : [];
+  return result.rows;
 };
 
-const updateRows = async (table: string, values: any, whereSql: string, params: unknown[], returning: boolean) => {
+const updateRows = async (table: string, values: any, whereSql: string, params: unknown[]) => {
   const entries = Object.entries(values || {});
   if (!entries.length) return [];
   const setSql = entries.map(([column, value]) => {
@@ -325,15 +337,15 @@ const updateRows = async (table: string, values: any, whereSql: string, params: 
   });
   const sql = `UPDATE public.${quoteIdent(table)} SET ${setSql.join(", ")} WHERE ${whereSql} RETURNING *`;
   const result = await query(sql, params);
-  return returning ? result.rows : [];
+  return result.rows;
 };
 
-const deleteRows = async (table: string, whereSql: string, params: unknown[], returning: boolean) => {
+const deleteRows = async (table: string, whereSql: string, params: unknown[]) => {
   const result = await query(`DELETE FROM public.${quoteIdent(table)} WHERE ${whereSql} RETURNING *`, params);
-  return returning ? result.rows : [];
+  return result.rows;
 };
 
-const upsertRows = async (table: string, values: unknown, onConflict?: string, returning = false) => {
+const upsertRows = async (table: string, values: unknown, onConflict?: string) => {
   const rows = normalizeRows(values);
   if (!rows.length) return [];
   const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
@@ -350,13 +362,16 @@ const upsertRows = async (table: string, values: unknown, onConflict?: string, r
     return `(${placeholders.join(", ")})`;
   });
   const updateColumns = columns.filter((column) => !conflictColumns.includes(column));
+  const conflictAction = updateColumns.length
+    ? `DO UPDATE SET ${updateColumns.map((column) => `${quoteIdent(column)} = EXCLUDED.${quoteIdent(column)}`).join(", ")}`
+    : "DO NOTHING";
   const sql = `INSERT INTO public.${quoteIdent(table)} (${columns.map((column) => quoteIdent(ensureName(column))).join(", ")})
     VALUES ${valueSql.join(", ")}
     ON CONFLICT (${conflictColumns.map(quoteIdent).join(", ")})
-    DO UPDATE SET ${updateColumns.map((column) => `${quoteIdent(column)} = EXCLUDED.${quoteIdent(column)}`).join(", ")}
+    ${conflictAction}
     RETURNING *`;
   const result = await query(sql, params);
-  return returning ? result.rows : [];
+  return result.rows;
 };
 
 const attachRelations = async (table: string, rows: any[], select = "*") => {
@@ -447,13 +462,13 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
     let changedRows: any[] = [];
     if (payload.operation === "insert") {
       await ensureMutationRowsAllowed(table, payload.values, ctx);
-      changedRows = await insertRows(table, payload.values, Boolean(payload.returning));
+      changedRows = await insertRows(table, payload.values);
     }
-    if (payload.operation === "update") changedRows = await updateRows(table, payload.values, whereSql, params, Boolean(payload.returning));
-    if (payload.operation === "delete") changedRows = await deleteRows(table, whereSql, params, Boolean(payload.returning));
+    if (payload.operation === "update") changedRows = await updateRows(table, payload.values, whereSql, params);
+    if (payload.operation === "delete") changedRows = await deleteRows(table, whereSql, params);
     if (payload.operation === "upsert") {
       await ensureMutationRowsAllowed(table, payload.values, ctx);
-      changedRows = await upsertRows(table, payload.values, payload.upsertOptions?.onConflict, Boolean(payload.returning));
+      changedRows = await upsertRows(table, payload.values, payload.upsertOptions?.onConflict);
     }
 
     if (payload.operation === "insert" || payload.operation === "upsert") publishRows(table, "INSERT", changedRows);

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { backendAdmin } from "@/integrations/backend/client.server";
 
 const DEFAULT_EVOLUTION_URL = "http://127.0.0.1:32773";
 const DELIVERY_BASE_URL = "https://hypedelivery.com.br";
@@ -10,7 +10,7 @@ const getEvolutionConfig = () => ({
 });
 
 export const notifyOrderCreatedHandler = async (orderId: string) => {
-  const { data: order } = await supabaseAdmin
+  const { data: order } = await backendAdmin
     .from("orders")
     .select("*")
     .eq("id", orderId)
@@ -19,9 +19,9 @@ export const notifyOrderCreatedHandler = async (orderId: string) => {
   if (!order) return { sent: false, reason: "order_not_found" };
 
   const [{ data: store }, { data: settings }, { data: items }] = await Promise.all([
-    supabaseAdmin.from("stores").select("*").eq("id", (order as any).store_id).maybeSingle(),
-    supabaseAdmin.from("store_settings").select("whatsapp_number").eq("store_id", (order as any).store_id).maybeSingle(),
-    supabaseAdmin.from("order_items").select("*, order_item_options(*)").eq("order_id", orderId),
+    backendAdmin.from("stores").select("*").eq("id", (order as any).store_id).maybeSingle(),
+    backendAdmin.from("store_settings").select("whatsapp_number").eq("store_id", (order as any).store_id).maybeSingle(),
+    backendAdmin.from("order_items").select("*, order_item_options(*)").eq("order_id", orderId),
   ]);
 
   const storePhone = firstPhone(settings?.whatsapp_number, (store as any)?.whatsapp, (store as any)?.whatsapp_number, (store as any)?.phone);
@@ -41,7 +41,7 @@ export const notifyOrderCreatedHandler = async (orderId: string) => {
 };
 
 export const notifyStoreCreatedHandler = async (storeId: string) => {
-  const { data: store } = await supabaseAdmin
+  const { data: store } = await backendAdmin
     .from("stores")
     .select("*")
     .eq("id", storeId)
@@ -60,7 +60,7 @@ export const notifyStoreCreatedHandler = async (storeId: string) => {
 };
 
 export const sendOrderStatusNotification = async (orderId: string, status?: string, note?: string | null) => {
-  const { data: order } = await supabaseAdmin
+  const { data: order } = await backendAdmin
     .from("orders")
     .select("*")
     .eq("id", orderId)
@@ -69,8 +69,8 @@ export const sendOrderStatusNotification = async (orderId: string, status?: stri
   if (!order) return { sent: false, reason: "order_not_found" };
 
   const [{ data: store }, { data: settings }] = await Promise.all([
-    supabaseAdmin.from("stores").select("*").eq("id", (order as any).store_id).maybeSingle(),
-    supabaseAdmin.from("store_settings").select("whatsapp_number").eq("store_id", (order as any).store_id).maybeSingle(),
+    backendAdmin.from("stores").select("*").eq("id", (order as any).store_id).maybeSingle(),
+    backendAdmin.from("store_settings").select("whatsapp_number").eq("store_id", (order as any).store_id).maybeSingle(),
   ]);
 
   const customerPhone = firstPhone((order as any).customer_phone);

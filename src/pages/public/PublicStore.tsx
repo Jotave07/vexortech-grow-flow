@@ -1,6 +1,6 @@
-Ôªøimport { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,7 @@ const PublicStore = () => {
 
     (async () => {
       setLoading(true);
-      const { data: storeData } = await supabase.from("stores").select("*").eq("slug", slug).maybeSingle();
+      const { data: storeData } = await backend.from("stores").select("*").eq("slug", slug).maybeSingle();
       if (!storeData) {
         setLoading(false);
         return;
@@ -47,9 +47,9 @@ const PublicStore = () => {
 
       setStore(storeData);
       const [settingsRes, categoryRes, productRes] = await Promise.all([
-        supabase.from("store_settings").select("*").eq("store_id", storeData.id).maybeSingle(),
-        supabase.from("categories").select("*").eq("store_id", storeData.id).eq("is_active", true).order("sort_order"),
-        supabase.from("products").select("*").eq("store_id", storeData.id).eq("is_active", true).order("sort_order"),
+        backend.from("store_settings").select("*").eq("store_id", storeData.id).maybeSingle(),
+        backend.from("categories").select("*").eq("store_id", storeData.id).eq("is_active", true).order("sort_order"),
+        backend.from("products").select("*").eq("store_id", storeData.id).eq("is_active", true).order("sort_order"),
       ]);
 
       setSettings(settingsRes.data);
@@ -94,7 +94,7 @@ const PublicStore = () => {
   }
 
   if (!store) {
-    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loja n√£o encontrada</div>;
+    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loja n„o encontrada</div>;
   }
 
   const isOpen = settings ? isStoreOpen(settings.business_hours, settings.is_open) : false;
@@ -126,7 +126,7 @@ const PublicStore = () => {
                   size="icon" 
                   onClick={async () => {
                     await signOut();
-                    toast.success("Voc√™ saiu da conta.");
+                    toast.success("VocÍ saiu da conta.");
                     navigate("/");
                   }}
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5"
@@ -181,7 +181,7 @@ const PublicStore = () => {
                   )}
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
-                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Regi√£o</div>
+                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Regi„o</div>
                       <div className="flex items-center gap-2 text-sm font-semibold text-black">
                         <MapPin className="h-4 w-4 text-primary" />
                         <span>{store.city || "Cidade"}{store.state ? `/${store.state}` : ""}</span>
@@ -195,7 +195,7 @@ const PublicStore = () => {
                       </div>
                     </div>
                     <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
-                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">M√≠nimo</div>
+                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">MÌnimo</div>
                       <div className="text-sm font-semibold text-black">
                         {settings?.min_order_value > 0 ? formatBRL(settings.min_order_value) : "Livre"}
                       </div>
@@ -206,13 +206,13 @@ const PublicStore = () => {
             </Card>
 
             <Card className="rounded-3xl border-[#e1d7c7] bg-white p-5 shadow-sm">
-              <div className="mb-4 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Card√°pio</div>
+              <div className="mb-4 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Card·pio</div>
               <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="h-11 rounded-xl border-[#e6e8de] pl-9"
-                    placeholder="Buscar no card√°pio"
+                    placeholder="Buscar no card·pio"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                   />
@@ -246,7 +246,7 @@ const PublicStore = () => {
         {user && store.owner_user_id === user.id && (
           <div className="mb-6 border border-blue-200 bg-blue-50 p-4 text-center">
             <p className="text-sm text-blue-800 font-medium">
-              Voc√™ est√° visualizando sua loja como <strong>Administrador</strong>.
+              VocÍ est· visualizando sua loja como <strong>Administrador</strong>.
               Para testar o fluxo de compra completo como cliente, por favor use uma conta de cliente ou <button onClick={() => signOut()} className="underline font-bold hover:text-blue-600">saia da conta</button>.
             </p>
           </div>
@@ -254,28 +254,28 @@ const PublicStore = () => {
 
         {isSuspended && (
           <div className="mb-6 border-4 border-destructive bg-destructive/10 p-6 text-center text-destructive">
-            <h3 className="text-xl font-black uppercase tracking-tight italic mb-2">Opera√ß√£o Temporariamente Suspensa</h3>
-            <p className="font-bold text-sm">Esta loja n√£o est√° aceitando pedidos no momento por quest√µes administrativas.</p>
+            <h3 className="text-xl font-black uppercase tracking-tight italic mb-2">OperaÁ„o Temporariamente Suspensa</h3>
+            <p className="font-bold text-sm">Esta loja n„o est· aceitando pedidos no momento por questıes administrativas.</p>
           </div>
         )}
 
         {!isSuspended && !acceptOrders && (
           <div className="mb-6 border border-warning/35 bg-warning/10 p-4 text-center text-sm text-warning font-bold uppercase tracking-widest">
-            A loja est√° fechada e n√£o est√° aceitando pedidos no momento.
+            A loja est· fechada e n„o est· aceitando pedidos no momento.
           </div>
         )}
 
         <div className="space-y-8">
           {sections.length === 0 ? (
             <Card className="rounded-3xl border-[#e6e8de] p-10 text-center text-muted-foreground">
-              {products.length === 0 ? "Card√°pio em constru√ß√£o." : "Nenhum produto encontrado."}
+              {products.length === 0 ? "Card·pio em construÁ„o." : "Nenhum produto encontrado."}
             </Card>
           ) : (
             sections.map((section) => (
               <section key={section.id} className="space-y-4">
                 <div className="flex items-end justify-between gap-4 border-b border-[#e6e8de] pb-3">
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-primary">Se√ß√£o do card√°pio</div>
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-primary">SeÁ„o do card·pio</div>
                     <h2 className="text-2xl font-bold text-stone-950">{section.name}</h2>
                   </div>
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">

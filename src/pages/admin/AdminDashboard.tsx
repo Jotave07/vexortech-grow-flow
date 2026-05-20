@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Loader2, Building2, ShoppingBag, DollarSign, CreditCard } from "lucide-react";
 import { formatBRL } from "@/lib/format";
@@ -12,10 +12,10 @@ const AdminDashboard = () => {
     (async () => {
       const since = new Date(Date.now() - 30 * 86400000).toISOString();
       const [{ count: total }, { count: active }, { data: orders }, { data: subs }] = await Promise.all([
-        supabase.from("stores").select("*", { count: "exact", head: true }),
-        supabase.from("stores").select("*", { count: "exact", head: true }).eq("is_active", true).eq("is_suspended", false),
-        supabase.from("orders").select("total, status").gte("created_at", since).limit(5000),
-        supabase.from("subscriptions").select("status, plans(price_monthly)").in("status", ["ativa", "trial"]),
+        backend.from("stores").select("*", { count: "exact", head: true }),
+        backend.from("stores").select("*", { count: "exact", head: true }).eq("is_active", true).eq("is_suspended", false),
+        backend.from("orders").select("total, status").gte("created_at", since).limit(5000),
+        backend.from("subscriptions").select("status, plans(price_monthly)").in("status", ["ativa", "trial"]),
       ]);
       const valid = (orders ?? []).filter((o: any) => o.status !== "cancelado");
       const revenue = valid.reduce((s: number, o: any) => s + Number(o.total), 0);

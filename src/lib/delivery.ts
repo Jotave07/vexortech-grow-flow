@@ -1,5 +1,5 @@
 import { buildAddressLabel, isWithinDeliveryRadius, type AddressCoordinates, type AddressWithCoordinates } from "@/services/viacep";
-import type { Json } from "@/integrations/supabase/types";
+import type { Json } from "@/integrations/backend/types";
 
 export type DeliveryDistanceBand = {
   id: string;

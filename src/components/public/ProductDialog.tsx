@@ -1,5 +1,5 @@
-ï»¿import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { backend } from "@/integrations/backend/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
 
   useEffect(() => {
     (async () => {
-      const { data: groupData } = await supabase
+      const { data: groupData } = await backend
         .from("product_options")
         .select("*")
         .eq("product_id", product.id)
@@ -33,7 +33,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
       setGroups(loadedGroups);
 
       if (loadedGroups.length) {
-        const { data: itemData } = await supabase
+        const { data: itemData } = await backend
           .from("product_option_items")
           .select("*")
           .in("option_id", loadedGroups.map((group) => group.id))
@@ -66,7 +66,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
       }
 
       if (current.length >= max) {
-        toast.error(`MÃ¡ximo ${max} em ${group.name}`);
+        toast.error(`Máximo ${max} em ${group.name}`);
         return previous;
       }
 
@@ -84,7 +84,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
     .filter((group) => !group.is_required)
     .flatMap((group) => items.filter((item) => item.option_id === group.id).map((item) => ({ group, item })))
     .slice(0, 4);
-  const quickNotes = ["Sem cebola", "Molho separado", "Caprichar no molho", "Talher descartÃ¡vel"];
+  const quickNotes = ["Sem cebola", "Molho separado", "Caprichar no molho", "Talher descartável"];
   const choiceGroups = groups.filter((group) => items.some((item) => item.option_id === group.id));
   const requiredGroups = groups.filter((group) => groupLimits(group).min > 0);
   const missingRequiredGroups = requiredGroups.filter((group) => (selected[group.id] ?? []).length < groupLimits(group).min);
@@ -92,15 +92,15 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
 
   const handleAdd = () => {
     if (product.is_available === false) {
-      return toast.error("Produto indisponÃ­vel no momento");
+      return toast.error("Produto indisponível no momento");
     }
     if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-      return toast.error("PreÃ§o do produto invÃ¡lido");
+      return toast.error("Preço do produto inválido");
     }
 
     for (const group of requiredGroups) {
       if (!items.some((item) => item.option_id === group.id)) {
-        return toast.error(`Produto indisponÃ­vel para montagem: ${group.name}`);
+        return toast.error(`Produto indisponível para montagem: ${group.name}`);
       }
       const selection = selected[group.id] ?? [];
       const { min, max } = groupLimits(group);
@@ -108,7 +108,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
         return toast.error(`Selecione em "${group.name}"`);
       }
       if (selection.length > max) {
-        return toast.error(`MÃ¡ximo ${max} em "${group.name}"`);
+        return toast.error(`Máximo ${max} em "${group.name}"`);
       }
     }
 
@@ -188,8 +188,8 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                       <h4 className="text-sm font-bold text-stone-950">{group.name}</h4>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {min > 0
-                          ? `Escolha pelo menos ${min}${max > min ? ` e atÃ© ${max}` : ""}`
-                          : `Escolha atÃ© ${max} opÃ§Ã£o${max > 1 ? "Ãµes" : ""}`}
+                          ? `Escolha pelo menos ${min}${max > min ? ` e até ${max}` : ""}`
+                          : `Escolha até ${max} opção${max > 1 ? "ões" : ""}`}
                       </p>
                     </div>
                     <span className={cn(
@@ -235,7 +235,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
             <div className="space-y-3 border border-[#e6e8de] bg-[#f6f7f2] p-4">
               <div className="flex items-center gap-2 text-sm font-bold text-stone-950">
                 <Sparkles className="h-4 w-4 text-primary" />
-                SugestÃµes para incluir no pedido
+                Sugestões para incluir no pedido
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {optionalSuggestions.map(({ group, item }) => {
@@ -267,12 +267,12 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
 
           {!loading && unavailableRequiredGroups.length > 0 && (
             <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
-              IndisponÃ­vel para montagem: {unavailableRequiredGroups.map((group) => group.name).join(", ")}
+              Indisponível para montagem: {unavailableRequiredGroups.map((group) => group.name).join(", ")}
             </div>
           )}
 
           <div>
-            <h4 className="mb-2 text-sm font-medium">ObservaÃ§Ãµes</h4>
+            <h4 className="mb-2 text-sm font-medium">Observações</h4>
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ex: sem cebola" rows={2} maxLength={200} />
             <div className="mt-2 flex flex-wrap gap-2">
               {quickNotes.map((note) => (
@@ -299,7 +299,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
               </Button>
             </div>
             <Button variant="hero" className="flex-1" onClick={handleAdd} disabled={loading || missingRequiredGroups.length > 0 || unavailableRequiredGroups.length > 0}>
-              Adicionar â€¢ {formatBRL(total)}
+              Adicionar • {formatBRL(total)}
             </Button>
           </div>
         </div>

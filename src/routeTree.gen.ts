@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StorageSplatRouteImport } from './routes/storage/$'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiBackendRouteImport } from './routes/api/backend'
 import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
 
@@ -30,6 +31,11 @@ const StorageSplatRoute = StorageSplatRouteImport.update({
   path: '/storage/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiBackendRoute = ApiBackendRouteImport.update({
   id: '/api/backend',
   path: '/api/backend',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/backend': typeof ApiBackendRoute
+  '/api/health': typeof ApiHealthRoute
   '/storage/$': typeof StorageSplatRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/backend': typeof ApiBackendRoute
+  '/api/health': typeof ApiHealthRoute
   '/storage/$': typeof StorageSplatRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
 }
@@ -60,19 +68,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/backend': typeof ApiBackendRoute
+  '/api/health': typeof ApiHealthRoute
   '/storage/$': typeof StorageSplatRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/api/backend' | '/storage/$' | '/api/webhooks/asaas'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/api/backend'
+    | '/api/health'
+    | '/storage/$'
+    | '/api/webhooks/asaas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/api/backend' | '/storage/$' | '/api/webhooks/asaas'
+  to:
+    | '/'
+    | '/$'
+    | '/api/backend'
+    | '/api/health'
+    | '/storage/$'
+    | '/api/webhooks/asaas'
   id:
     | '__root__'
     | '/'
     | '/$'
     | '/api/backend'
+    | '/api/health'
     | '/storage/$'
     | '/api/webhooks/asaas'
   fileRoutesById: FileRoutesById
@@ -81,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   ApiBackendRoute: typeof ApiBackendRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   StorageSplatRoute: typeof StorageSplatRoute
   ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
 }
@@ -108,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StorageSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/backend': {
       id: '/api/backend'
       path: '/api/backend'
@@ -129,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   ApiBackendRoute: ApiBackendRoute,
+  ApiHealthRoute: ApiHealthRoute,
   StorageSplatRoute: StorageSplatRoute,
   ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import { backend } from "@/integrations/backend/client";
+import type { Tables } from "@/integrations/backend/types";
 import { getSubscriptionAccessMessage, getSubscriptionAccessState, type SubscriptionAccessState } from "@/lib/subscription";
 
 type PlanRow = Tables<"plans">;
@@ -42,14 +42,14 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
 
     setLoading(true);
     const [adminRes, storeRes] = await Promise.all([
-      supabase.rpc("is_vexor_admin" as any, { _user_id: user.id }) as any,
-      profile?.store_id ? (supabase.from("stores" as any).select("*").eq("id", profile.store_id).maybeSingle() as any) : Promise.resolve({ data: null, error: null }),
+      backend.rpc("is_vexor_admin" as any, { _user_id: user.id }) as any,
+      profile?.store_id ? (backend.from("stores" as any).select("*").eq("id", profile.store_id).maybeSingle() as any) : Promise.resolve({ data: null, error: null }),
     ]);
 
     const isAdmin = Boolean(adminRes.data);
     const currentStore = (storeRes as { data: StoreRow | null }).data ?? null;
     const subscriptionRes = currentStore
-      ? await (supabase.from("subscriptions" as any).select("*, plans(*)").eq("store_id", currentStore.id).maybeSingle() as any)
+      ? await (backend.from("subscriptions" as any).select("*, plans(*)").eq("store_id", currentStore.id).maybeSingle() as any)
       : { data: null, error: null };
 
     const currentSubscription = (subscriptionRes.data as SubscriptionRow | null) ?? null;

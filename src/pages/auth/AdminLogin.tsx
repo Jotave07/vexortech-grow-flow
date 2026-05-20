@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { getPrimaryRole } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ const AdminLogin = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data: { user }, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { data: { user }, error } = await backend.auth.signInWithPassword({ email: email.trim(), password });
     
     if (error) {
       setLoading(false);
@@ -35,7 +35,7 @@ const AdminLogin = () => {
       navigate("/admin", { replace: true });
     } else {
       toast.error("Acesso negado. Apenas administradores.");
-      await supabase.auth.signOut();
+      await backend.auth.signOut();
     }
   };
 

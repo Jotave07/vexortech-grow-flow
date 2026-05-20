@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import { query } from "./db";
-import type { BackendError, BackendResult, LocalSession, LocalUser } from "@/integrations/supabase/compat-types";
+import type { BackendError, BackendResult, LocalSession, LocalUser } from "@/integrations/backend/compat-types";
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 const RESET_TTL_SECONDS = 60 * 30;

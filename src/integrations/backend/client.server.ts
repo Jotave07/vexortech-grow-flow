@@ -11,7 +11,7 @@ const rpc = async (name: string, args?: Record<string, unknown>) => {
   return executeRpc(name, args || {}, { admin: true });
 };
 
-export const supabaseAdmin = {
+export const backendAdmin = {
   from(table: string) {
     return new LocalQueryBuilder(table, executeServerQuery);
   },

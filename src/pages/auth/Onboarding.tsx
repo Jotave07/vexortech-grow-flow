@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,10 +52,10 @@ const Onboarding = () => {
   }, [form.name, form.slug]);
 
   const ensureStoreOwnerAccess = async (storeId: string) => {
-    const settingsResult = await supabase.from("store_settings").insert({ store_id: storeId });
+    const settingsResult = await backend.from("store_settings").insert({ store_id: storeId });
     if (settingsResult.error) throw settingsResult.error;
 
-    const profileResult = await supabase
+    const profileResult = await backend
       .from("profiles")
       .update({
         store_id: storeId,
@@ -67,7 +67,7 @@ const Onboarding = () => {
 
     if (profileResult.error) throw profileResult.error;
 
-    const { data: existingRoles, error: roleReadError } = await supabase
+    const { data: existingRoles, error: roleReadError } = await backend
       .from("user_roles" as any)
       .select("id, store_id")
       .eq("user_id", user?.id || "")
@@ -76,13 +76,13 @@ const Onboarding = () => {
     if (roleReadError) throw roleReadError;
 
     if (existingRoles?.length) {
-      const roleUpdate = await supabase
+      const roleUpdate = await backend
         .from("user_roles" as any)
         .update({ store_id: storeId })
         .eq("id", existingRoles[0].id);
 
       if (roleUpdate.error) throw roleUpdate.error;
-      await supabase
+      await backend
         .from("user_roles" as any)
         .delete()
         .eq("user_id", user?.id || "")
@@ -93,13 +93,13 @@ const Onboarding = () => {
       return;
     }
 
-    const roleInsert = await supabase
+    const roleInsert = await backend
       .from("user_roles" as any)
       .insert({ user_id: user?.id, role: "store_owner", store_id: storeId });
 
     if (roleInsert.error) throw roleInsert.error;
 
-    await supabase
+    await backend
       .from("user_roles" as any)
       .delete()
       .eq("user_id", user?.id || "")
@@ -116,13 +116,13 @@ const Onboarding = () => {
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
 
     setLoading(true);
-    const { data: existing } = await supabase.from("stores").select("id").eq("slug", parsed.data.slug).maybeSingle();
+    const { data: existing } = await backend.from("stores").select("id").eq("slug", parsed.data.slug).maybeSingle();
     if (existing) {
       setLoading(false);
       return toast.error("Este endereco ja esta em uso. Escolha outro.");
     }
 
-    const { data: store, error: storeErr } = await supabase
+    const { data: store, error: storeErr } = await backend
       .from("stores")
       .insert({
         owner_user_id: user.id,

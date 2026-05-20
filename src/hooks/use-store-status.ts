@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 
 export function useStoreStatus(storeId?: string) {
   return useQuery({
@@ -7,7 +7,7 @@ export function useStoreStatus(storeId?: string) {
     queryFn: async () => {
       if (!storeId) return null;
 
-      const { data: store, error: storeError } = await (supabase
+      const { data: store, error: storeError } = await (backend
         .from("stores" as any)
         .select("is_active, is_suspended, plan_id")
         .eq("id", storeId)
@@ -15,7 +15,7 @@ export function useStoreStatus(storeId?: string) {
       
       if (storeError) throw storeError;
 
-      const { data: subscription, error: subError } = await (supabase
+      const { data: subscription, error: subError } = await (backend
         .from("subscriptions" as any)
         .select("status, current_period_end")
         .eq("store_id", storeId)

@@ -1,4 +1,4 @@
-# Hype Delivery sem Supabase
+# Hype Delivery na VPS
 
 Este deploy roda a aplicacao inteira na VPS com:
 
@@ -9,7 +9,7 @@ Este deploy roda a aplicacao inteira na VPS com:
 - RPCs publicas recriadas como funcoes SQL
 - Functions administrativas em `/api/backend`
 
-## 1. Variaveis de ambiente
+## Variaveis de ambiente
 
 Crie `/etc/vexortech/vexortech.env` baseado em `.env.example`.
 
@@ -24,32 +24,16 @@ JWT_SECRET=gere-um-segredo-longo
 STORAGE_DIR=/var/www/vexortech-grow-flow/storage
 ```
 
-## 2. Banco
-
-No primeiro deploy:
+## Build e servico
 
 ```bash
 npm ci
-npm run db:bootstrap
-```
-
-Para importar dados publicos do projeto antigo uma unica vez, preencha temporariamente as variaveis antigas de Supabase no `.env` local e rode:
-
-```bash
-npm run db:migrate-from-supabase
-```
-
-Observacao: senhas do Supabase Auth nao sao exportaveis pelo anon key. Usuarios migrados sem acesso direto ao banco de auth antigo precisam redefinir senha pelo fluxo de recuperacao, com SMTP configurado.
-
-## 3. Build e servico
-
-```bash
 npm run build
 sudo cp deploy/vexortech.service /etc/systemd/system/vexortech.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now vexortech
 ```
 
-## 4. Nginx
+## Nginx
 
 Use `deploy/nginx-vexortech.conf`. As rotas `/api/` precisam de `proxy_buffering off` para o realtime SSE, e `/storage/` precisa aceitar upload de imagens.

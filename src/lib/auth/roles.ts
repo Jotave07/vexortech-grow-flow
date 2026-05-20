@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 
 export type UserRole = "super_admin" | "store_owner" | "customer";
 type StoredUserRole = UserRole | "admin";
@@ -28,11 +28,11 @@ export async function getUserRoles(userId: string): Promise<UserRole[]> {
 
   try {
     const [{ data: roleRows, error: rolesError }, { data: profile, error: profileError }] = await Promise.all([
-      supabase
+      backend
         .from("user_roles" as any)
         .select("role")
         .eq("user_id", userId),
-      supabase
+      backend
         .from("profiles" as any)
         .select("role")
         .eq("user_id", userId)
@@ -75,7 +75,7 @@ export async function isStoreOwner(userId: string, storeId?: string): Promise<bo
   if (!roles.includes("store_owner")) return false;
   
   if (storeId) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from("stores")
       .select("id")
       .eq("id", storeId)

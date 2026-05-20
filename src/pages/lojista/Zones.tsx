@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,7 @@ const Zones = () => {
   const load = useCallback(async () => {
     if (!store?.id) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await backend
       .from("delivery_zones")
       .select("*")
       .eq("store_id", store.id)
@@ -121,8 +121,8 @@ const Zones = () => {
     };
 
     const { error } = editing
-      ? await supabase.from("delivery_zones").update(payload).eq("id", editing.id)
-      : await supabase.from("delivery_zones").insert(payload);
+      ? await backend.from("delivery_zones").update(payload).eq("id", editing.id)
+      : await backend.from("delivery_zones").insert(payload);
     
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -133,14 +133,14 @@ const Zones = () => {
   };
 
   const toggle = async (z: DeliveryRegion) => { 
-    const { error } = await supabase.from("delivery_zones").update({ is_active: !z.is_active }).eq("id", z.id); 
+    const { error } = await backend.from("delivery_zones").update({ is_active: !z.is_active }).eq("id", z.id); 
     if (error) toast.error(error.message);
     load(); 
   };
 
   const remove = async (z: DeliveryRegion) => { 
     if (!confirm(`Excluir região "${z.name || z.neighborhood}"?`)) return; 
-    const { error } = await supabase.from("delivery_zones").delete().eq("id", z.id); 
+    const { error } = await backend.from("delivery_zones").delete().eq("id", z.id); 
     if (error) toast.error(error.message);
     load(); 
   };

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { BarChart3, CreditCard, ExternalLink, LayoutDashboard, Loader2, LogOut, Menu, Settings, ShoppingBag, Tags, Ticket, Truck, UserCog, Users, UtensilsCrossed, X, ShieldCheck } from "lucide-react";
@@ -46,7 +46,7 @@ const AppLayout = () => {
           return;
         }
 
-        const { data: ownedStore, error: ownerError } = await supabase
+        const { data: ownedStore, error: ownerError } = await backend
           .from("stores" as any)
           .select("*")
           .eq("owner_user_id", user.id)
@@ -55,7 +55,7 @@ const AppLayout = () => {
         if (ownerError) console.error("Error fetching owned store:", ownerError);
 
         if (ownedStore) {
-          await supabase
+          await backend
             .from("profiles" as any)
             .update({ store_id: ownedStore.id, role: "store_owner" })
             .eq("user_id", user.id);
@@ -68,7 +68,7 @@ const AppLayout = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await backend
         .from("stores" as any)
         .select("*")
         .eq("id", profile.store_id)

@@ -1,9 +1,9 @@
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { DeliveryRegion } from "@/types/delivery";
 import { normalizeCep } from "@/utils/zipCode";
 
 export const getDeliveryRegions = async (storeId: string): Promise<DeliveryRegion[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from("delivery_zones")
     .select("*")
     .eq("store_id", storeId)

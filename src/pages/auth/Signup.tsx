@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ const Signup = () => {
     }
 
     setLoading(true);
-    const { data: signUpData, error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await backend.auth.signUp({
       email: form.email.trim().toLowerCase(),
       password: form.password,
       options: {
@@ -46,7 +46,7 @@ const Signup = () => {
     }
 
     if (signUpData.user) {
-      await supabase.from("profiles").update({
+      await backend.from("profiles").update({
         full_name: form.full_name.toUpperCase(),
         document: form.document.replace(/\D/g, ""),
         email: form.email.toLowerCase(),

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { asaas } from "@/server/asaas.server";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { backendAdmin } from "@/integrations/backend/client.server";
 import { sendOrderStatusNotification } from "@/functions/evolution.server";
 
 export const testAsaasConnection = createServerFn({ method: "POST" })
@@ -43,7 +43,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
     const asaasCustomer = await asaas.createCustomer(data.customerData);
     if (asaasCustomer.errors) throw new Error(asaasCustomer.errors[0].description);
 
-    const { data: plan } = await supabaseAdmin.from("plans").select("*").eq("id", data.planId).single();
+    const { data: plan } = await backendAdmin.from("plans").select("*").eq("id", data.planId).single();
     if (!plan) throw new Error("Plan not found");
 
     const subscription = await asaas.createSubscription({
@@ -57,7 +57,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
     });
     if (subscription.errors) throw new Error(subscription.errors[0].description);
 
-    await supabaseAdmin.from("subscriptions" as any).upsert({
+    await backendAdmin.from("subscriptions" as any).upsert({
       store_id: data.storeId,
       plan_id: data.planId,
       asaas_subscription_id: subscription.id,
@@ -74,7 +74,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     storeId: z.string().uuid(),
   }))
   .handler(async ({ data }) => {
-    const { data: storeSettings } = await supabaseAdmin
+    const { data: storeSettings } = await backendAdmin
       .from("store_settings")
       .select("asaas_api_key")
       .eq("store_id", data.storeId)
@@ -84,7 +84,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
       throw new Error("Loja não configurou o gateway de pagamento Asaas.");
     }
 
-    const { data: order } = await supabaseAdmin
+    const { data: order } = await backendAdmin
       .from("orders")
       .select("*")
       .eq("id", data.orderId)
@@ -125,7 +125,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
 
     // Update or Insert payment in DB
-    const { data: existingPayment } = await supabaseAdmin
+    const { data: existingPayment } = await backendAdmin
       .from("payments")
       .select("id")
       .eq("order_id", order.id)
@@ -141,9 +141,9 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     };
 
     if (existingPayment) {
-      await supabaseAdmin.from("payments").update(paymentData).eq("id", existingPayment.id);
+      await backendAdmin.from("payments").update(paymentData).eq("id", existingPayment.id);
     } else {
-      await supabaseAdmin.from("payments").insert(paymentData);
+      await backendAdmin.from("payments").insert(paymentData);
     }
 
     return {
@@ -161,7 +161,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
     storeId: z.string().uuid(),
   }))
   .handler(async ({ data }) => {
-    const { data: storeSettings } = await supabaseAdmin
+    const { data: storeSettings } = await backendAdmin
       .from("store_settings")
       .select("asaas_api_key")
       .eq("store_id", data.storeId)
@@ -169,7 +169,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
 
     if (!storeSettings?.asaas_api_key) throw new Error("Configuração ausente");
 
-    const { data: payment } = await supabaseAdmin
+    const { data: payment } = await backendAdmin
       .from("payments")
       .select("external_id, asaas_id, status")
       .eq("order_id", data.orderId)
@@ -180,7 +180,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
     if (!externalId) {
       console.log(`[asaas] Payment record missing for order ${data.orderId}. Attempting recovery...`);
       try {
-        const { data: order } = await supabaseAdmin.from("orders").select("*").eq("id", data.orderId).single();
+        const { data: order } = await backendAdmin.from("orders").select("*").eq("id", data.orderId).single();
         if (order && order.payment_method === "pix") {
           const asaasCustomer = await asaas.createCustomer({
             name: (order as any).customer_name || "Cliente",
@@ -199,7 +199,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
 
           if (!asaasPayment.errors) {
             externalId = asaasPayment.id;
-            await supabaseAdmin.from("payments").insert({
+            await backendAdmin.from("payments").insert({
               order_id: order.id,
               store_id: data.storeId,
               amount: Number(order.total),
@@ -235,7 +235,7 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
     storeId: z.string().uuid(),
   }))
   .handler(async ({ data }) => {
-    const { data: storeSettings } = await supabaseAdmin
+    const { data: storeSettings } = await backendAdmin
       .from("store_settings")
       .select("asaas_api_key")
       .eq("store_id", data.storeId)
@@ -243,7 +243,7 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
 
     if (!storeSettings?.asaas_api_key) return { status: "pending", message: "Gateway não configurado" };
 
-    const { data: payment } = await supabaseAdmin
+    const { data: payment } = await backendAdmin
       .from("payments")
       .select("*")
       .eq("order_id", data.orderId)
@@ -255,17 +255,17 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
     const asaasPayment = await asaas.getPayment(storeSettings.asaas_api_key, payment.external_id);
 
     if (asaasPayment.status === "RECEIVED" || asaasPayment.status === "CONFIRMED") {
-      await supabaseAdmin.from("payments").update({ 
+      await backendAdmin.from("payments").update({ 
         status: "pago",
         paid_at: new Date().toISOString()
       }).eq("id", payment.id);
 
-      await supabaseAdmin.from("orders").update({ 
+      await backendAdmin.from("orders").update({ 
         status: "novo",
         payment_status: "pago"
       }).eq("id", data.orderId);
       
-      await supabaseAdmin.from("order_status_history").insert({ 
+      await backendAdmin.from("order_status_history").insert({ 
         order_id: data.orderId, 
         store_id: data.storeId, 
         status: "novo", 
@@ -292,7 +292,7 @@ export const refundOrderPayment = createServerFn({ method: "POST" })
     storeId: z.string().uuid(),
   }))
   .handler(async ({ data }) => {
-    const { data: storeSettings } = await supabaseAdmin
+    const { data: storeSettings } = await backendAdmin
       .from("store_settings")
       .select("asaas_api_key")
       .eq("store_id", data.storeId)
@@ -300,7 +300,7 @@ export const refundOrderPayment = createServerFn({ method: "POST" })
 
     if (!storeSettings?.asaas_api_key) throw new Error("Gateway não configurado");
 
-    const { data: payment } = await supabaseAdmin
+    const { data: payment } = await backendAdmin
       .from("payments")
       .select("*")
       .eq("order_id", data.orderId)
@@ -310,7 +310,7 @@ export const refundOrderPayment = createServerFn({ method: "POST" })
       return { success: false, message: "Pagamento não encontrado ou não está pago" };
     }
 
-    const { data: order } = await supabaseAdmin.from("orders").select("total").eq("id", data.orderId).single();
+    const { data: order } = await backendAdmin.from("orders").select("total").eq("id", data.orderId).single();
 
     const refund = await asaas.refundPayment(
       storeSettings.asaas_api_key, 
@@ -323,7 +323,7 @@ export const refundOrderPayment = createServerFn({ method: "POST" })
       throw new Error(`Erro Asaas no estorno: ${refund.errors[0].description}`);
     }
 
-    await supabaseAdmin.from("payments").update({ status: "estornado" }).eq("id", payment.id);
+    await backendAdmin.from("payments").update({ status: "estornado" }).eq("id", payment.id);
 
     return { success: true };
   });

@@ -1,5 +1,5 @@
-Ôªøimport { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useEffect, useState } from "react";
+import { backend } from "@/integrations/backend/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,23 +24,23 @@ type OptionTemplate = {
 
 const OPTION_TEMPLATES: OptionTemplate[] = [
   {
-    name: "A√ßa√≠ montado",
+    name: "AÁaÌ montado",
     groups: [
-      { name: "Escolha o creme", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "A√ßa√≠ tradicional", extra_price: 0 }, { name: "Cupua√ßu", extra_price: 0 }, { name: "Creme de ninho", extra_price: 0 }] },
-      { name: "Escolha at√© 3 acompanhamentos", is_required: true, min_choices: 1, max_choices: 3, items: [{ name: "Banana", extra_price: 0 }, { name: "Morango", extra_price: 0 }, { name: "Granola", extra_price: 0 }, { name: "Leite em p√≥", extra_price: 0 }, { name: "Pa√ßoca", extra_price: 0 }] },
-      { name: "Adicionais extras", is_required: false, min_choices: 0, max_choices: 5, items: [{ name: "Nutella", extra_price: 4 }, { name: "Leite condensado", extra_price: 2 }, { name: "Creme de avel√£", extra_price: 3 }] },
+      { name: "Escolha o creme", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "AÁaÌ tradicional", extra_price: 0 }, { name: "CupuaÁu", extra_price: 0 }, { name: "Creme de ninho", extra_price: 0 }] },
+      { name: "Escolha atÈ 3 acompanhamentos", is_required: true, min_choices: 1, max_choices: 3, items: [{ name: "Banana", extra_price: 0 }, { name: "Morango", extra_price: 0 }, { name: "Granola", extra_price: 0 }, { name: "Leite em pÛ", extra_price: 0 }, { name: "PaÁoca", extra_price: 0 }] },
+      { name: "Adicionais extras", is_required: false, min_choices: 0, max_choices: 5, items: [{ name: "Nutella", extra_price: 4 }, { name: "Leite condensado", extra_price: 2 }, { name: "Creme de avel„", extra_price: 3 }] },
     ],
   },
   {
     name: "Pizza",
     groups: [
-      { name: "Tamanho", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "M√©dia", extra_price: 0 }, { name: "Grande", extra_price: 12 }, { name: "Fam√≠lia", extra_price: 22 }] },
+      { name: "Tamanho", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "MÈdia", extra_price: 0 }, { name: "Grande", extra_price: 12 }, { name: "FamÌlia", extra_price: 22 }] },
       { name: "Borda", is_required: false, min_choices: 0, max_choices: 1, items: [{ name: "Sem borda", extra_price: 0 }, { name: "Catupiry", extra_price: 8 }, { name: "Cheddar", extra_price: 8 }] },
       { name: "Adicionais", is_required: false, min_choices: 0, max_choices: 5, items: [{ name: "Mussarela extra", extra_price: 5 }, { name: "Bacon", extra_price: 6 }, { name: "Calabresa", extra_price: 5 }] },
     ],
   },
   {
-    name: "Hamb√∫rguer",
+    name: "Hamb˙rguer",
     groups: [
       { name: "Ponto da carne", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "Ao ponto", extra_price: 0 }, { name: "Bem passado", extra_price: 0 }, { name: "Mal passado", extra_price: 0 }] },
       { name: "Queijos", is_required: false, min_choices: 0, max_choices: 2, items: [{ name: "Cheddar", extra_price: 4 }, { name: "Mussarela", extra_price: 3 }, { name: "Prato", extra_price: 3 }] },
@@ -51,14 +51,14 @@ const OPTION_TEMPLATES: OptionTemplate[] = [
     name: "Bebidas",
     groups: [
       { name: "Temperatura", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "Gelada", extra_price: 0 }, { name: "Natural", extra_price: 0 }] },
-      { name: "Embalagem", is_required: false, min_choices: 0, max_choices: 1, items: [{ name: "Copo descart√°vel", extra_price: 0.5 }, { name: "Gelo separado", extra_price: 1 }] },
+      { name: "Embalagem", is_required: false, min_choices: 0, max_choices: 1, items: [{ name: "Copo descart·vel", extra_price: 0.5 }, { name: "Gelo separado", extra_price: 1 }] },
     ],
   },
   {
     name: "Marmita",
     groups: [
-      { name: "Prote√≠na", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "Frango grelhado", extra_price: 0 }, { name: "Carne de panela", extra_price: 3 }, { name: "Omelete", extra_price: 0 }] },
-      { name: "Acompanhamentos", is_required: true, min_choices: 2, max_choices: 4, items: [{ name: "Arroz", extra_price: 0 }, { name: "Feij√£o", extra_price: 0 }, { name: "Salada", extra_price: 0 }, { name: "Pur√™ de batata", extra_price: 2 }] },
+      { name: "ProteÌna", is_required: true, min_choices: 1, max_choices: 1, items: [{ name: "Frango grelhado", extra_price: 0 }, { name: "Carne de panela", extra_price: 3 }, { name: "Omelete", extra_price: 0 }] },
+      { name: "Acompanhamentos", is_required: true, min_choices: 2, max_choices: 4, items: [{ name: "Arroz", extra_price: 0 }, { name: "Feij„o", extra_price: 0 }, { name: "Salada", extra_price: 0 }, { name: "PurÍ de batata", extra_price: 2 }] },
       { name: "Remover ingredientes", is_required: false, min_choices: 0, max_choices: 4, items: [{ name: "Sem cebola", extra_price: 0 }, { name: "Sem tomate", extra_price: 0 }, { name: "Sem coentro", extra_price: 0 }] },
     ],
   },
@@ -87,11 +87,11 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: g } = await supabase.from("product_options" as any).select("*").eq("product_id", product.id).order("sort_order");
+    const { data: g } = await backend.from("product_options" as any).select("*").eq("product_id", product.id).order("sort_order");
     const groupsData = g ?? [];
     setGroups(groupsData);
     if (groupsData.length) {
-      const { data: itemsData } = await supabase.from("product_option_items" as any).select("*").in("option_id", groupsData.map((x: any) => x.id)).order("sort_order");
+      const { data: itemsData } = await backend.from("product_option_items" as any).select("*").in("option_id", groupsData.map((x: any) => x.id)).order("sort_order");
       const map: Record<string, any[]> = {};
       groupsData.forEach((gr: any) => { map[gr.id] = (itemsData ?? []).filter((it: any) => it.option_id === gr.id); });
       setItems(map);
@@ -107,12 +107,12 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
   const addGroup = async () => {
     if (!newGroup.name.trim()) return toast.error("Informe o nome do grupo");
-    if (newGroup.max_choices < 1) return toast.error("M√°ximo precisa ser maior que zero");
-    if (newGroup.min_choices > newGroup.max_choices) return toast.error("M√≠nimo n√£o pode ser maior que m√°ximo");
+    if (newGroup.max_choices < 1) return toast.error("M·ximo precisa ser maior que zero");
+    if (newGroup.min_choices > newGroup.max_choices) return toast.error("MÌnimo n„o pode ser maior que m·ximo");
     const limits = normalizeGroupLimits(newGroup);
 
     setSaving(true);
-    const { error } = await supabase.from("product_options" as any).insert({
+    const { error } = await backend.from("product_options" as any).insert({
       product_id: product.id,
       store_id: storeId,
       name: newGroup.name.trim(),
@@ -131,7 +131,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
     setSaving(true);
     try {
       for (const [groupIndex, group] of template.groups.entries()) {
-        const { data: createdGroup, error: groupError } = await supabase
+        const { data: createdGroup, error: groupError } = await backend
           .from("product_options" as any)
           .insert({
             product_id: product.id,
@@ -148,7 +148,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
         if (groupError) throw groupError;
 
         if (createdGroup?.id && group.items.length) {
-          const { error: itemsError } = await supabase.from("product_option_items" as any).insert(
+          const { error: itemsError } = await backend.from("product_option_items" as any).insert(
             group.items.map((item, itemIndex) => ({
               option_id: createdGroup.id,
               store_id: storeId,
@@ -173,9 +173,9 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
   const removeGroup = async (id: string) => {
     if (!confirm("Excluir este grupo e todos os itens dele?")) return;
-    const { error: itemsError } = await supabase.from("product_option_items" as any).delete().eq("option_id", id);
+    const { error: itemsError } = await backend.from("product_option_items" as any).delete().eq("option_id", id);
     if (itemsError) return toast.error(itemsError.message);
-    const { error } = await supabase.from("product_options" as any).delete().eq("id", id);
+    const { error } = await backend.from("product_options" as any).delete().eq("id", id);
     if (error) return toast.error(error.message);
     await load();
   };
@@ -191,7 +191,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
           max_choices: Number(next.max_choices || 1),
         }) }
         : patch;
-    const { error } = await supabase.from("product_options" as any).update(normalizedPatch).eq("id", id);
+    const { error } = await backend.from("product_options" as any).update(normalizedPatch).eq("id", id);
     if (error) return toast.error(error.message);
     await load();
   };
@@ -200,8 +200,8 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
     const draft = draftItems[groupId] || { name: "", extra_price: "0" };
     if (!draft.name.trim()) return toast.error("Informe o nome do item");
     const price = toMoney(draft.extra_price);
-    if (price < 0) return toast.error("Pre√ßo inv√°lido");
-    const { error } = await supabase.from("product_option_items" as any).insert({
+    if (price < 0) return toast.error("PreÁo inv·lido");
+    const { error } = await backend.from("product_option_items" as any).insert({
       option_id: groupId,
       store_id: storeId,
       name: draft.name.trim(),
@@ -215,13 +215,13 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
   };
 
   const updateItem = async (id: string, patch: any) => {
-    const { error } = await supabase.from("product_option_items" as any).update(patch).eq("id", id);
+    const { error } = await backend.from("product_option_items" as any).update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     await load();
   };
 
   const removeItem = async (id: string) => {
-    const { error } = await supabase.from("product_option_items" as any).delete().eq("id", id);
+    const { error } = await backend.from("product_option_items" as any).delete().eq("id", id);
     if (error) return toast.error(error.message);
     await load();
   };
@@ -231,10 +231,10 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
       <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto rounded-3xl border-[#e1d7c7] bg-[#f6f7f2] p-0">
         <DialogHeader className="border-b border-[#e6e8de] bg-white px-6 py-5">
           <DialogTitle className="text-xl font-black uppercase tracking-tight text-stone-950">
-            Op√ß√µes do produto: {product.name}
+            OpÁıes do produto: {product.name}
           </DialogTitle>
           <p className="text-sm font-medium text-muted-foreground">
-            Monte grupos obrigat√≥rios ou opcionais, defina m√≠nimo/m√°ximo e cadastre adicionais com pre√ßo.
+            Monte grupos obrigatÛrios ou opcionais, defina mÌnimo/m·ximo e cadastre adicionais com preÁo.
           </p>
         </DialogHeader>
 
@@ -245,7 +245,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
             <Card className="rounded-3xl border-[#e1d7c7] bg-white p-4 shadow-sm">
               <div className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-stone-800">
                 <Wand2 className="h-4 w-4 text-primary" />
-                Modelos r√°pidos
+                Modelos r·pidos
               </div>
               <div className="flex flex-wrap gap-2">
                 {OPTION_TEMPLATES.map((template) => (
@@ -275,7 +275,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">M√≠nimo</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">MÌnimo</Label>
                   <Input
                     type="number"
                     min={0}
@@ -285,7 +285,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">M√°ximo</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">M·ximo</Label>
                   <Input
                     type="number"
                     min={1}
@@ -296,7 +296,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                 </div>
                 <div className="flex items-center gap-3 pb-1">
                   <Switch checked={newGroup.is_required} onCheckedChange={(value) => setNewGroup((current) => ({ ...current, is_required: value, min_choices: value ? Math.max(1, current.min_choices) : current.min_choices }))} />
-                  <span className="text-xs font-black uppercase tracking-widest text-stone-700">Obrigat√≥rio</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-stone-700">ObrigatÛrio</span>
                 </div>
               </div>
               <Button onClick={addGroup} disabled={saving} className="mt-4 h-11 rounded-xl font-black uppercase tracking-widest">
@@ -307,7 +307,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
             {groups.length === 0 && (
               <Card className="rounded-3xl border-dashed border-[#e1d7c7] bg-white p-8 text-center text-sm font-medium text-muted-foreground">
-                Este produto ainda n√£o tem op√ß√µes. Sem grupos, ele funciona como produto acabado; use um modelo r√°pido ou crie o primeiro grupo para transform√°-lo em produto composto.
+                Este produto ainda n„o tem opÁıes. Sem grupos, ele funciona como produto acabado; use um modelo r·pido ou crie o primeiro grupo para transform·-lo em produto composto.
               </Card>
             )}
 
@@ -353,7 +353,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                       <div className="flex items-center justify-between gap-3 md:pt-7">
                         <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-stone-700">
                           <Switch checked={Boolean(g.is_required)} onCheckedChange={(value) => void updateGroup(g.id, { is_required: value, min_choices: value ? Math.max(1, Number(g.min_choices || 0)) : Number(g.min_choices || 0) })} />
-                          Obrigat√≥rio
+                          ObrigatÛrio
                         </label>
                         <Button size="icon" variant="ghost" onClick={() => void removeGroup(g.id)} className="h-9 w-9 rounded-xl">
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -363,7 +363,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Badge variant={g.is_required ? "default" : "secondary"} className="rounded-full">
-                        {g.is_required ? "Obrigat√≥rio" : "Opcional"}
+                        {g.is_required ? "ObrigatÛrio" : "Opcional"}
                       </Badge>
                       <Badge variant="outline" className="rounded-full">
                         Escolha {g.min_choices || 0} a {g.max_choices || 1}
@@ -412,7 +412,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                           value={draft.extra_price}
                           onChange={(event) => setDraftItems((current) => ({ ...current, [g.id]: { ...draft, extra_price: event.target.value } }))}
                           className="h-10 rounded-xl border-[#e1d7c7] font-semibold"
-                          placeholder="Pre√ßo extra"
+                          placeholder="PreÁo extra"
                         />
                         <Button variant="outline" onClick={() => void addItem(g.id)} className="h-10 rounded-xl border-[#e1d7c7] font-black uppercase tracking-widest">
                           <Plus className="h-4 w-4" />

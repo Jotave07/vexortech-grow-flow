@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ const AdminSettings = () => {
 
   useEffect(() => {
     const loadLogs = async () => {
-      const { data } = await supabase
+      const { data } = await backend
         .from("subscriptions")
         .select("*, stores(name, slug, owner_user_id), plans(name, price_monthly)")
         .order("updated_at", { ascending: false })
@@ -118,7 +118,7 @@ const AdminSettings = () => {
                   
                   const tid = toast.loading("Varrendo e limpando autenticações...");
                   try {
-                    const { data, error } = await supabase.functions.invoke("admin-delete-store", {
+                    const { data, error } = await backend.functions.invoke("admin-delete-store", {
                       body: { action: 'cleanup_orphans' }
                     });
 

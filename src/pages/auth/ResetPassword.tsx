@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ const ResetPassword = () => {
     e.preventDefault();
     if (password.length < 6) return toast.error("Mínimo 6 caracteres");
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await backend.auth.updateUser({ password });
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Senha atualizada!");

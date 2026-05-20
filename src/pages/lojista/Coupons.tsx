@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,7 @@ const Coupons = () => {
   const load = useCallback(async () => {
     if (!store?.id) return;
     setLoading(true);
-    const { data } = await supabase.from("coupons").select("*").eq("store_id", store.id).order("created_at", { ascending: false });
+    const { data } = await backend.from("coupons").select("*").eq("store_id", store.id).order("created_at", { ascending: false });
     setItems(data ?? []); setLoading(false);
   }, [store?.id]);
 
@@ -49,15 +49,15 @@ const Coupons = () => {
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
     };
     const { error } = editing
-      ? await supabase.from("coupons").update(payload).eq("id", editing.id)
-      : await supabase.from("coupons").insert(payload);
+      ? await backend.from("coupons").update(payload).eq("id", editing.id)
+      : await backend.from("coupons").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message.includes("duplicate") ? "Código já existe" : error.message);
     toast.success("Salvo"); setOpen(false); load();
   };
 
-  const toggle = async (c: any) => { await supabase.from("coupons").update({ is_active: !c.is_active }).eq("id", c.id); load(); };
-  const remove = async (c: any) => { if (!confirm(`Excluir cupom ${c.code}?`)) return; await supabase.from("coupons").delete().eq("id", c.id); load(); };
+  const toggle = async (c: any) => { await backend.from("coupons").update({ is_active: !c.is_active }).eq("id", c.id); load(); };
+  const remove = async (c: any) => { if (!confirm(`Excluir cupom ${c.code}?`)) return; await backend.from("coupons").delete().eq("id", c.id); load(); };
 
   return (
     <div className="space-y-6">

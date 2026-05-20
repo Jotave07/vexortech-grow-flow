@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ const AdminPlans = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("plans").select("*").order("sort_order");
+    const { data } = await backend.from("plans").select("*").order("sort_order");
     setPlans(data ?? []);
     setLoading(false);
   };
@@ -49,8 +49,8 @@ const AdminPlans = () => {
       allows_custom_branding: form.allows_custom_branding, allows_custom_domain: form.allows_custom_domain,
     };
     const { error } = editing
-      ? await supabase.from("plans").update(payload).eq("id", editing.id)
-      : await supabase.from("plans").insert({ ...payload, sort_order: plans.length });
+      ? await backend.from("plans").update(payload).eq("id", editing.id)
+      : await backend.from("plans").insert({ ...payload, sort_order: plans.length });
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Salvo"); setOpen(false); load();

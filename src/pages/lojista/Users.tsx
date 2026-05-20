@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,10 +24,10 @@ const Users = () => {
     if (!store?.id) return;
     setLoading(true);
     // members are profiles linked to this store
-    const { data: profiles } = await supabase.from("profiles").select("*").eq("store_id", store.id);
+    const { data: profiles } = await backend.from("profiles").select("*").eq("store_id", store.id);
     if (!profiles?.length) { setMembers([]); setLoading(false); return; }
     const userIds = profiles.map((p) => p.user_id);
-    const { data: roles } = await supabase.from("user_roles").select("*").in("user_id", userIds);
+    const { data: roles } = await backend.from("user_roles").select("*").in("user_id", userIds);
     const merged = profiles.map((p) => ({
       ...p,
       roles: (roles ?? []).filter((r) => r.user_id === p.user_id).map((r) => r.role),
@@ -44,8 +44,8 @@ const Users = () => {
     if (member.user_id === store.owner_user_id) return toast.error("Não é possível remover o dono");
     if (member.user_id === user?.id) return toast.error("Você não pode remover a si mesmo aqui");
     if (!confirm(`Remover ${member.full_name ?? member.email}?`)) return;
-    await supabase.from("profiles").update({ store_id: null }).eq("id", member.id);
-    await supabase.from("user_roles").delete().eq("user_id", member.user_id).eq("store_id", store.id);
+    await backend.from("profiles").update({ store_id: null }).eq("id", member.id);
+    await backend.from("user_roles").delete().eq("user_id", member.user_id).eq("store_id", store.id);
     toast.success("Removido");
     load();
   };

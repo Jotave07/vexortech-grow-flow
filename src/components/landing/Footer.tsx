@@ -1,4 +1,4 @@
-ï»¿import { BrandMark } from "@/components/BrandMark";
+import { BrandMark } from "@/components/BrandMark";
 import { buildDeliveryUrl, buildPartnersUrl } from "@/lib/domains";
 import { Link } from "react-router-dom";
 
@@ -16,20 +16,20 @@ export const Footer = () => {
           <div>
             <h4 className="mb-4 text-sm font-semibold text-white">Produto</h4>
             <ul className="space-y-2 text-sm text-white/62">
-              <li><a href="#beneficios" className="hover:text-primary">BenefÃ­cios</a></li>
+              <li><a href="#beneficios" className="hover:text-primary">Benefícios</a></li>
               <li><a href="#como-funciona" className="hover:text-primary">Como Funciona</a></li>
-              <li><a href="#planos" className="hover:text-primary">Planos e PreÃ§os</a></li>
+              <li><a href="#planos" className="hover:text-primary">Planos e Preços</a></li>
               <li><a href={buildDeliveryUrl("/")} className="hover:text-primary font-bold text-primary">Ver Delivery</a></li>
             </ul>
           </div>
           <div>
-            <h4 className="mb-4 text-sm font-semibold text-white">Acesso RÃ¡pido</h4>
+            <h4 className="mb-4 text-sm font-semibold text-white">Acesso Rápido</h4>
             <ul className="space-y-2 text-sm text-white/62">
               <li><Link to="/cliente" className="hover:text-primary">Painel do Cliente</Link></li>
               <li><Link to="/lojista/entrar" className="hover:text-primary">Portal do Lojista</Link></li>
               <li><Link to="/admin/entrar" className="hover:text-primary">Portal Administrativo</Link></li>
               <li><Link to="/cadastrar-loja" className="hover:text-primary font-bold text-primary">Abrir minha Loja</Link></li>
-              <li><a href={buildPartnersUrl("/")} className="hover:text-primary">DomÃ­nio de Parceiros</a></li>
+              <li><a href={buildPartnersUrl("/")} className="hover:text-primary">Domínio de Parceiros</a></li>
             </ul>
           </div>
           <div>

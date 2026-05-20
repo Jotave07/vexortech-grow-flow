@@ -1,6 +1,6 @@
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { LocalSession as Session, LocalUser as User } from "@/integrations/supabase/compat-types";
+import { backend } from "@/integrations/backend/client";
+import type { LocalSession as Session, LocalUser as User } from "@/integrations/backend/compat-types";
 import { getPrimaryRoleFromRoles, getUserRoles, normalizeUserRole, UserRole } from "@/lib/auth/roles";
 
 export type Profile = {
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await backend
         .from("profiles" as any)
         .select("*")
         .eq("user_id", userId)
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+    const { data: sub } = backend.auth.onAuthStateChange((_evt, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    backend.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await backend.auth.signOut();
     setProfile(null);
   };
 

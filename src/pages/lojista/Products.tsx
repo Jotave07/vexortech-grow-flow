@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,8 +34,8 @@ const Products = () => {
     if (!store?.id) return;
     setLoading(true);
     const [prods, cats] = await Promise.all([
-      supabase.from("products").select("*, categories(name)").eq("store_id", store.id).order("sort_order"),
-      supabase.from("categories").select("id, name").eq("store_id", store.id).order("sort_order"),
+      backend.from("products").select("*, categories(name)").eq("store_id", store.id).order("sort_order"),
+      backend.from("categories").select("id, name").eq("store_id", store.id).order("sort_order"),
     ]);
     setItems(prods.data ?? []);
     setCategories((cats.data as Category[]) ?? []);
@@ -67,10 +67,10 @@ const Products = () => {
     setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `${store.id}/products/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from("store-assets").upload(path, file, { upsert: false });
+    const { error } = await backend.storage.from("store-assets").upload(path, file, { upsert: false });
     setUploading(false);
     if (error) return toast.error(error.message);
-    const { data } = supabase.storage.from("store-assets").getPublicUrl(path);
+    const { data } = backend.storage.from("store-assets").getPublicUrl(path);
     setForm((f: any) => ({ ...f, image_url: data.publicUrl }));
     toast.success("Imagem enviada");
   };
@@ -93,8 +93,8 @@ const Products = () => {
       is_available: form.is_available,
     };
     const { error } = editing
-      ? await supabase.from("products").update(payload).eq("id", editing.id)
-      : await supabase.from("products").insert({ ...payload, sort_order: items.length });
+      ? await backend.from("products").update(payload).eq("id", editing.id)
+      : await backend.from("products").insert({ ...payload, sort_order: items.length });
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success(editing ? "Produto atualizado" : "Produto criado");
@@ -103,12 +103,12 @@ const Products = () => {
 
   const toggle = async (p: Product, field: "is_active" | "is_available") => {
     const patch: any = { [field]: !p[field] };
-    await supabase.from("products").update(patch).eq("id", p.id);
+    await backend.from("products").update(patch).eq("id", p.id);
     load();
   };
   const remove = async (p: Product) => {
     if (!confirm(`Excluir "${p.name}"?`)) return;
-    await supabase.from("products").delete().eq("id", p.id);
+    await backend.from("products").delete().eq("id", p.id);
     toast.success("Produto excluído"); load();
   };
 

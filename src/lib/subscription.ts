@@ -1,4 +1,4 @@
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/backend/types";
 
 export type PlanRecord = Tables<"plans">;
 export type SubscriptionRecord = Tables<"subscriptions">;

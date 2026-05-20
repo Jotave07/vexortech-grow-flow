@@ -1,2 +1,0 @@
-ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;
-ALTER TABLE public.orders ADD CONSTRAINT orders_payment_method_check CHECK (payment_method = ANY (ARRAY['pix'::text, 'dinheiro'::text, 'cartao_entrega'::text, 'cartao_credito_entrega'::text, 'cartao_debito_entrega'::text]));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -185,7 +185,7 @@ const Orders = () => {
 
   const load = useCallback(async () => {
     if (!store?.id) return;
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from("orders")
       .select("*")
       .eq("store_id", store.id)
@@ -233,7 +233,7 @@ const Orders = () => {
       }
     };
 
-    const channel = supabase.channel(`orders-store-${store.id}`)
+    const channel = backend.channel(`orders-store-${store.id}`)
       .on(
         "postgres_changes",
         {
@@ -274,7 +274,7 @@ const Orders = () => {
     const pollInterval = window.setInterval(load, 20000);
 
     return () => {
-      void supabase.removeChannel(channel);
+      void backend.removeChannel(channel);
       window.clearInterval(pollInterval);
     };
   }, [store?.id, load]);
@@ -294,7 +294,7 @@ const Orders = () => {
 
   const openDetails = async (order: any) => {
     setSelected(order);
-    const { data } = await supabase
+    const { data } = await backend
       .from("order_items")
       .select("*, order_item_options(*)")
       .eq("order_id", order.id);
@@ -302,7 +302,7 @@ const Orders = () => {
     setItems(data ?? []);
 
     if (!order.is_seen) {
-      await supabase.from("orders").update({ is_seen: true }).eq("id", order.id);
+      await backend.from("orders").update({ is_seen: true }).eq("id", order.id);
       setOrders((current) => current.map((item) => item.id === order.id ? { ...item, is_seen: true } : item));
     }
   };
@@ -318,7 +318,7 @@ const Orders = () => {
 
     setUpdatingId(orderId);
     try {
-      const { data: updatedOrder, error } = await supabase
+      const { data: updatedOrder, error } = await backend
         .from("orders")
         .update(statusUpdatePayload(finalStatus, order))
         .eq("id", orderId)
@@ -330,7 +330,7 @@ const Orders = () => {
         return;
       }
 
-      await supabase.from("order_status_history").insert({
+      await backend.from("order_status_history").insert({
         order_id: orderId,
         store_id: store.id,
         status: finalStatus,
@@ -339,14 +339,14 @@ const Orders = () => {
 
       if (finalStatus === "entregue") {
         if (order.customer_id && order.status !== "entregue") {
-          const { data: customer } = await supabase
+          const { data: customer } = await backend
             .from("customers")
             .select("total_orders, total_spent")
             .eq("id", order.customer_id)
             .maybeSingle();
 
           if (customer) {
-            await supabase.from("customers").update({
+            await backend.from("customers").update({
               total_orders: (customer.total_orders ?? 0) + 1,
               total_spent: Number(customer.total_spent ?? 0) + Number(order.total),
               last_order_at: new Date().toISOString(),
@@ -354,14 +354,14 @@ const Orders = () => {
           }
         }
 
-        await supabase.from("payments").update({
+        await backend.from("payments").update({
           status: "pago",
           paid_at: new Date().toISOString(),
         }).eq("order_id", orderId);
       }
 
       if (finalStatus === "cancelado") {
-        await supabase.from("payments").update({ status: "cancelado" }).eq("order_id", orderId);
+        await backend.from("payments").update({ status: "cancelado" }).eq("order_id", orderId);
       }
 
       await notifyOrderStatusChangedFn({

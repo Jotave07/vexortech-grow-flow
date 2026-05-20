@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction, useRef } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import type { Json, Tables } from "@/integrations/supabase/types";
+import { backend } from "@/integrations/backend/client";
+import type { Json, Tables } from "@/integrations/backend/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,10 +99,10 @@ const Settings = () => {
     setLoading(true);
     setLoadingError(null);
     const [storeRes, settingsRes, subscriptionRes, plansRes] = await Promise.all([
-      supabase.from("stores").select("*").eq("id", store.id).maybeSingle(),
-      supabase.from("store_settings").select("*").eq("store_id", store.id).maybeSingle(),
-      supabase.from("subscriptions").select("*, plans(*)").eq("store_id", store.id).maybeSingle(),
-      supabase.from("plans").select("*").eq("is_active", true).order("sort_order"),
+      backend.from("stores").select("*").eq("id", store.id).maybeSingle(),
+      backend.from("store_settings").select("*").eq("store_id", store.id).maybeSingle(),
+      backend.from("subscriptions").select("*, plans(*)").eq("store_id", store.id).maybeSingle(),
+      backend.from("plans").select("*").eq("is_active", true).order("sort_order"),
     ]);
 
     if (storeRes.error) {
@@ -126,7 +126,7 @@ const Settings = () => {
     }
 
     if (!settingsRow) {
-      const created = await supabase.from("store_settings").insert({ store_id: store.id }).select("*").maybeSingle();
+      const created = await backend.from("store_settings").insert({ store_id: store.id }).select("*").maybeSingle();
       if (created.error) {
         setLoading(false);
         setLoadingError(created.error.message);
@@ -156,9 +156,9 @@ const Settings = () => {
 
     const ext = file.name.split(".").pop();
     const path = `${store.id}/${field}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("store-assets").upload(path, file);
+    const { error } = await backend.storage.from("store-assets").upload(path, file);
     if (error) return toast.error(error.message);
-    const { data } = supabase.storage.from("store-assets").getPublicUrl(path);
+    const { data } = backend.storage.from("store-assets").getPublicUrl(path);
     setStoreForm({ ...storeForm, [field]: data.publicUrl });
     toast.success("Imagem enviada com sucesso.");
   };
@@ -307,20 +307,20 @@ const Settings = () => {
       excluded_neighborhoods: parseExcludedNeighborhoods(excludedNeighborhoodsText) as unknown as Json,
     };
 
-    const storeUpdate = await supabase.from("stores").update({
+    const storeUpdate = await backend.from("stores").update({
       ...baseStorePayload,
       ...extendedStorePayload,
     }).eq("id", store.id);
     const safeStoreUpdate = shouldRetryWithLegacySchema(storeUpdate.error)
-      ? await supabase.from("stores").update(baseStorePayload).eq("id", store.id)
+      ? await backend.from("stores").update(baseStorePayload).eq("id", store.id)
       : storeUpdate;
 
-    const settingsUpdate = await supabase.from("store_settings").update({
+    const settingsUpdate = await backend.from("store_settings").update({
       ...baseSettingsPayload,
       ...extendedSettingsPayload,
     } as any).eq("store_id", store.id);
     const safeSettingsUpdate = shouldRetryWithLegacySchema(settingsUpdate.error)
-      ? await supabase.from("store_settings").update(baseSettingsPayload as any).eq("store_id", store.id)
+      ? await backend.from("store_settings").update(baseSettingsPayload as any).eq("store_id", store.id)
       : settingsUpdate;
 
     setSaving(false);

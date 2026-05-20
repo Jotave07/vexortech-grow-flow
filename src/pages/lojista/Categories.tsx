@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ const Categories = () => {
   const load = useCallback(async () => {
     if (!store?.id) return;
     setLoading(true);
-    const { data } = await supabase.from("categories").select("*").eq("store_id", store.id).order("sort_order");
+    const { data } = await backend.from("categories").select("*").eq("store_id", store.id).order("sort_order");
     setItems((data as Category[]) ?? []);
     setLoading(false);
   }, [store?.id]);
@@ -40,12 +40,12 @@ const Categories = () => {
     if (!form.name.trim()) return toast.error("Nome obrigatório");
     setSaving(true);
     if (editing) {
-      const { error } = await supabase.from("categories").update({ name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order }).eq("id", editing.id);
+      const { error } = await backend.from("categories").update({ name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order }).eq("id", editing.id);
       setSaving(false);
       if (error) return toast.error(error.message);
       toast.success("Categoria atualizada");
     } else {
-      const { error } = await supabase.from("categories").insert({ store_id: store.id, name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order });
+      const { error } = await backend.from("categories").insert({ store_id: store.id, name: form.name.trim().toUpperCase(), description: form.description || null, sort_order: form.sort_order });
       setSaving(false);
       if (error) return toast.error(error.message);
       toast.success("Categoria criada");
@@ -54,13 +54,13 @@ const Categories = () => {
   };
 
   const toggle = async (c: Category) => {
-    await supabase.from("categories").update({ is_active: !c.is_active }).eq("id", c.id);
+    await backend.from("categories").update({ is_active: !c.is_active }).eq("id", c.id);
     load();
   };
 
   const remove = async (c: Category) => {
     if (!confirm(`Excluir categoria "${c.name}"?`)) return;
-    const { error } = await supabase.from("categories").delete().eq("id", c.id);
+    const { error } = await backend.from("categories").delete().eq("id", c.id);
     if (error) return toast.error(error.message);
     toast.success("Categoria excluída");
     load();

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ const Customers = () => {
   useEffect(() => {
     if (!store?.id) return;
     (async () => {
-      const { data } = await supabase.from("customers").select("*").eq("store_id", store.id)
+      const { data } = await backend.from("customers").select("*").eq("store_id", store.id)
         .order("last_order_at", { ascending: false, nullsFirst: false }).limit(500);
       setItems(data ?? []);
       setLoading(false);
@@ -35,7 +35,7 @@ const Customers = () => {
 
   const openHistory = async (c: any) => {
     setSelected(c);
-    const { data } = await supabase.from("orders").select("id, order_number, status, total, created_at, delivery_type")
+    const { data } = await backend.from("orders").select("id, order_number, status, total, created_at, delivery_type")
       .eq("store_id", store.id).eq("customer_id", c.id).order("created_at", { ascending: false }).limit(50);
     setOrders(data ?? []);
   };

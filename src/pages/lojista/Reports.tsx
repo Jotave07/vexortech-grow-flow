@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Download, TrendingUp, ShoppingBag, DollarSign, Users } from "lucide-react";
@@ -26,9 +26,9 @@ const Reports = () => {
       setLoading(true);
       const since = new Date(Date.now() - Number(range) * 24 * 60 * 60 * 1000).toISOString();
       const [{ data: o }, { data: it }] = await Promise.all([
-        supabase.from("orders").select("created_at, total, status, delivery_type, payment_method, customer_id")
+        backend.from("orders").select("created_at, total, status, delivery_type, payment_method, customer_id")
           .eq("store_id", store.id).gte("created_at", since).limit(2000),
-        supabase.from("order_items").select("product_name, quantity, subtotal, created_at")
+        backend.from("order_items").select("product_name, quantity, subtotal, created_at")
           .eq("store_id", store.id).gte("created_at", since).limit(5000),
       ]);
       setOrders(o ?? []);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, AlertCircle, Clock } from "lucide-react";
@@ -25,7 +25,7 @@ const PaymentSuccess = () => {
 
     const tick = async () => {
       attempts += 1;
-      const { data } = await supabase.rpc("get_public_order", { _token: token });
+      const { data } = await backend.rpc("get_public_order", { _token: token });
       const o = data?.[0] ?? null;
       if (cancelled) return;
       setOrder(o);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import type { Tables } from "@/integrations/supabase/types";
-import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/backend/types";
+import { backend } from "@/integrations/backend/client";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { createSubscriptionCheckout } from "@/services/subscription-billing";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,7 @@ const Subscription = () => {
 
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
-    const { data, error } = await (supabase
+    const { data, error } = await (backend
       .from("plans" as any)
       .select("*")
       .eq("is_active", true)
@@ -111,7 +111,7 @@ const Subscription = () => {
       last_payment_status: "pending",
     };
 
-    const storeUpdate = await (supabase
+    const storeUpdate = await (backend
       .from("stores" as any)
       .update({ plan_id: selectedPlanId })
       .eq("id", store.id) as any);
@@ -123,8 +123,8 @@ const Subscription = () => {
     }
 
     const subscriptionMutation = subscription
-      ? (supabase.from("subscriptions" as any).update(updatePayload).eq("id", subscription.id) as any)
-      : (supabase.from("subscriptions" as any).insert({
+      ? (backend.from("subscriptions" as any).update(updatePayload).eq("id", subscription.id) as any)
+      : (backend.from("subscriptions" as any).insert({
         ...updatePayload,
         store_id: store.id,
       }) as any);
@@ -138,7 +138,7 @@ const Subscription = () => {
     }
 
     try {
-      const { data: profileData } = await (supabase.from("profiles" as any).select("*").eq("user_id", store.owner_user_id).single() as any);
+      const { data: profileData } = await (backend.from("profiles" as any).select("*").eq("user_id", store.owner_user_id).single() as any);
       
       if (!store.document) {
         toast.error("Por favor, preencha o CPF/CNPJ da sua loja nas configurações antes de assinar.");

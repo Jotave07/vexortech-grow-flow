@@ -1,6 +1,6 @@
-Ôªøimport { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ const OrderTracking = () => {
     if (!token || token === "undefined") return;
     
     try {
-      const { data: o, error: oErr } = await supabase.rpc("get_public_order", { _token: token });
+      const { data: o, error: oErr } = await backend.rpc("get_public_order", { _token: token });
       if (oErr) {
         console.error("RPC Error get_public_order:", oErr);
         throw oErr;
@@ -73,8 +73,8 @@ const OrderTracking = () => {
 
       // Fetch other data in parallel
       const [{ data: it }, { data: h }] = await Promise.all([
-        supabase.rpc("get_public_order_items", { _token: token }),
-        supabase.rpc("get_public_order_status_history", { _token: token }),
+        backend.rpc("get_public_order_items", { _token: token }),
+        backend.rpc("get_public_order_status_history", { _token: token }),
       ]);
 
       setItems(it ?? []);
@@ -103,7 +103,7 @@ const OrderTracking = () => {
     void load();
 
     // Subscribe to real-time updates for this order
-    const channel = supabase
+    const channel = backend
       .channel(`order-tracking-${token}`)
       .on(
         "postgres_changes",
@@ -132,7 +132,7 @@ const OrderTracking = () => {
     const interval = setInterval(load, 30000);
     
     return () => {
-      void supabase.removeChannel(channel);
+      void backend.removeChannel(channel);
       clearInterval(interval);
     };
   }, [token, load]);
@@ -160,7 +160,7 @@ const OrderTracking = () => {
   const copyPix = () => {
     if (pixInfo?.pixCode) {
       navigator.clipboard.writeText(pixInfo.pixCode);
-      toast.success("C√≥digo PIX copiado!");
+      toast.success("CÛdigo PIX copiado!");
     }
   };
 
@@ -172,11 +172,11 @@ const OrderTracking = () => {
         <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center text-muted-foreground mb-4">
           <Circle className="h-10 w-10 opacity-20" />
         </div>
-        <h1 className="font-black text-2xl uppercase tracking-tighter italic">Pedido n√£o encontrado</h1>
+        <h1 className="font-black text-2xl uppercase tracking-tighter italic">Pedido n„o encontrado</h1>
         <p className="text-muted-foreground max-w-xs text-sm">
           {!token || token === "undefined" 
             ? "O link do pedido parece estar incompleto. Por favor, feche esta aba e tente novamente pelo checkout."
-            : "N√£o conseguimos localizar as informa√ß√µes deste pedido. Verifique o link ou entre em contato com a loja."}
+            : "N„o conseguimos localizar as informaÁıes deste pedido. Verifique o link ou entre em contato com a loja."}
         </p>
         <Button variant="outline" onClick={() => window.location.reload()} className="border border-border rounded-xl font-bold uppercase">
           Tentar Novamente
@@ -198,7 +198,7 @@ const OrderTracking = () => {
               <Check className="h-10 w-10 stroke-[3px]" />
             </div>
             <h2 className="text-3xl font-black uppercase tracking-tight italic text-foreground">Pagamento Confirmado!</h2>
-            <p className="text-muted-foreground font-medium uppercase text-xs tracking-widest">Seu pedido j√° foi enviado para a cozinha.</p>
+            <p className="text-muted-foreground font-medium uppercase text-xs tracking-widest">Seu pedido j· foi enviado para a cozinha.</p>
             <div className="pt-4">
               <Button onClick={() => setIsPaidSuccess(false)} variant="hero" className="w-full">
                 Acompanhar Preparo
@@ -227,13 +227,13 @@ const OrderTracking = () => {
                 <QrCode className="h-8 w-8" />
               </div>
               <h2 className="font-black uppercase tracking-tight text-xl italic text-foreground">Pague com PIX</h2>
-              <p className="text-[10px] text-foreground font-bold uppercase tracking-widest">Aguardando confirma√ß√£o autom√°tica</p>
+              <p className="text-[10px] text-foreground font-bold uppercase tracking-widest">Aguardando confirmaÁ„o autom·tica</p>
             </div>
             
             {!pixInfo ? (
               <div className="flex flex-col items-center gap-4 py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-xs font-bold uppercase text-foreground">Gerando informa√ß√µes de pagamento...</p>
+                <p className="text-xs font-bold uppercase text-foreground">Gerando informaÁıes de pagamento...</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -246,7 +246,7 @@ const OrderTracking = () => {
             ) : pixInfo.error ? (
               <div className="flex flex-col items-center gap-4 py-8 bg-white border-2 border-red-200 p-4">
                 <p className="text-sm font-bold text-red-600 uppercase">Erro no Gateway: {pixInfo.error}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Tente atualizar a p√°gina ou entre em contato com a loja.</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Tente atualizar a p·gina ou entre em contato com a loja.</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -276,14 +276,14 @@ const OrderTracking = () => {
                     {pixInfo.pixCode}
                   </div>
                   <Button onClick={copyPix} variant="default" className="w-full h-14 font-black bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground uppercase tracking-tighter text-lg rounded-xl border border-border shadow-panel active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
-                    <Copy className="h-5 w-5 mr-2" /> Copiar C√≥digo PIX
+                    <Copy className="h-5 w-5 mr-2" /> Copiar CÛdigo PIX
                   </Button>
                 </div>
               </>
             )}
             
             <div className="p-3 bg-white border-2 border-dashed border-border rounded-xl text-[10px] text-foreground font-bold uppercase leading-tight">
-              O seu pedido ser√° confirmado em instantes ap√≥s o pagamento
+              O seu pedido ser· confirmado em instantes apÛs o pagamento
             </div>
           </Card>
         )}
@@ -292,7 +292,7 @@ const OrderTracking = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="font-black uppercase tracking-tighter italic text-lg">Acompanhe seu pedido</h2>
-              <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Atualiza√ß√µes em tempo real</p>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">AtualizaÁıes em tempo real</p>
             </div>
             <Badge className={`rounded-xl border border-border text-[10px] font-black uppercase px-3 py-1 ${cancelled ? "bg-red-500" : "bg-primary"}`}>
               {STATUS_LABELS[order.status] ?? order.status}
@@ -366,7 +366,7 @@ const OrderTracking = () => {
 
           {/* Detailed Timeline - Optional but good for transparency */}
           <div className="mt-6 space-y-3 pt-6 border-t border-dashed border-border/10">
-            <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground">Hist√≥rico Detalhado</h4>
+            <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground">HistÛrico Detalhado</h4>
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
                 {history.slice(0, 3).map((h, i) => (
@@ -402,7 +402,7 @@ const OrderTracking = () => {
                 <li key={it.id} className="flex flex-col gap-1 border-b border-dashed border-border pb-2">
                   <div className="flex justify-between gap-4">
                     <div className="flex-1">
-                      <div className="font-bold text-sm uppercase tracking-tight">{it.quantity}√ó {it.product_name}</div>
+                      <div className="font-bold text-sm uppercase tracking-tight">{it.quantity}◊ {it.product_name}</div>
                       <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
                         {formatBRL(itemUnitTotal)} cada
                       </div>
@@ -429,7 +429,7 @@ const OrderTracking = () => {
             {order.delivery_type === "entrega" && (
               <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 <span>Entrega</span>
-                <span>{Number(order.delivery_fee || 0) === 0 ? "Gr√°tis" : formatBRL(order.delivery_fee)}</span>
+                <span>{Number(order.delivery_fee || 0) === 0 ? "Gr·tis" : formatBRL(order.delivery_fee)}</span>
               </div>
             )}
             {Number(order.discount_amount) > 0 && (
@@ -458,7 +458,7 @@ const OrderTracking = () => {
         <div className="grid grid-cols-1 gap-3">
           {order.store_whatsapp && (
             <Button asChild className="w-full h-14 rounded-xl border border-border font-black uppercase tracking-tight bg-[#25D366] hover:bg-[#128C7E] text-white shadow-panel">
-              <a href={buildWhatsAppLink(order.store_whatsapp, `Ol√°! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
+              <a href={buildWhatsAppLink(order.store_whatsapp, `Ol·! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
                 <MessageSquare className="h-5 w-5 mr-2" /> Chamar no WhatsApp
               </a>
             </Button>
