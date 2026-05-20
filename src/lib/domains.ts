@@ -1,5 +1,5 @@
-export const DELIVERY_DOMAIN = "vexortech.com.br";
-export const PARTNERS_DOMAIN = "parceiros.vexortech.com.br";
+export const DELIVERY_DOMAIN = "hypedelivery.com.br";
+export const PARTNERS_DOMAIN = "parceiros.hypedelivery.com.br";
 
 const withLeadingSlash = (path: string) => (path.startsWith("/") ? path : `/${path}`);
 

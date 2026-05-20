@@ -38,14 +38,14 @@ export const BrandMark = ({ compact, className, to, inverted }: BrandMarkProps) 
 
   if (to) {
     return (
-      <Link to={to} className={classes} aria-label="VexorTech">
+      <Link to={to} className={classes} aria-label="Hype Delivery">
         {content}
       </Link>
     );
   }
 
   return (
-    <div className={classes} aria-label="VexorTech">
+    <div className={classes} aria-label="Hype Delivery">
       {content}
     </div>
   );

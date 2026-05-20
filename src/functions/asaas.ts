@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { asaas } from "@/server/asaas.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendOrderStatusNotification } from "@/functions/evolution";
 
 export const testAsaasConnection = createServerFn({ method: "POST" })
   .inputValidator(z.object({
@@ -12,7 +13,7 @@ export const testAsaasConnection = createServerFn({ method: "POST" })
     const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'}/customers?limit=1`, {
       headers: { 
         'access_token': data.apiKey,
-        'User-Agent': 'VexorDelivery/1.0'
+        'User-Agent': 'HypeDelivery/1.0'
       }
     });
 
@@ -51,7 +52,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       value: Number(plan.price_monthly),
       nextDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       cycle: "MONTHLY",
-      description: `Assinatura Plano ${plan.name} - Vexortech Delivery`,
+      description: `Assinatura Plano ${plan.name} - Hype Delivery`,
       externalReference: data.storeId,
     });
     if (subscription.errors) throw new Error(subscription.errors[0].description);
@@ -269,6 +270,14 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
         store_id: data.storeId, 
         status: "novo", 
         notes: "Pagamento PIX confirmado automaticamente" 
+      });
+
+      await sendOrderStatusNotification(
+        data.orderId,
+        "novo",
+        "Pagamento PIX confirmado automaticamente",
+      ).catch((error) => {
+        console.warn("Evolution status notification skipped:", error);
       });
 
       return { status: "paid" };

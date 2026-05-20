@@ -176,7 +176,7 @@ export const HeroAnimation = () => {
                 </div>
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-bold text-white">Restaurante Vexor</span>
+                    <span className="text-[11px] font-bold text-white">Restaurante Hype</span>
                     <span className="text-[10px] text-white/50">Saiu do estabelecimento às 19:42</span>
                   </div>
                   <div className="flex flex-col">

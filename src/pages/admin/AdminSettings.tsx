@@ -30,7 +30,7 @@ const AdminSettings = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Configurações da Plataforma</h1>
-        <p className="text-muted-foreground">Gestão global de pagamentos e manutenção Vexor.</p>
+        <p className="text-muted-foreground">Gestão global de pagamentos e manutencao Hype.</p>
       </div>
 
       <div className="grid gap-6">
@@ -86,7 +86,7 @@ const AdminSettings = () => {
                 </Button>
                 <Button variant="outline" className="font-black uppercase tracking-widest text-xs h-11" asChild>
                   <a href="https://www.asaas.com" target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" /> Painel Asaas Vexor
+                    <ExternalLink className="h-4 w-4 mr-2" /> Painel Asaas Hype
                   </a>
                 </Button>
               </div>

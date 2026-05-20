@@ -179,7 +179,7 @@ const Onboarding = () => {
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <Label htmlFor="name">Nome do estabelecimento *</Label>
-            <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Burger Vexor" required />
+            <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Burger Hype" required />
           </div>
           <div>
             <Label htmlFor="slug">Endereço da loja *</Label>

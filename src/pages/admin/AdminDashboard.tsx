@@ -30,7 +30,7 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Visão geral Vexor</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Visao geral Hype</h1>
         <p className="text-muted-foreground">Métricas globais da plataforma.</p>
       </div>
 

@@ -1,32 +1,165 @@
-import { useEffect, useState, useMemo } from "react";
-import { useOutletContext, Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, MapPin, Clock, RefreshCw, AlertTriangle, ArrowRight, Activity } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  Phone,
+  RefreshCw,
+  TimerReset,
+  Truck,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
-import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { formatBRL, STATUS_LABELS, STATUS_COLORS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
+import { notifyOrderStatusChanged } from "@/functions/evolution";
 import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 
+type OrderColumn = {
+  key: string;
+  label: string;
+  helper: string;
+  statuses: string[];
+  nextStatus?: string;
+  nextLabel?: string | ((order: any) => string);
+};
 
-
-const COLUMNS: { key: string; label: string; nextStatus?: string; nextLabel?: string }[] = [
-  { key: "aguardando_pagamento", label: "Aguardando PIX" },
-  { key: "novo", label: "Novos", nextStatus: "confirmado", nextLabel: "Aceitar" },
-  { key: "confirmado", label: "Confirmados", nextStatus: "em_preparo", nextLabel: "Preparar" },
-  { key: "em_preparo", label: "Em preparo", nextStatus: "saiu_para_entrega", nextLabel: "Enviar/Pronto" },
-  { key: "saiu_para_entrega", label: "Saiu/Pronto", nextStatus: "entregue", nextLabel: "Concluir" },
-  { key: "entregue", label: "Entregues" },
+const COLUMNS: OrderColumn[] = [
+  {
+    key: "aguardando_pagamento",
+    label: "Aguardando PIX",
+    helper: "So entra na cozinha quando o PIX confirmar.",
+    statuses: ["aguardando_pagamento"],
+  },
+  {
+    key: "novo",
+    label: "Entrada",
+    helper: "Pedidos liberados para aceitar.",
+    statuses: ["novo"],
+    nextStatus: "confirmado",
+    nextLabel: "Aceitar pedido",
+  },
+  {
+    key: "confirmado",
+    label: "Confirmados",
+    helper: "Organize a fila antes de preparar.",
+    statuses: ["confirmado"],
+    nextStatus: "em_preparo",
+    nextLabel: "Iniciar preparo",
+  },
+  {
+    key: "em_preparo",
+    label: "Em preparo",
+    helper: "Acompanhe o tempo estimado.",
+    statuses: ["em_preparo"],
+    nextStatus: "saiu_para_entrega",
+    nextLabel: (order) => order.delivery_type === "retirada" ? "Marcar pronto" : "Saiu para entrega",
+  },
+  {
+    key: "saiu_para_entrega",
+    label: "Rota / retirada",
+    helper: "Finalize quando entregar ou retirar.",
+    statuses: ["saiu_para_entrega", "pronto_para_retirada"],
+    nextStatus: "entregue",
+    nextLabel: "Concluir pedido",
+  },
+  {
+    key: "entregue",
+    label: "Concluidos",
+    helper: "Historico recente da loja.",
+    statuses: ["entregue"],
+  },
+  {
+    key: "cancelado",
+    label: "Cancelados",
+    helper: "Pedidos encerrados sem venda.",
+    statuses: ["cancelado"],
+  },
 ];
 
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pago: "Pago",
+  pendente: "Pendente",
+  cancelado: "Cancelado",
+  estornado: "Estornado",
+};
+
+const PAYMENT_STATUS_CLASSES: Record<string, string> = {
+  pago: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  pendente: "border-amber-200 bg-amber-50 text-amber-700",
+  cancelado: "border-red-200 bg-red-50 text-red-700",
+  estornado: "border-slate-200 bg-slate-50 text-slate-700",
+};
+
+const sortOrders = (items: any[]) =>
+  [...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+const orderAgeInMinutes = (order: any) =>
+  Math.max(0, Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000));
+
+const formatOrderAge = (order: any) => {
+  const minutes = orderAgeInMinutes(order);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${hours}h${rest ? ` ${rest}m` : ""}`;
+};
+
+const getItemTotal = (item: any) => {
+  const optionsTotal = (item.order_item_options || []).reduce(
+    (sum: number, option: any) => sum + Number(option.extra_price || 0),
+    0,
+  );
+  return (Number(item.unit_price || 0) + optionsTotal) * Number(item.quantity || 0);
+};
+
+const getNextAction = (order: any) => {
+  const column = COLUMNS.find((candidate) => candidate.statuses.includes(order.status));
+  if (!column?.nextStatus) return null;
+  const nextStatus = column.nextStatus;
+  return {
+    status: nextStatus,
+    label: typeof column.nextLabel === "function" ? column.nextLabel(order) : column.nextLabel || "Avancar",
+  };
+};
+
+const statusUpdatePayload = (status: string, order: any) => {
+  const now = new Date().toISOString();
+  const payload: Record<string, any> = { status, updated_at: now };
+
+  if (status === "confirmado") payload.accepted_at = now;
+  if (status === "em_preparo") payload.preparation_started_at = now;
+  if (status === "saiu_para_entrega") payload.out_for_delivery_at = now;
+  if (status === "pronto_para_retirada") payload.ready_at = now;
+  if (status === "entregue") {
+    payload.delivered_at = now;
+    payload.payment_status = "pago";
+  }
+  if (status === "cancelado") {
+    payload.cancelled_at = now;
+    payload.payment_status = order?.payment_status === "pago" ? "estornado" : "cancelado";
+  }
+
+  return payload;
+};
+
 const Orders = () => {
-  const navigate = useNavigate();
   const { store } = useOutletContext<{ store: any }>();
   const { accessState, message } = useSubscriptionStatus();
   const [orders, setOrders] = useState<any[]>([]);
@@ -34,30 +167,48 @@ const Orders = () => {
   const [selected, setSelected] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [realtimeState, setRealtimeState] = useState<"connecting" | "online" | "offline">("connecting");
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
   const refundOrderPaymentFn = useServerFn(refundOrderPayment);
+  const notifyOrderStatusChangedFn = useServerFn(notifyOrderStatusChanged);
 
-  const load = async () => {
-    const { data } = await supabase.from("orders").select("*").eq("store_id", store.id)
-      .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      .order("created_at", { ascending: false }).limit(200);
-    setOrders(data ?? []);
+  const load = useCallback(async () => {
+    if (!store?.id) return;
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("store_id", store.id)
+      .gte("created_at", new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(250);
+
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setOrders(sortOrders(data ?? []));
+    setLastSync(new Date());
     setLoading(false);
-  };
+  }, [store?.id]);
 
   useEffect(() => {
     if (!store?.id) return;
-    load();
+
+    void load();
+
     const playNotificationSound = () => {
       try {
-        // Um som de notificação mais robusto e "alto"
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const playTone = (freq: number, startTime: number, duration: number) => {
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
           osc.type = "sine";
           osc.frequency.setValueAtTime(freq, startTime);
-          gain.gain.setValueAtTime(0.5, startTime);
+          gain.gain.setValueAtTime(0.45, startTime);
           gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
           osc.connect(gain);
           gain.connect(audioContext.destination);
@@ -65,97 +216,126 @@ const Orders = () => {
           osc.stop(startTime + duration);
         };
 
-        // Sequência de "bi-bi" alto
         const now = audioContext.currentTime;
         playTone(880, now, 0.1);
-        playTone(880, now + 0.2, 0.1);
-        playTone(1108.73, now + 0.4, 0.3);
-      } catch (e) {
-        console.error("Erro ao tocar som:", e);
+        playTone(1108.73, now + 0.18, 0.22);
+      } catch (error) {
+        console.error("Notification sound failed:", error);
       }
     };
 
-    console.log(`[Orders] Subscribing to realtime updates for store ${store.id}`);
-    const ch = supabase.channel(`orders-store-${store.id}`)
+    const channel = supabase.channel(`orders-store-${store.id}`)
       .on(
-        "postgres_changes", 
-        { 
-          event: "*", 
-          schema: "public", 
-          table: "orders", 
-          filter: `store_id=eq.${store.id}` 
-        }, 
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `store_id=eq.${store.id}`,
+        },
         (payload) => {
-          console.log("[Orders] Realtime payload received:", payload);
-          
           if (payload.eventType === "INSERT") {
             const newOrder = payload.new as any;
-            if (newOrder.status === "novo") {
-              toast.success(`🔔 Novo pedido #${newOrder.order_number}`, { duration: 8000 });
-              playNotificationSound();
-            }
-          } else if (payload.eventType === "UPDATE") {
+            setOrders((current) => sortOrders([newOrder, ...current.filter((item) => item.id !== newOrder.id)]));
+            toast.success(`Novo pedido #${newOrder.order_number}`, { duration: 8000 });
+            playNotificationSound();
+          }
+
+          if (payload.eventType === "UPDATE") {
             const oldOrder = payload.old as any;
             const newOrder = payload.new as any;
-            
-            // If it was waiting payment and now it is "novo" (paid)
+            setOrders((current) => sortOrders(current.map((item) => item.id === newOrder.id ? { ...item, ...newOrder } : item)));
+            setSelected((current: any) => current?.id === newOrder.id ? { ...current, ...newOrder } : current);
+
             if (oldOrder.status === "aguardando_pagamento" && newOrder.status === "novo") {
-              toast.success(`✅ Pagamento confirmado! Pedido #${newOrder.order_number}`, { duration: 8000 });
+              toast.success(`Pagamento confirmado! Pedido #${newOrder.order_number}`, { duration: 8000 });
               playNotificationSound();
             }
           }
-          
-          // Force a full reload to ensure the UI matches the DB state perfectly
+
+          setLastSync(new Date());
           void load();
-        }
+        },
       )
       .subscribe((status) => {
-        console.log(`[Orders] Realtime subscription status: ${status}`);
-        if (status === "SUBSCRIBED") {
-          console.log("[Orders] Successfully subscribed to realtime updates");
-        }
+        if (status === "SUBSCRIBED") setRealtimeState("online");
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setRealtimeState("offline");
       });
 
-    // Polling fallback every 60s for lojista
-    const pollInterval = setInterval(load, 60000);
+    const pollInterval = window.setInterval(load, 20000);
 
-    return () => { 
-      console.log("[Orders] Unsubscribing from realtime");
-      void supabase.removeChannel(ch); 
-      clearInterval(pollInterval);
+    return () => {
+      void supabase.removeChannel(channel);
+      window.clearInterval(pollInterval);
     };
-    // eslint-disable-next-line
-  }, [store?.id, navigate]);
+  }, [store?.id, load]);
 
-  const openDetails = async (o: any) => {
-    setSelected(o);
-    const { data } = await supabase.from("order_items").select("*, order_item_options(*)").eq("order_id", o.id);
+  const summary = useMemo(() => {
+    const active = orders.filter((order) => !["entregue", "cancelado"].includes(order.status));
+    const waitingPayment = orders.filter((order) => order.status === "aguardando_pagamento").length;
+    const production = orders.filter((order) => ["novo", "confirmado", "em_preparo"].includes(order.status)).length;
+    const route = orders.filter((order) => ["saiu_para_entrega", "pronto_para_retirada"].includes(order.status)).length;
+    const completedRevenue = orders
+      .filter((order) => order.status === "entregue" || order.payment_status === "pago")
+      .reduce((sum, order) => sum + Number(order.total || 0), 0);
+    const urgent = active.filter((order) => orderAgeInMinutes(order) >= 25).length;
+
+    return { active: active.length, waitingPayment, production, route, completedRevenue, urgent };
+  }, [orders]);
+
+  const openDetails = async (order: any) => {
+    setSelected(order);
+    const { data } = await supabase
+      .from("order_items")
+      .select("*, order_item_options(*)")
+      .eq("order_id", order.id);
+
     setItems(data ?? []);
-    if (!o.is_seen) await supabase.from("orders").update({ is_seen: true }).eq("id", o.id);
+
+    if (!order.is_seen) {
+      await supabase.from("orders").update({ is_seen: true }).eq("id", order.id);
+      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, is_seen: true } : item));
+    }
   };
 
-  const updateStatus = async (orderId: string, status: any, note?: string) => {
-    // Validar transição para pronto_para_retirada
+  const updateStatus = async (orderId: string, status: string, note?: string) => {
+    const order = orders.find((item) => item.id === orderId) || selected;
+    if (!order) return;
+
     let finalStatus = status;
-    const order = orders.find(o => o.id === orderId);
-    if (status === "saiu_para_entrega" && order?.delivery_type === "retirada") {
+    if (status === "saiu_para_entrega" && order.delivery_type === "retirada") {
       finalStatus = "pronto_para_retirada";
     }
 
-    const { error } = await supabase.from("orders").update({ status: finalStatus }).eq("id", orderId);
-    if (error) return toast.error(error.message);
-    
-    await supabase.from("order_status_history").insert({ 
-      order_id: orderId, 
-      store_id: store.id, 
-      status: finalStatus, 
-      notes: note ?? null 
-    } as any);
+    setUpdatingId(orderId);
+    try {
+      const { data: updatedOrder, error } = await supabase
+        .from("orders")
+        .update(statusUpdatePayload(finalStatus, order))
+        .eq("id", orderId)
+        .select("*")
+        .maybeSingle();
 
-    if (finalStatus === "entregue") {
-      if (order?.customer_id) {
-        if (order.status !== "entregue") {
-          const { data: customer } = await supabase.from("customers").select("total_orders, total_spent").eq("id", order.customer_id).maybeSingle();
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      await supabase.from("order_status_history").insert({
+        order_id: orderId,
+        store_id: store.id,
+        status: finalStatus,
+        notes: note ?? null,
+      } as any);
+
+      if (finalStatus === "entregue") {
+        if (order.customer_id && order.status !== "entregue") {
+          const { data: customer } = await supabase
+            .from("customers")
+            .select("total_orders, total_spent")
+            .eq("id", order.customer_id)
+            .maybeSingle();
+
           if (customer) {
             await supabase.from("customers").update({
               total_orders: (customer.total_orders ?? 0) + 1,
@@ -164,263 +344,377 @@ const Orders = () => {
             }).eq("id", order.customer_id);
           }
         }
+
+        await supabase.from("payments").update({
+          status: "pago",
+          paid_at: new Date().toISOString(),
+        }).eq("order_id", orderId);
       }
-      await supabase.from("payments").update({ status: "pago", paid_at: new Date().toISOString() }).eq("order_id", orderId);
+
+      if (finalStatus === "cancelado") {
+        await supabase.from("payments").update({ status: "cancelado" }).eq("order_id", orderId);
+      }
+
+      await notifyOrderStatusChangedFn({
+        data: { orderId, status: finalStatus, note: note ?? undefined },
+      }).catch((error) => {
+        console.warn("Evolution status notification skipped:", error);
+      });
+
+      const mergedOrder = { ...order, ...(updatedOrder ?? {}), status: finalStatus };
+      setOrders((current) => sortOrders(current.map((item) => item.id === orderId ? mergedOrder : item)));
+      if (selected?.id === orderId) setSelected(mergedOrder);
+      toast.success("Status atualizado e cliente avisado");
+      void load();
+    } finally {
+      setUpdatingId(null);
     }
-    
-    toast.success("Status atualizado");
-    if (selected?.id === orderId) setSelected({ ...selected, status: finalStatus });
-    load();
   };
 
   const cancelOrder = async (orderId: string) => {
-    if (!confirm("Cancelar este pedido? Isso irá estornar o PIX automaticamente se já estiver pago.")) return;
-    
-    const order = orders.find(o => o.id === orderId);
-    if (order?.payment_method === "pix") {
+    if (!confirm("Cancelar este pedido? Se o PIX ja estiver pago, o sistema tentara estornar automaticamente.")) return;
+
+    const order = orders.find((item) => item.id === orderId) || selected;
+    if (order?.payment_method === "pix" && order?.payment_status === "pago") {
       try {
         const refundRes = await refundOrderPaymentFn({ data: { orderId, storeId: store.id } });
         if (refundRes.success) {
           toast.success("Pagamento PIX estornado com sucesso");
         }
-      } catch (e: any) {
-        console.error("Erro no estorno:", e);
-        // We continue with cancellation even if refund fails, but inform the user
-        toast.error("Aviso: O estorno automático falhou. Verifique no painel do Asaas.");
+      } catch (error) {
+        console.error("Refund failed:", error);
+        toast.error("Aviso: o estorno automatico falhou. Verifique no painel do Asaas.");
       }
     }
-    
+
     await updateStatus(orderId, "cancelado", "Cancelado pela loja");
   };
 
-  if (loading) return <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin inline text-primary" /></div>;
+  const syncSelectedPayment = async () => {
+    if (!selected) return;
+    setSyncing(true);
+    try {
+      const res = await syncPaymentStatusFn({ data: { orderId: selected.id, storeId: store.id } });
+      if (res.status === "paid") {
+        toast.success("Pagamento confirmado!");
+        await load();
+      } else {
+        toast.info("Pagamento ainda nao identificado.");
+      }
+    } catch (error) {
+      toast.error("Erro ao verificar pagamento");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center">
+        <Loader2 className="inline h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (accessState !== "active") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
-        <div className="bg-amber-50 text-amber-600 p-4 rounded-full border-2 border-amber-200">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-4 p-6 text-center">
+        <div className="rounded-full border-2 border-amber-200 bg-amber-50 p-4 text-amber-600">
           <AlertTriangle className="h-12 w-12" />
         </div>
         <div className="max-w-md">
-          <h2 className="text-2xl font-black uppercase tracking-tight italic">Acesso Restrito</h2>
-          <p className="text-muted-foreground mt-2 font-medium">{message}</p>
+          <h2 className="text-2xl font-black uppercase tracking-tight italic">Acesso restrito</h2>
+          <p className="mt-2 font-medium text-muted-foreground">{message}</p>
         </div>
-        <Button variant="hero" className="font-black uppercase tracking-widest text-xs h-12 px-8" asChild>
+        <Button variant="hero" className="h-12 px-8 text-xs font-black uppercase tracking-widest" asChild>
           <Link to="/lojista/assinatura">
-            Regularizar Assinatura <ArrowRight className="ml-2 h-4 w-4" />
+            Regularizar assinatura <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
       </div>
     );
   }
 
+  const selectedAction = selected ? getNextAction(selected) : null;
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-black uppercase tracking-tight">Gestão de Pedidos</h1>
-          <p className="text-muted-foreground font-medium">Acompanhe e processe as vendas do seu delivery.</p>
+          <h1 className="text-3xl font-black uppercase tracking-tight">Gestao de pedidos</h1>
+          <p className="font-medium text-muted-foreground">Fila operacional com pagamento, entrega e avisos automaticos ao cliente.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-foreground">
-            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            Em Tempo Real
+        <div className="flex flex-wrap items-center gap-3">
+          <div className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest",
+            realtimeState === "online" ? "border-primary/30 bg-primary/10 text-foreground" : "border-amber-200 bg-amber-50 text-amber-700",
+          )}>
+            <div className={cn("h-2 w-2 rounded-full", realtimeState === "online" ? "animate-pulse bg-primary" : "bg-amber-500")} />
+            {realtimeState === "online" ? "Tempo real ativo" : "Reconectando"}
           </div>
-          <Button variant="outline" size="sm" onClick={load} className="rounded-xl border-border font-bold uppercase tracking-widest text-[10px]">
+          {lastSync && (
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Sync {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={load} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-        {COLUMNS.map((col) => {
-          const colOrders = orders.filter((o) => {
-            if (col.key === "saiu_para_entrega") {
-              return o.status === "saiu_para_entrega" || o.status === "pronto_para_retirada";
-            }
-            return o.status === col.key;
-          });
-          
-          return (
-            <div key={col.key} className="flex-shrink-0 w-80 flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-border pb-2 px-1">
-                <h3 className="font-black text-xs uppercase tracking-widest">{col.label}</h3>
-                <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">{colOrders.length}</span>
-              </div>
-              
-              <div className="space-y-3 min-h-[500px] rounded-2xl border border-dashed border-border bg-muted/20 p-2">
-                <AnimatePresence mode="popLayout">
-                  {colOrders.map((o) => (
-                    <motion.div
-                      key={o.id}
-                      layout
-                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                      transition={{ 
-                        type: "spring",
-                        stiffness: 300,
-                        damping: 25
-                      }}
-                    >
-                      <Card 
-                        className={cn(
-                          "p-4 cursor-pointer hover:shadow-elegant hover:-translate-y-0.5 transition-all duration-200 border border-border rounded-2xl bg-white relative overflow-hidden",
-                          !o.is_seen && col.key === "novo" ? "ring-2 ring-primary" : ""
-                        )} 
-                        onClick={() => openDetails(o)}
-                      >
-                        {!o.is_seen && col.key === "novo" && (
-                          <motion.div 
-                            className="absolute top-0 right-0 p-1"
-                            animate={{ opacity: [1, 0, 1] }}
-                            transition={{ repeat: Infinity, duration: 2 }}
-                          >
-                            <Badge className="bg-primary text-[8px] h-3 px-1">Novo</Badge>
-                          </motion.div>
-                        )}
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="rounded-full bg-foreground px-2 py-0.5 text-xs font-black tracking-tighter text-background">#{o.order_number}</span>
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                        </div>
-                        
-                        <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="h-5 rounded-full border-border text-[9px] font-black uppercase tracking-widest">
-                            {o.delivery_type}
-                          </Badge>
-                          <div className="font-black text-sm">{formatBRL(o.total)}</div>
-                        </div>
-                        
-                        {col.nextStatus && (
-                          <Button 
-                            size="sm" 
-                            variant="hero" 
-                            className="w-full mt-4 text-[10px] h-8 font-black uppercase tracking-widest" 
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              updateStatus(o.id, col.nextStatus!); 
-                            }}
-                          >
-                            {col.nextLabel}
-                          </Button>
-                        )}
-                      </Card>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                {colOrders.length === 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="h-20 flex items-center justify-center rounded-xl border border-dashed border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40"
-                  >
-                    Vazio
-                  </motion.div>
-                )}
+      <div className="grid gap-3 md:grid-cols-5">
+        <SummaryCard icon={Activity} label="Ativos" value={String(summary.active)} helper="Na fila agora" />
+        <SummaryCard icon={Wallet} label="PIX pendente" value={String(summary.waitingPayment)} helper="Aguardando gateway" />
+        <SummaryCard icon={TimerReset} label="Atencao" value={String(summary.urgent)} helper="Mais de 25 min" tone={summary.urgent > 0 ? "warning" : "default"} />
+        <SummaryCard icon={Truck} label="Rota/pronto" value={String(summary.route)} helper="Saida ou retirada" />
+        <SummaryCard icon={CheckCircle2} label="Vendas" value={formatBRL(summary.completedRevenue)} helper="Pagas/concluidas" />
+      </div>
 
+      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 md:mx-0 md:px-0">
+        {COLUMNS.map((col) => {
+          const colOrders = orders.filter((order) => col.statuses.includes(order.status));
+
+          return (
+            <div key={col.key} className="flex w-[21rem] shrink-0 flex-col gap-3">
+              <div className="px-1">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <h3 className="text-xs font-black uppercase tracking-widest">{col.label}</h3>
+                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">{colOrders.length}</span>
+                </div>
+                <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{col.helper}</p>
+              </div>
+
+              <div className="min-h-[520px] space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-2">
+                <AnimatePresence mode="popLayout">
+                  {colOrders.map((order) => {
+                    const action = getNextAction(order);
+                    const paymentStatus = order.payment_status || "pendente";
+
+                    return (
+                      <motion.div
+                        key={order.id}
+                        layout
+                        initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.18 } }}
+                      >
+                        <Card
+                          className={cn(
+                            "relative cursor-pointer overflow-hidden rounded-xl border border-border bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elegant",
+                            !order.is_seen && order.status === "novo" ? "ring-2 ring-primary" : "",
+                          )}
+                          onClick={() => openDetails(order)}
+                        >
+                          {!order.is_seen && order.status === "novo" && (
+                            <Badge className="absolute right-2 top-2 h-5 bg-primary px-2 text-[8px]">Novo</Badge>
+                          )}
+
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <span className="rounded-full bg-foreground px-2 py-0.5 text-xs font-black tracking-tighter text-background">#{order.order_number}</span>
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground">{formatOrderAge(order)}</span>
+                          </div>
+
+                          <div className="mb-3 space-y-1">
+                            <div className="truncate font-black uppercase tracking-tight">{order.customer_name}</div>
+                            <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {new Date(order.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+
+                          <div className="mb-3 flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className="h-5 rounded-full border-border text-[9px] font-black uppercase tracking-widest">
+                              {order.delivery_type === "retirada" ? "Retirada" : "Entrega"}
+                            </Badge>
+                            <Badge variant="outline" className={cn("h-5 rounded-full text-[9px] font-black uppercase tracking-widest", PAYMENT_STATUS_CLASSES[paymentStatus] || PAYMENT_STATUS_CLASSES.pendente)}>
+                              {PAYMENT_STATUS_LABELS[paymentStatus] || paymentStatus}
+                            </Badge>
+                            <Badge variant="outline" className="h-5 rounded-full border-border text-[9px] font-black uppercase tracking-widest">
+                              {PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-end justify-between gap-3">
+                            <div>
+                              <div className="text-[10px] font-bold uppercase text-muted-foreground">Total</div>
+                              <div className="text-lg font-black">{formatBRL(order.total)}</div>
+                            </div>
+                            {order.estimated_min && (
+                              <div className="rounded-lg bg-blue-50 px-2 py-1 text-right text-[10px] font-black uppercase text-blue-700">
+                                {order.estimated_min}-{order.estimated_max} min
+                              </div>
+                            )}
+                          </div>
+
+                          {action && (
+                            <Button
+                              size="sm"
+                              variant="hero"
+                              className="mt-4 h-9 w-full text-[10px] font-black uppercase tracking-widest"
+                              disabled={updatingId === order.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void updateStatus(order.id, action.status);
+                              }}
+                            >
+                              {updatingId === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : action.label}
+                            </Button>
+                          )}
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+
+                {colOrders.length === 0 && (
+                  <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground/45">
+                    Sem pedidos
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Pedido #{selected?.order_number}</DialogTitle></DialogHeader>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              Pedido #{selected?.order_number}
+              {selected && (
+                <Badge className={cn("rounded-full border text-[10px] font-black uppercase", STATUS_COLORS[selected.status] || "")}>
+                  {STATUS_LABELS[selected.status] ?? selected.status}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
           {selected && (
-            <div className="space-y-4 text-sm">
-              <Badge>{STATUS_LABELS[selected.status] ?? selected.status}</Badge>
-
-              <div className="space-y-1">
-                <div className="font-medium">{selected.customer_name}</div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone className="h-3 w-3" /> {selected.customer_phone}</div>
-                
-                {selected.delivery_address && (
-                  <div className="flex items-start gap-1 text-xs text-muted-foreground">
-                    <MapPin className="h-3 w-3 mt-0.5" /> 
-                    <div className="flex flex-col">
-                      <span>{selected.delivery_address}</span>
-                      {selected.zip_code && <span className="text-[10px]">CEP: {selected.zip_code} — {selected.neighborhood}, {selected.city}/{selected.state}</span>}
-                      {selected.delivery_reference && <span className="text-[10px] italic">Ref: {selected.delivery_reference}</span>}
+            <div className="grid gap-4 text-sm lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-4">
+                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente e entrega</div>
+                  <div className="space-y-2">
+                    <div className="font-black uppercase">{selected.customer_name}</div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" /> {selected.customer_phone}
                     </div>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-3 mt-1">
-                  <div className="text-xs capitalize font-black"><Clock className="h-3 w-3 inline" /> {selected.delivery_type}</div>
-                  {selected.estimated_min && (
-                    <div className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">
-                      Estimado: {selected.estimated_min}-{selected.estimated_max} min
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-3 space-y-2">
-                {items.map((it: any) => (
-                  <div key={it.id}>
-                    <div className="flex justify-between font-medium">
-                      <span>{it.quantity}× {it.product_name}</span>
-                      <span>{formatBRL(it.subtotal)}</span>
-                    </div>
-                    {it.order_item_options?.length > 0 && (
-                      <ul className="text-xs text-muted-foreground pl-4">
-                        {it.order_item_options.map((op: any) => <li key={op.id}>+ {op.item_name}{Number(op.extra_price) > 0 && ` (${formatBRL(op.extra_price)})`}</li>)}
-                      </ul>
+                    {selected.delivery_address && (
+                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5" />
+                        <div>
+                          <div>{selected.delivery_address}</div>
+                          {selected.zip_code && <div className="text-[10px]">CEP: {selected.zip_code} - {selected.neighborhood}, {selected.city}/{selected.state}</div>}
+                          {selected.delivery_reference && <div className="text-[10px] italic">Ref: {selected.delivery_reference}</div>}
+                        </div>
+                      </div>
                     )}
-                    {it.notes && <div className="text-xs italic text-muted-foreground pl-4">"{it.notes}"</div>}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Badge variant="outline" className="rounded-full border-border text-[10px] font-black uppercase">
+                        {selected.delivery_type === "retirada" ? "Retirada" : "Entrega"}
+                      </Badge>
+                      {selected.estimated_min && (
+                        <Badge variant="outline" className="rounded-full border-blue-200 bg-blue-50 text-[10px] font-black uppercase text-blue-700">
+                          {selected.estimated_min}-{selected.estimated_max} min
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                ))}
+                </section>
+
+                <section className="rounded-xl border border-border bg-white p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Itens</div>
+                  <div className="space-y-3">
+                    {items.map((item: any) => (
+                      <div key={item.id} className="border-b border-dashed border-border pb-3 last:border-0 last:pb-0">
+                        <div className="flex justify-between gap-4 font-medium">
+                          <span>{item.quantity}x {item.product_name}</span>
+                          <span>{formatBRL(getItemTotal(item))}</span>
+                        </div>
+                        {item.order_item_options?.length > 0 && (
+                          <ul className="mt-1 pl-4 text-xs text-muted-foreground">
+                            {item.order_item_options.map((option: any) => (
+                              <li key={option.id}>+ {option.item_name}{Number(option.extra_price) > 0 && ` (${formatBRL(option.extra_price)})`}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {item.notes && <div className="mt-1 pl-4 text-xs italic text-muted-foreground">"{item.notes}"</div>}
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
 
-              <div className="border-t border-border pt-3 space-y-1">
-                <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(selected.subtotal)}</span></div>
-                {selected.delivery_type === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
-                {Number(selected.discount_amount) > 0 && <div className="flex justify-between text-green-600"><span>Desconto {selected.coupon_code && `(${selected.coupon_code})`}</span><span>-{formatBRL(selected.discount_amount)}</span></div>}
-                <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{formatBRL(selected.total)}</span></div>
-              </div>
+              <div className="space-y-4">
+                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pagamento</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 font-medium">
+                        {selected.payment_method === "dinheiro" ? <Wallet className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+                        {PAYMENT_METHOD_LABELS[selected.payment_method] || selected.payment_method}
+                      </span>
+                      <Badge variant="outline" className={cn("rounded-full text-[10px] font-black uppercase", PAYMENT_STATUS_CLASSES[selected.payment_status || "pendente"] || PAYMENT_STATUS_CLASSES.pendente)}>
+                        {PAYMENT_STATUS_LABELS[selected.payment_status || "pendente"] || selected.payment_status}
+                      </Badge>
+                    </div>
+                    {selected.change_for && <div className="text-xs text-muted-foreground">Troco para: {formatBRL(selected.change_for)}</div>}
+                    {selected.payment_method !== "pix" && selected.status !== "entregue" && (
+                      <div className="rounded-lg border border-dashed border-border bg-white p-3 text-[11px] font-medium text-muted-foreground">
+                        Receba no ato da entrega/retirada. Ao concluir o pedido, o pagamento sera marcado como pago automaticamente.
+                      </div>
+                    )}
+                    {selected.status === "aguardando_pagamento" && (
+                      <Button variant="hero" size="sm" className="w-full" onClick={syncSelectedPayment} disabled={syncing}>
+                        {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        Verificar PIX
+                      </Button>
+                    )}
+                  </div>
+                </section>
 
-              <div className="text-xs">
-                <div>Pagamento: <span className="font-medium">{PAYMENT_METHOD_LABELS[selected.payment_method] || selected.payment_method}</span></div>
-                {selected.change_for && <div>Troco para: {formatBRL(selected.change_for)}</div>}
-                {selected.notes && <div className="mt-1 italic">Obs: "{selected.notes}"</div>}
-              </div>
+                <section className="rounded-xl border border-border bg-white p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resumo financeiro</div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(selected.subtotal)}</span></div>
+                    {selected.delivery_type === "entrega" && <div className="flex justify-between"><span>Entrega</span><span>{formatBRL(selected.delivery_fee)}</span></div>}
+                    {Number(selected.discount_amount) > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Desconto {selected.coupon_code && `(${selected.coupon_code})`}</span>
+                        <span>-{formatBRL(selected.discount_amount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t border-border pt-2 text-base font-black">
+                      <span>Total</span>
+                      <span className="text-primary">{formatBRL(selected.total)}</span>
+                    </div>
+                  </div>
+                  {selected.notes && <div className="mt-3 rounded-lg bg-muted p-3 text-xs italic text-muted-foreground">Obs: "{selected.notes}"</div>}
+                </section>
 
-              <div className="flex flex-col gap-2 pt-2">
-                {selected.status === "aguardando_pagamento" && (
-                  <Button 
-                    variant="hero" 
-                    size="sm" 
-                    onClick={async () => {
-                      setSyncing(true);
-                      try {
-                        const res = await syncPaymentStatusFn({ data: { orderId: selected.id, storeId: store.id } });
-                        if (res.status === "paid") {
-                          toast.success("Pagamento confirmado!");
-                          setSelected(null);
-                          load();
-                        } else {
-                          toast.info("Pagamento ainda não identificado.");
-                        }
-                      } catch (e) {
-                        toast.error("Erro ao verificar pagamento");
-                      } finally {
-                        setSyncing(false);
-                      }
-                    }} 
-                    disabled={syncing}
-                  >
-                    {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                    Verificar Pagamento PIX
-                  </Button>
-                )}
-                <Button asChild variant="outline" size="sm">
-                  <a href={buildWhatsAppLink(selected.customer_phone, `Olá ${selected.customer_name}, sobre seu pedido #${selected.order_number}`)} target="_blank" rel="noreferrer">Chamar no WhatsApp</a>
-                </Button>
-                {selected.status !== "entregue" && selected.status !== "cancelado" && (
-                  <Button variant="destructive" size="sm" onClick={() => cancelOrder(selected.id)}>Cancelar pedido</Button>
-                )}
+                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                  <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Acoes rapidas</div>
+                  <div className="flex flex-col gap-2">
+                    {selectedAction && (
+                      <Button variant="hero" size="sm" onClick={() => updateStatus(selected.id, selectedAction.status)} disabled={updatingId === selected.id}>
+                        {updatingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {selectedAction.label}
+                      </Button>
+                    )}
+                    <Button asChild variant="outline" size="sm">
+                      <a href={buildWhatsAppLink(selected.customer_phone, `Ola ${selected.customer_name}, sobre seu pedido #${selected.order_number}`)} target="_blank" rel="noreferrer">
+                        <MessageSquare className="h-4 w-4" /> Chamar no WhatsApp
+                      </a>
+                    </Button>
+                    {!["entregue", "cancelado"].includes(selected.status) && (
+                      <Button variant="destructive" size="sm" onClick={() => cancelOrder(selected.id)}>
+                        <XCircle className="h-4 w-4" /> Cancelar pedido
+                      </Button>
+                    )}
+                  </div>
+                </section>
               </div>
             </div>
           )}
@@ -429,5 +723,34 @@ const Orders = () => {
     </div>
   );
 };
+
+type SummaryCardProps = {
+  icon: typeof Activity;
+  label: string;
+  value: string;
+  helper: string;
+  tone?: "default" | "warning";
+};
+
+const SummaryCard = ({ icon: Icon, label, value, helper, tone = "default" }: SummaryCardProps) => (
+  <Card className={cn(
+    "rounded-xl border p-4",
+    tone === "warning" ? "border-amber-200 bg-amber-50" : "border-border bg-white",
+  )}>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</div>
+        <div className="mt-1 text-xl font-black tracking-tight">{value}</div>
+        <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{helper}</div>
+      </div>
+      <div className={cn(
+        "rounded-lg p-2",
+        tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary",
+      )}>
+        <Icon className="h-4 w-4" />
+      </div>
+    </div>
+  </Card>
+);
 
 export default Orders;

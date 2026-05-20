@@ -21,7 +21,7 @@ export const testAsaasConnection = createServerFn({ method: "POST" })
     const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'}/customers?limit=1`, {
       headers: { 
         'access_token': data.apiKey,
-        'User-Agent': 'VexorDelivery/1.0'
+        'User-Agent': 'HypeDelivery/1.0'
       }
     });
 
@@ -61,7 +61,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       value: Number(plan.price_monthly),
       nextDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       cycle: "MONTHLY",
-      description: `Assinatura Plano ${plan.name} - Vexortech Delivery`,
+      description: `Assinatura Plano ${plan.name} - Hype Delivery`,
       externalReference: data.storeId,
     });
     if (subscription.errors) throw new Error(subscription.errors[0].description);

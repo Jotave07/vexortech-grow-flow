@@ -1,5 +1,5 @@
 [Unit]
-Description=VexorTech TanStack Start application
+Description=Hype Delivery TanStack Start application
 After=network.target
 
 [Service]

@@ -1,4 +1,4 @@
-export const BRAND_NAME = "VexorTech";
-export const PRODUCT_NAME = "VexorTech";
-export const PRODUCT_TAGLINE = "E-commerce e delivery para negocios locais";
+export const BRAND_NAME = "Hype Delivery";
+export const PRODUCT_NAME = "Hype Delivery";
+export const PRODUCT_TAGLINE = "Delivery online para negocios locais";
 

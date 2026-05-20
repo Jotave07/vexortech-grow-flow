@@ -24,7 +24,7 @@ export const CTA = () => {
           className="max-w-2xl"
         >
           <p className="mb-3 text-sm font-black uppercase tracking-widest text-primary">Operacao separada por dominio</p>
-          <h2 className="text-3xl font-bold md:text-5xl">parceiros.vexortech.com.br para lojas parceiras. vexortech.com.br para o delivery completo.</h2>
+          <h2 className="text-3xl font-bold md:text-5xl">parceiros.hypedelivery.com.br para lojas parceiras. hypedelivery.com.br para o delivery completo.</h2>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}

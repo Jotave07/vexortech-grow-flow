@@ -10,7 +10,7 @@ export const Footer = () => {
           <div>
             <BrandMark className="mb-4" inverted />
             <p className="text-sm leading-relaxed text-white/62">
-              VexorTech separa o delivery em vexortech.com.br e o portal exclusivo de lojas parceiras em parceiros.vexortech.com.br.
+              Hype Delivery separa o delivery em hypedelivery.com.br e o portal exclusivo de lojas parceiras em parceiros.hypedelivery.com.br.
             </p>
           </div>
           <div>
@@ -37,12 +37,12 @@ export const Footer = () => {
             <ul className="space-y-2 text-sm text-white/62">
               <li><a href="https://instagram.com/JVKRT" target="_blank" rel="noopener noreferrer" className="hover:text-primary">Instagram: @JVKRT</a></li>
               <li><a href="https://wa.me/5527995288081" target="_blank" rel="noopener noreferrer" className="hover:text-primary">WhatsApp: (27) 99528-8081</a></li>
-              <li><a href="mailto:jvieira@vexortech.com.br" className="hover:text-primary">jvieira@vexortech.com.br</a></li>
+              <li><a href="mailto:contato@hypedelivery.com.br" className="hover:text-primary">contato@hypedelivery.com.br</a></li>
             </ul>
           </div>
         </div>
         <div className="mt-12 border-t border-white/10 pt-6 text-xs text-white/45 flex flex-col md:flex-row justify-between items-center gap-4">
-          <span>&copy; {new Date().getFullYear()} VexorTech. Todos os direitos reservados.</span>
+          <span>&copy; {new Date().getFullYear()} Hype Delivery. Todos os direitos reservados.</span>
           <div className="flex gap-6">
             <Link to="/termos" className="hover:underline">Termos</Link>
             <Link to="/privacidade" className="hover:underline">Privacidade</Link>

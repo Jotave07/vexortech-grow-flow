@@ -12,7 +12,7 @@ function createSupabaseClient() {
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Configure the production environment before starting VexorTech.`;
+    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Configure the production environment before starting Hype Delivery.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }

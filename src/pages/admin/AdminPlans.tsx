@@ -63,7 +63,7 @@ const AdminPlans = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Planos</h1>
-          <p className="text-muted-foreground">Catálogo de planos Vexor.</p>
+          <p className="text-muted-foreground">Catálogo de planos Hype.</p>
         </div>
         <Button variant="hero" onClick={openNew}><Plus className="h-4 w-4" /> Novo plano</Button>
       </div>

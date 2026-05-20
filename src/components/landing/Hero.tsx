@@ -50,7 +50,7 @@ export const Hero = () => {
               transition={{ delay: 0.4, duration: 0.6 }}
               className="mb-10 max-w-2xl text-lg leading-relaxed text-black/70 md:text-xl"
             >
-              O parceiros.vexortech.com.br e exclusivo para lojas parceiras criarem, configurarem e administrarem suas operacoes. O vexortech.com.br e a area de delivery, com vitrine, cardapio, checkout, pedidos, pagamentos, entrega e acompanhamento funcionando de ponta a ponta.
+              O parceiros.hypedelivery.com.br e exclusivo para lojas parceiras criarem, configurarem e administrarem suas operacoes. O hypedelivery.com.br e a area de delivery, com vitrine, cardapio, checkout, pedidos, pagamentos, entrega e acompanhamento funcionando de ponta a ponta.
             </motion.p>
 
             <motion.div 
@@ -80,7 +80,7 @@ export const Hero = () => {
               className="mt-12 grid max-w-2xl grid-cols-1 gap-3 text-sm text-black/60 sm:grid-cols-3"
             >
               <span className="border-l-4 border-primary pl-3">Parceiros em ambiente exclusivo</span>
-              <span className="border-l-4 border-primary pl-3">Delivery em vexortech.com.br</span>
+              <span className="border-l-4 border-primary pl-3">Delivery em hypedelivery.com.br</span>
               <span className="border-l-4 border-primary pl-3">Fluxo revisado de ponta a ponta</span>
             </motion.div>
           </motion.div>

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -184,8 +184,8 @@ export default function StoresList() {
     <div className="min-h-screen bg-[#f6f7f2]">
       <div className="hidden">
         {/* SEO Metadata */}
-        <title>Marketplace | VexorTech</title>
-        <meta name="description" content="Encontre restaurantes, explore opções disponíveis e faça seu pedido de forma simples pela VexorTech." />
+        <title>Marketplace | Hype Delivery</title>
+        <meta name="description" content="Encontre restaurantes, explore opções disponíveis e faça seu pedido de forma simples pela Hype Delivery." />
       </div>
       {/* Header Desktop */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#ffffff]/95 border-b border-[#e6e8de] shadow-sm backdrop-blur-xl">

@@ -386,7 +386,7 @@ const MerchantSignup = () => {
               <a href={buildDeliveryUrl("/entrar")} className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Sou Cliente</a>
             </div>
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest italic">
-              © {new Date().getFullYear()} VexorTech. Todos os direitos reservados.
+              © {new Date().getFullYear()} Hype Delivery. Todos os direitos reservados.
             </p>
           </div>
         </div>
