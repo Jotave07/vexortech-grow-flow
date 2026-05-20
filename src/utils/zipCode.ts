@@ -2,7 +2,7 @@ export const normalizeCep = (cep: string) => cep.replace(/\D/g, "");
 
 export const isValidCep = (cep: string) => {
   const normalized = normalizeCep(cep);
-  return normalized.length === 8;
+  return /^[0-9]{8}$/.test(normalized) && !/^(\d)\1{7}$/.test(normalized);
 };
 
 export const formatCep = (cep: string) => {

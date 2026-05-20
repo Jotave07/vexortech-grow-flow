@@ -74,7 +74,7 @@ const AdminLayout = () => {
       )}>
         <div className="flex flex-col items-center border-b border-zinc-800 p-6">
           <BrandMark compact inverted />
-          <Badge variant="outline" className="mt-4 rounded-none border-red-600 text-[10px] font-black uppercase tracking-widest bg-red-600 text-white shadow-[0_0_10px_rgba(220,38,38,0.5)]">
+          <Badge variant="outline" className="mt-4 rounded-full border-red-600 bg-red-600 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_0_10px_rgba(220,38,38,0.5)]">
             SYSTEM ADMIN
           </Badge>
         </div>

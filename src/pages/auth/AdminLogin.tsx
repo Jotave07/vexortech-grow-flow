@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserRoles } from "@/lib/auth/roles";
+import { getPrimaryRole } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ const AdminLogin = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data: { user }, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: { user }, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     
     if (error) {
       setLoading(false);
@@ -26,8 +26,7 @@ const AdminLogin = () => {
       return;
     }
 
-    const roles = await getUserRoles(user?.id || "");
-    const role = roles.includes("super_admin") ? "super_admin" : "customer";
+    const role = await getPrimaryRole(user?.id || "");
     
     setLoading(false);
     

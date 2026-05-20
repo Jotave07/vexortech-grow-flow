@@ -27,12 +27,14 @@ const Signup = () => {
 
     setLoading(true);
     const { data: signUpData, error } = await supabase.auth.signUp({
-      email: form.email.toLowerCase(),
+      email: form.email.trim().toLowerCase(),
       password: form.password,
       options: {
         data: { 
           full_name: form.full_name.toUpperCase(),
-          document: form.document.replace(/\D/g, "")
+          document: form.document.replace(/\D/g, ""),
+          account_type: "customer",
+          role: "customer",
         },
       },
     });
@@ -67,7 +69,7 @@ const Signup = () => {
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="full_name">Seu Nome</Label>
-          <Input id="full_name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required className="border-emerald-200" />
+          <Input id="full_name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required className="border-border focus:border-primary" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="document">CPF ou CNPJ</Label>
@@ -77,29 +79,29 @@ const Signup = () => {
             onChange={(e) => setForm({ ...form, document: e.target.value })} 
             required 
             placeholder="000.000.000-00" 
-            className="border-emerald-200"
+            className="border-border focus:border-primary"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
-          <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className="border-emerald-200" />
+          <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className="border-border focus:border-primary" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} className="border-emerald-200" />
+          <Input id="password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} className="border-border focus:border-primary" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-          <Input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required minLength={6} className="border-emerald-200" />
+          <Input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required minLength={6} className="border-border focus:border-primary" />
         </div>
-        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11" disabled={loading}>
+        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-11" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />} 
           Criar minha conta
         </Button>
       </form>
-      <div className="mt-6 pt-6 border-t border-emerald-100 text-center">
+      <div className="mt-6 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
-          Já tem conta? <Link to={redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar"} className="text-emerald-600 font-bold hover:underline">Entrar</Link>
+          Já tem conta? <Link to={redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar"} className="text-primary font-bold hover:underline">Entrar</Link>
         </p>
       </div>
     </AuthShell>

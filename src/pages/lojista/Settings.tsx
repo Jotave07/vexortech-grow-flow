@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Loader2, MapPin, Palette, Plus, Save, Search, Settings2, Store, TimerReset, Trash2, Truck, Upload, Wallet, Copy, ExternalLink, ShieldCheck, Activity } from "lucide-react";
 import { fetchAddressByCep } from "@/services/cep/viacepService";
 import { ViaCepError } from "@/services/viacep";
-import { buildAddressLabel, normalizeCep } from "@/services/viacep";
+import { buildAddressLabel, fetchAddressFromCurrentLocation, geocodeAddressCoordinates, normalizeCep } from "@/services/viacep";
 import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
@@ -75,6 +75,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [cepLookup, setCepLookup] = useState<CepLookupState>({ status: "idle" });
+  const [geocodingStore, setGeocodingStore] = useState(false);
   
   const testAsaasConnectionFn = useServerFn(testAsaasConnection);
 
@@ -169,6 +170,54 @@ const Settings = () => {
       const message = error instanceof ViaCepError ? error.message : "Nao foi possivel consultar o CEP.";
       setCepLookup({ status: "error", message });
       toast.error(message);
+    }
+  };
+
+  const geocodeStoreAddress = async () => {
+    if (!storeForm) return;
+    setGeocodingStore(true);
+    try {
+      const coordinates = await geocodeAddressCoordinates({
+        street: storeForm.address ?? "",
+        number: storeForm.address_number ?? "",
+        neighborhood: storeForm.neighborhood ?? "",
+        city: storeForm.city ?? "",
+        state: storeForm.state ?? "",
+        zipCode: storeForm.zip_code ?? "",
+      });
+
+      if (!coordinates) {
+        toast.error("Nao foi possivel gerar coordenadas. Confira rua, numero, cidade e UF.");
+        return;
+      }
+
+      setStoreForm({ ...storeForm, latitude: coordinates.lat, longitude: coordinates.lng });
+      toast.success("Coordenadas da loja atualizadas.");
+    } finally {
+      setGeocodingStore(false);
+    }
+  };
+
+  const useCurrentStoreLocation = async () => {
+    if (!storeForm) return;
+    setGeocodingStore(true);
+    try {
+      const address = await fetchAddressFromCurrentLocation();
+      setStoreForm({
+        ...storeForm,
+        zip_code: address.cep || storeForm.zip_code,
+        address: address.street || storeForm.address,
+        neighborhood: address.neighborhood || storeForm.neighborhood,
+        city: address.city || storeForm.city,
+        state: address.state || storeForm.state,
+        latitude: address.lat ?? storeForm.latitude,
+        longitude: address.lng ?? storeForm.longitude,
+      });
+      toast.success("Localizacao atual aplicada a loja. Revise numero e complemento.");
+    } catch (error: any) {
+      toast.error(error.message || "Nao foi possivel usar a localizacao atual.");
+    } finally {
+      setGeocodingStore(false);
     }
   };
 
@@ -462,7 +511,7 @@ const Settings = () => {
               description="Use o ViaCEP para preencher rua, bairro, cidade e UF. Numero e complemento continuam editaveis manualmente."
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-[220px_auto] gap-3 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-[220px_auto_auto_auto] gap-3 items-end">
               <Field>
                 <Label htmlFor="store-zip-code">CEP</Label>
                 <Input id="store-zip-code" value={formatCEP(storeForm.zip_code) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, zip_code: e.target.value })} placeholder="00000-000" />
@@ -470,6 +519,13 @@ const Settings = () => {
               <Button variant="outline" type="button" className="w-full md:w-auto" onClick={lookupCep} disabled={cepLookup.status === "loading"}>
                 {cepLookup.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 Buscar CEP
+              </Button>
+              <Button variant="outline" type="button" className="w-full md:w-auto" onClick={geocodeStoreAddress} disabled={geocodingStore}>
+                {geocodingStore ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                Gerar coordenadas
+              </Button>
+              <Button variant="outline" type="button" className="w-full md:w-auto" onClick={useCurrentStoreLocation} disabled={geocodingStore}>
+                Usar local atual
               </Button>
             </div>
 
@@ -524,7 +580,7 @@ const Settings = () => {
               <div>
                 Coordenadas: {storeForm.latitude && storeForm.longitude
                   ? `${storeForm.latitude}, ${storeForm.longitude}`
-                  : "ainda nao configuradas. A validacao por raio real depende de geocodificacao futura."}
+                  : "ainda nao configuradas. Gere coordenadas para ativar o raio automatico com mais precisao."}
               </div>
             </div>
           </Card>
@@ -535,7 +591,7 @@ const Settings = () => {
             <SectionHeader
               icon={Truck}
               title="Entrega e retirada"
-              description="Base pronta para raio em KM, taxa por distancia e regras futuras sem fingir calculo real quando faltarem coordenadas."
+              description="Defina raio, taxa fixa e valor por KM. O checkout calcula a rota automaticamente quando cliente e loja possuem coordenadas."
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -553,7 +609,7 @@ const Settings = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
               <Field>
                 <Label>Raio maximo de entrega (KM)</Label>
                 <Input
@@ -562,6 +618,24 @@ const Settings = () => {
                   value={storeSettings.delivery_radius_km ?? ""}
                   onChange={(e) => setStoreSettings({ ...storeSettings, delivery_radius_km: e.target.value ? Number(e.target.value) : 0 })}
                   placeholder="Ex: 8"
+                />
+              </Field>
+              <Field>
+                <Label>Taxa base (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={storeSettings.delivery_base_fee ?? 0}
+                  onChange={(e) => setStoreSettings({ ...storeSettings, delivery_base_fee: Number(e.target.value) || 0 })}
+                />
+              </Field>
+              <Field>
+                <Label>Valor por KM (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={storeSettings.delivery_fee_per_km ?? 0}
+                  onChange={(e) => setStoreSettings({ ...storeSettings, delivery_fee_per_km: Number(e.target.value) || 0 })}
                 />
               </Field>
               <Field>
@@ -691,8 +765,8 @@ const Settings = () => {
               <div>{formatDeliveryFeePreview(distanceBands, toNullableNumber(storeSettings.delivery_radius_km))}</div>
               <div>
                 Validacao por distancia automatica: {storeForm.latitude && storeForm.longitude
-                  ? "loja pronta para cruzar coordenadas assim que o endereco do cliente tambem estiver geocodificado."
-                  : "aguardando coordenadas confiaveis da loja. Sem isso, o sistema nao deve fingir bloqueio por KM real."}
+                  ? "ativa. O checkout cruza coordenadas, consulta rota publica quando possivel e bloqueia pedidos fora do raio."
+                  : "aguardando coordenadas confiaveis da loja. Use Gerar coordenadas na aba Endereco."}
               </div>
               <div>
                 Zonas por bairro existentes continuam em <Link to="/lojista/entregas" className="text-primary underline-offset-4 hover:underline">Entregas</Link> para o fluxo atual do checkout.
@@ -722,7 +796,7 @@ const Settings = () => {
                 <Activity className="h-4 w-4" /> Configuração Asaas (PIX Online)
               </h3>
               
-              <div className="grid gap-4 p-4 border-2 border-primary/10 bg-primary/5 rounded-none">
+              <div className="grid gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="asaas-api-key" className="text-xs font-black uppercase tracking-widest">Chave de API Asaas</Label>
@@ -741,13 +815,13 @@ const Settings = () => {
                         placeholder={(storeSettings as any).asaas_api_key ? "••••••••••••••••••••••••" : "Insira sua API Key do Asaas"}
                         value={(storeSettings as any).asaas_api_key || ""}
                         onChange={(e) => setStoreSettings({ ...storeSettings, asaas_api_key: e.target.value } as any)}
-                        className="border-2 border-black rounded-none h-12 font-bold pr-10"
+                        className="h-12 rounded-xl border border-border pr-10 font-bold"
                       />
                       <Wallet className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
                     <Button 
                       variant="outline" 
-                      className="border-2 border-black rounded-none h-12 font-black uppercase text-xs"
+                      className="h-12 rounded-xl border border-border text-xs font-black uppercase"
                       onClick={async () => {
                         const key = (storeSettings as any).asaas_api_key;
                         if (!key) return toast.error("Insira a chave de API primeiro.");
@@ -790,7 +864,7 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="p-4 bg-muted/30 border-2 border-dashed border-black/10 space-y-4">
+              <div className="space-y-4 rounded-2xl border border-dashed border-border bg-muted/30 p-4">
                 <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                   <Activity className="h-4 w-4" /> Webhook para Confirmação Automática
                 </h4>
@@ -799,12 +873,12 @@ const Settings = () => {
                     <Input 
                       value={`${window.location.origin}/api/webhooks/asaas`} 
                       readOnly 
-                      className="bg-white border-2 border-black rounded-none font-mono text-[10px]" 
+                      className="rounded-xl border border-border bg-white font-mono text-[10px]" 
                     />
                     <Button 
                       variant="outline" 
                       size="icon" 
-                      className="border-2 border-black rounded-none shrink-0"
+                      className="shrink-0 rounded-xl border border-border"
                       onClick={() => {
                         navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/asaas`);
                         toast.success("Link copiado!");
@@ -968,7 +1042,7 @@ const UploadField = ({
   <div className="rounded-lg border border-border bg-background/65 p-4 space-y-3">
     <Label>{label}</Label>
     <div className="flex items-center gap-3">
-      <div className={`${previewClassName} rounded-none border-2 border-black bg-white overflow-hidden flex items-center justify-center shrink-0`}>
+      <div className={`${previewClassName} rounded-2xl border border-border bg-white overflow-hidden flex items-center justify-center shrink-0`}>
         {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-contain" /> : emptyIcon}
       </div>
       <label className="cursor-pointer">

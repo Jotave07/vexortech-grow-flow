@@ -207,7 +207,7 @@ const Zones = () => {
                         <div className="bg-primary/10 text-primary-foreground text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
                           <Truck className="h-3 w-3" /> Taxa: {formatBRL(z.fee || 0)} {z.fee_per_km ? `+ ${formatBRL(z.fee_per_km)}/km` : ""}
                         </div>
-                        <div className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                        <div className="bg-primary/15 text-foreground text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
                           <Clock className="h-3 w-3" /> {(z.base_prep_time || 30) + (z.additional_region_time || 0)} min base
                         </div>
                         <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">

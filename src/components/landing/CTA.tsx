@@ -5,16 +5,14 @@ import { motion } from "framer-motion";
 
 export const CTA = () => {
   return (
-    <section className="relative overflow-hidden bg-primary py-20 text-primary-foreground md:py-24">
-      {/* Background decoration */}
+    <section className="relative overflow-hidden bg-[var(--hype-dark)] py-20 text-white md:py-24">
       <motion.div 
         animate={{ 
-          scale: [1, 1.1, 1],
-          opacity: [0.1, 0.2, 0.1],
-          rotate: [0, 90, 0]
+          opacity: [0.08, 0.18, 0.08],
+          x: ["-8%", "8%", "-8%"]
         }}
         transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-        className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-white/20 blur-3xl"
+        className="absolute inset-x-0 top-0 h-1 bg-primary"
       />
       
       <div className="container relative z-10 mx-auto flex flex-col gap-8 px-4 md:flex-row md:items-center md:justify-between">
@@ -25,7 +23,7 @@ export const CTA = () => {
           transition={{ duration: 0.6 }}
           className="max-w-2xl"
         >
-          <p className="mb-3 text-sm font-semibold uppercase text-primary-foreground/70">Operacao separada por dominio</p>
+          <p className="mb-3 text-sm font-black uppercase tracking-widest text-primary">Operacao separada por dominio</p>
           <h2 className="text-3xl font-bold md:text-5xl">parceiros.vexortech.com.br para lojas parceiras. vexortech.com.br para o delivery completo.</h2>
         </motion.div>
         <motion.div

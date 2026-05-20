@@ -127,7 +127,7 @@ const Dashboard = () => {
           label="Receita Hoje" 
           value={formatBRL(stats.todayRevenue)} 
           icon={DollarSign} 
-          color="text-emerald-600"
+          color="text-[var(--hype-green-dark)]"
         />
         <StatCard 
           label="Pedidos Hoje" 
@@ -153,12 +153,12 @@ const Dashboard = () => {
         <StatusMiniCard label="Pendentes" value={stats.pending} color="bg-blue-500" />
         <StatusMiniCard label="Em preparo" value={stats.preparing} color="bg-amber-500" />
         <StatusMiniCard label="Em rota" value={stats.delivering} color="bg-cyan-500" />
-        <StatusMiniCard label="Finalizados" value={stats.delivered} color="bg-emerald-500" />
+        <StatusMiniCard label="Finalizados" value={stats.delivered} color="bg-primary" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2 p-0 overflow-hidden">
-          <div className="border-b border-black bg-muted/30 p-4">
+          <div className="border-b border-border bg-muted/30 p-4">
             <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
               <TrendingUp className="h-4 w-4" /> Produtos em Destaque
             </h2>
@@ -176,7 +176,7 @@ const Dashboard = () => {
                       <span className="text-sm font-bold truncate pr-10">{i + 1}. {p.name}</span>
                       <span className="text-sm font-black">{p.qty} un.</span>
                     </div>
-                    <div className="h-2 w-full bg-muted overflow-hidden border border-black/5">
+                    <div className="h-2 w-full overflow-hidden rounded-full border border-border bg-muted">
                       <div 
                         className="h-full bg-primary transition-all duration-1000 ease-out" 
                         style={{ width: `${(p.qty / (topProducts[0]?.qty || 1)) * 100}%` }}
@@ -189,7 +189,7 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-6 flex flex-col items-center justify-center text-center bg-primary text-white border-primary shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <Card className="p-6 flex flex-col items-center justify-center text-center bg-[var(--hype-dark)] text-white border-primary/20 shadow-elegant">
           <div className="rounded-full bg-white/20 p-4 mb-4">
             <ShoppingBag className="h-8 w-8" />
           </div>
@@ -197,7 +197,7 @@ const Dashboard = () => {
           <p className="text-sm text-white/80 mb-6">
             Continue oferecendo o melhor serviço para seus clientes.
           </p>
-          <Button variant="outline" className="w-full bg-white text-primary border-white hover:bg-white/90 font-bold uppercase tracking-widest text-xs" asChild>
+          <Button variant="outline" className="w-full bg-primary text-primary-foreground border-primary hover:bg-[var(--hype-green-dark)] font-bold uppercase tracking-widest text-xs" asChild>
             <a href={buildDeliveryUrl(`/loja/${store.slug}`)} target="_blank" rel="noreferrer">
               Abrir Visualização
             </a>
@@ -211,7 +211,7 @@ const Dashboard = () => {
 const StatCard = ({ label, value, icon: Icon, color }: { label: string; value: string; icon: any; color: string }) => (
   <Card className="p-6 group hover:border-primary transition-smooth">
     <div className="flex items-center justify-between mb-4">
-      <div className="p-2 bg-muted group-hover:bg-primary/10 transition-smooth">
+      <div className="rounded-xl bg-muted p-2 group-hover:bg-primary/10 transition-smooth">
         <Icon className={cn("h-5 w-5", color)} />
       </div>
       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Global</span>

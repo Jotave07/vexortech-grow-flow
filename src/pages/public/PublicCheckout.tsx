@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
@@ -17,7 +17,9 @@ import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
 import { createOrderPayment, syncPaymentStatus } from "@/functions/asaas";
+import { notifyOrderCreated } from "@/functions/evolution";
 import { fetchAddressByCep } from "@/services/cep/viacepService";
+import { fetchAddressFromCurrentLocation, geocodeAddressCoordinates, type AddressCoordinates } from "@/services/viacep";
 import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
 import { DeliveryQuote } from "@/types/delivery";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,7 @@ const PublicCheckout = () => {
   const [isPaid, setIsPaid] = useState(false);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
   const createOrderPaymentFn = useServerFn(createOrderPayment);
+  const notifyOrderCreatedFn = useServerFn(notifyOrderCreated);
 
   const [name, setName] = useState("");
   const [document, setDocument] = useState("");
@@ -59,6 +62,9 @@ const PublicCheckout = () => {
   const [notes, setNotes] = useState("");
   const [coupon, setCoupon] = useState<any>(null);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [lastResolvedCep, setLastResolvedCep] = useState("");
+  const [customerCoordinates, setCustomerCoordinates] = useState<AddressCoordinates | null>(null);
 
 
   useEffect(() => {
@@ -67,10 +73,10 @@ const PublicCheckout = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      toast.info("Você precisa estar logado para finalizar o pedido.");
+      toast.info("VocÃª precisa estar logado para finalizar o pedido.");
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
     }
-  }, [user, authLoading, navigate, location.pathname]);
+  }, [user, authLoading, navigate, location.pathname, location.search]);
 
   useEffect(() => {
     if (profile) {
@@ -128,15 +134,46 @@ const PublicCheckout = () => {
     })();
   }, [slug]);
 
-  const updateDeliveryQuote = async (zip: string, neigh: string, cty: string, st: string) => {
+  useEffect(() => {
+    if (!settings) return;
+    if (!settings.allow_delivery && settings.allow_pickup) {
+      setOrderType("retirada");
+    }
+  }, [settings]);
+
+  const updateDeliveryQuote = useCallback(async (
+    zip: string,
+    neigh: string,
+    cty: string,
+    st: string,
+    coords: AddressCoordinates | null = customerCoordinates,
+  ) => {
     if (!store?.id || orderType !== "entrega") return;
+    let resolvedCoordinates = coords;
+    if (!resolvedCoordinates && street && number && cty && st) {
+      resolvedCoordinates = await geocodeAddressCoordinates({
+        street,
+        number,
+        neighborhood: neigh,
+        city: cty,
+        state: st,
+        zipCode: zip,
+      });
+      if (resolvedCoordinates) setCustomerCoordinates(resolvedCoordinates);
+    }
+
     const quote = await calculateDeliveryQuote({
       storeId: store.id,
       cep: zip,
       neighborhood: neigh,
       city: cty,
       state: st,
-      subtotal: subtotal
+      subtotal,
+      street,
+      number,
+      customerCoordinates: resolvedCoordinates,
+      store,
+      settings,
     });
     setDeliveryQuote(quote);
     if (quote.region?.id) {
@@ -145,7 +182,7 @@ const PublicCheckout = () => {
       setZoneId("");
     }
     return quote;
-  };
+  }, [customerCoordinates, number, orderType, settings, store, street, subtotal]);
 
   useEffect(() => {
     if (orderType === "entrega" && zipCode && neighborhood && city && state) {
@@ -157,28 +194,65 @@ const PublicCheckout = () => {
       setDeliveryQuote(null);
       setZoneId("");
     }
-  }, [orderType, zipCode, neighborhood, city, state, itemSubtotal, store?.id]);
+  }, [orderType, zipCode, neighborhood, city, state, street, number, itemSubtotal, store?.id, updateDeliveryQuote]);
 
-  const handleCepLookup = async () => {
-    const cleanCep = onlyDigits(zipCode);
+  const handleCepLookup = useCallback(async (cepOverride?: string, silent = false) => {
+    const cleanCep = onlyDigits(cepOverride ?? zipCode);
     if (cleanCep.length !== 8) return;
     setLoadingCep(true);
     try {
       const addr = await fetchAddressByCep(cleanCep);
+      setZipCode(cleanCep);
       setStreet(addr.logradouro || "");
       setNeighborhood(addr.bairro || "");
       setCity(addr.localidade || "");
       setState(addr.uf || "");
+      const coords = addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : null;
+      setCustomerCoordinates(coords);
+      setLastResolvedCep(cleanCep);
       
       if (addr.localidade && addr.uf) {
-        await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf);
+        await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf, coords);
       }
+      if (!silent) toast.success("Endereco localizado e frete atualizado.");
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
     } finally {
       setLoadingCep(false);
     }
+  }, [updateDeliveryQuote, zipCode]);
+
+  const handleCurrentLocation = async () => {
+    setLoadingLocation(true);
+    try {
+      const addr = await fetchAddressFromCurrentLocation();
+      const cleanCep = onlyDigits(addr.cep);
+      setZipCode(cleanCep);
+      setStreet(addr.street || "");
+      setNeighborhood(addr.neighborhood || "");
+      setCity(addr.city || "");
+      setState(addr.state || "");
+      setCustomerCoordinates(addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : null);
+      setLastResolvedCep(cleanCep);
+      if (addr.city && addr.state) {
+        await updateDeliveryQuote(cleanCep, addr.neighborhood || "", addr.city, addr.state, addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : null);
+      }
+      toast.success("Localizacao definida e frete atualizado.");
+    } catch (e: any) {
+      toast.error(e.message || "Nao foi possivel usar sua localizacao.");
+    } finally {
+      setLoadingLocation(false);
+    }
   };
+
+  useEffect(() => {
+    const cleanCep = onlyDigits(zipCode);
+    if (orderType !== "entrega" || cleanCep.length !== 8 || cleanCep === lastResolvedCep) return;
+    const timer = window.setTimeout(() => {
+      void handleCepLookup(cleanCep, true);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [handleCepLookup, lastResolvedCep, orderType, zipCode]);
 
   const zone = deliveryQuote?.region;
   
@@ -205,25 +279,25 @@ const PublicCheckout = () => {
     }
 
     if (!name.trim()) return toast.error("Informe seu nome");
-    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inválido");
-    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatório para pagamento via PIX");
+    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp invÃ¡lido");
+    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatÃ³rio para pagamento via PIX");
     
     if (orderType === "entrega") {
-      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega não disponível.");
-      if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
+      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega nÃ£o disponÃ­vel.");
+      if (!street.trim() || !number.trim()) return toast.error("EndereÃ§o incompleto");
     }
 
     setSubmitting(true);
     try {
       if (store.owner_user_id === user?.id) {
         setSubmitting(false);
-        return toast.error("Dono da loja não pode comprar de si mesmo.");
+        return toast.error("Dono da loja nÃ£o pode comprar de si mesmo.");
       }
 
-      // 1. Garantir que existe um registro na tabela 'customers' para este usuário nesta loja
+      // 1. Garantir um cliente exclusivo para este usuÃ¡rio nesta loja.
+      // Nunca reaproveitamos cadastro por telefone, porque isso pode misturar histÃ³ricos de compra.
       let customerId = null;
       if (user) {
-        // Try to find by user_id first
         const { data: existingCustomer } = await supabase
           .from("customers")
           .select("id")
@@ -233,46 +307,45 @@ const PublicCheckout = () => {
         
         if (existingCustomer) {
           customerId = existingCustomer.id;
-        } else {
-          // Try to find by phone if not found by user_id
-          const { data: phoneCustomer } = await supabase
+          const { error: updateCustomerError } = await supabase
             .from("customers")
-            .select("id")
-            .eq("store_id", store.id)
-            .eq("phone", onlyDigits(phone))
-            .maybeSingle();
+            .update({
+              full_name: name.trim().toUpperCase(),
+              phone: onlyDigits(phone),
+              document: onlyDigits(document),
+              street: street.toUpperCase(),
+              number,
+              neighborhood: neighborhood.toUpperCase(),
+              city: city.toUpperCase(),
+              state: state.toUpperCase(),
+              zip_code: onlyDigits(zipCode),
+              registration_completed: true,
+            })
+            .eq("id", customerId);
 
-          if (phoneCustomer) {
-            customerId = phoneCustomer.id;
-            // Link this customer to the user
-            await supabase
-              .from("customers")
-              .update({ user_id: user.id })
-              .eq("id", customerId);
-          } else {
-            const { data: newCustomer, error: cErr } = await supabase
-              .from("customers")
-              .insert({
-                store_id: store.id,
-                user_id: user.id,
-                full_name: name.trim().toUpperCase(),
-                phone: onlyDigits(phone),
-                document: onlyDigits(document),
-                street: street.toUpperCase(),
-                number: number,
-                neighborhood: neighborhood.toUpperCase(),
-                city: city.toUpperCase(),
-                state: state.toUpperCase(),
-                zip_code: onlyDigits(zipCode),
-                registration_completed: true
-              })
-              .select("id")
-              .single();
-            
-            if (!cErr && newCustomer) {
-              customerId = newCustomer.id;
-            }
-          }
+          if (updateCustomerError) throw updateCustomerError;
+        } else {
+          const { data: newCustomer, error: cErr } = await supabase
+            .from("customers")
+            .insert({
+              store_id: store.id,
+              user_id: user.id,
+              full_name: name.trim().toUpperCase(),
+              phone: onlyDigits(phone),
+              document: onlyDigits(document),
+              street: street.toUpperCase(),
+              number: number,
+              neighborhood: neighborhood.toUpperCase(),
+              city: city.toUpperCase(),
+              state: state.toUpperCase(),
+              zip_code: onlyDigits(zipCode),
+              registration_completed: true
+            })
+            .select("id")
+            .single();
+          
+          if (cErr) throw cErr;
+          customerId = newCustomer?.id ?? null;
         }
       }
 
@@ -305,6 +378,7 @@ const PublicCheckout = () => {
         estimated_min: deliveryQuote?.estimated_min || null,
         estimated_max: deliveryQuote?.estimated_max || null,
         delivery_source: deliveryQuote?.source || null,
+        distance_km: deliveryQuote?.distance_km || null,
       }).select("id, public_token").maybeSingle() as any);
       
       if (oErr) throw oErr;
@@ -313,10 +387,19 @@ const PublicCheckout = () => {
       }
 
       for (const it of items) {
-        const { data: oi } = await (supabase.from("order_items" as any).insert({
+        const itemPayload = {
           order_id: order.id, store_id: store.id, product_id: it.product_id,
           product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity,
-        }).select("id").single() as any);
+          notes: it.notes || null,
+        };
+        let orderItemResult = await (supabase.from("order_items" as any).insert(itemPayload).select("id").single() as any);
+        if (orderItemResult.error?.message?.includes("notes")) {
+          const legacyPayload = { ...itemPayload };
+          delete (legacyPayload as any).notes;
+          orderItemResult = await (supabase.from("order_items" as any).insert(legacyPayload).select("id").single() as any);
+        }
+        if (orderItemResult.error) throw orderItemResult.error;
+        const oi = orderItemResult.data;
         
         if (it.options.length) {
           await supabase.from("order_item_options" as any).insert(it.options.map((o: any) => ({
@@ -326,10 +409,15 @@ const PublicCheckout = () => {
         }
       }
 
+      await notifyOrderCreatedFn({ data: { orderId: order.id } }).catch((error) => {
+        console.warn("Evolution notification skipped:", error);
+        return null;
+      });
+
       if (paymentMethod === "pix") {
         const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } }).catch(e => ({ error: e.message }));
         if ((pixResult as any).error) {
-          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Você poderá tentar pagar na tela de acompanhamento.`);
+          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. VocÃª poderÃ¡ tentar pagar na tela de acompanhamento.`);
         }
         setPixData(pixResult);
         setCreatedOrder(order);
@@ -348,55 +436,55 @@ const PublicCheckout = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-emerald-50"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-muted"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-[#F0FDF4] pb-32">
-      <header className="sticky top-0 z-20 bg-emerald-900 text-white p-4 flex items-center gap-3 border-b-4 border-emerald-400">
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" asChild>
+    <div className="min-h-screen bg-[#f6f7f2] pb-32">
+      <header className="sticky top-0 z-20 bg-white text-slate-950 p-4 flex items-center gap-3 border-b border-border shadow-sm">
+        <Button variant="ghost" size="icon" className="text-slate-700 hover:bg-muted" asChild>
           <Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link>
         </Button>
         <h1 className="font-black uppercase tracking-tighter italic">Finalizar Pedido</h1>
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-6 mt-4">
-        {/* Identificação */}
-        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl overflow-hidden">
-          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
-            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        {/* IdentificaÃ§Ã£o */}
+        <Card className="p-6 border border-border shadow-panel bg-white overflow-hidden">
+          <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
+            <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Seus dados</h2>
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Seus dados</h2>
           </div>
           <div className="space-y-4">
             <div>
-              <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nome Completo</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="COMO DEVEMOS TE CHAMAR?" />
+              <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Nome Completo</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="COMO DEVEMOS TE CHAMAR?" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">CPF ou CNPJ</Label>
-                <Input value={formatDoc(document)} onChange={(e) => setDocument(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="000.000.000-00" />
+                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">CPF ou CNPJ</Label>
+                <Input value={formatDoc(document)} onChange={(e) => setDocument(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" placeholder="000.000.000-00" />
               </div>
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">WhatsApp</Label>
-                <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="(00) 00000-0000" />
+                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">WhatsApp</Label>
+                <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" placeholder="(00) 00000-0000" />
               </div>
             </div>
           </div>
         </Card>
 
         {/* Entrega ou Retirada */}
-        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl">
-          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
-            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <Card className="p-6 border border-border shadow-panel bg-white">
+          <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
+            <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
               <Truck className="h-6 w-6" />
             </div>
-            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Tipo de Entrega</h2>
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Tipo de Entrega</h2>
           </div>
           <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="grid grid-cols-2 gap-4">
             {settings?.allow_delivery && (
-              <div className={cn("relative flex items-center justify-center border-2 p-4 rounded-xl transition-all cursor-pointer", orderType === 'entrega' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+              <div className={cn("relative flex items-center justify-center border p-4 transition-all cursor-pointer", orderType === 'entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                 <RadioGroupItem value="entrega" id="entrega" className="absolute top-2 right-2" />
                 <Label htmlFor="entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex flex-col items-center gap-2">
                   <Truck className="h-5 w-5" /> Entrega
@@ -404,7 +492,7 @@ const PublicCheckout = () => {
               </div>
             )}
             {settings?.allow_pickup && (
-              <div className={cn("relative flex items-center justify-center border-2 p-4 rounded-xl transition-all cursor-pointer", orderType === 'retirada' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+              <div className={cn("relative flex items-center justify-center border p-4 transition-all cursor-pointer", orderType === 'retirada' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                 <RadioGroupItem value="retirada" id="retirada" className="absolute top-2 right-2" />
                 <Label htmlFor="retirada" className="font-black uppercase text-xs tracking-widest cursor-pointer flex flex-col items-center gap-2">
                   <ShoppingBag className="h-5 w-5" /> Retirada
@@ -415,30 +503,44 @@ const PublicCheckout = () => {
 
           {orderType === "entrega" && (
             <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full border-border bg-white text-primary font-bold uppercase tracking-widest"
+                onClick={handleCurrentLocation}
+                disabled={loadingLocation}
+              >
+                {loadingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                Usar minha localizacao atual
+              </Button>
+
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Seu CEP</Label>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Seu CEP</Label>
                 <div className="flex gap-2">
-                  <Input value={formatCEP(zipCode)} onChange={(e) => setZipCode(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="00000-000" />
-                  <Button onClick={handleCepLookup} disabled={loadingCep} className="bg-emerald-600 hover:bg-emerald-700 h-12 w-12 rounded-xl shrink-0 shadow-lg shadow-emerald-200">
+                  <Input value={formatCEP(zipCode)} onChange={(e) => setZipCode(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" placeholder="00000-000" />
+                  <Button onClick={() => void handleCepLookup()} disabled={loadingCep} className="h-12 w-12 shrink-0">
                     {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                   </Button>
                 </div>
               </div>
 
               {deliveryQuote && (
-                <div className={cn("p-4 rounded-xl border-2 transition-all", deliveryQuote.available ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100")}>
+                <div className={cn("p-4 border transition-all", deliveryQuote.available ? "bg-primary/5 border-primary/20" : "bg-red-50 border-red-100")}>
                   {deliveryQuote.available ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Entrega Disponível</span>
-                        <div className="flex items-center gap-1 text-emerald-600 font-black text-sm">
+                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Entrega disponivel</span>
+                        <div className="flex items-center gap-1 text-primary font-black text-sm">
                           <Truck className="h-4 w-4" /> {formatBRL(deliveryQuote.fee)}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs font-bold text-emerald-800">
-                        <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {deliveryQuote.region?.name || deliveryQuote.region?.neighborhood}</div>
+                      <div className="flex items-center gap-4 text-xs font-bold text-slate-700">
+                        <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {deliveryQuote.distance_km ? `${deliveryQuote.distance_km.toFixed(1).replace(".", ",")} km` : deliveryQuote.region?.name || deliveryQuote.region?.neighborhood || deliveryQuote.reason}</div>
                         <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {deliveryQuote.estimated_min}-{deliveryQuote.estimated_max} min</div>
                       </div>
+                      {deliveryQuote.reason && (
+                        <p className="text-[11px] font-semibold text-slate-600">{deliveryQuote.reason}</p>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-start gap-2 text-red-700">
@@ -446,7 +548,7 @@ const PublicCheckout = () => {
                       <div className="space-y-1">
                         <p className="text-xs font-black uppercase tracking-tight">{deliveryQuote.reason}</p>
                         {deliveryQuote.amount_to_min && (
-                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mínimo.</p>
+                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mÃ­nimo.</p>
                         )}
                       </div>
                     </div>
@@ -456,44 +558,44 @@ const PublicCheckout = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-3">
-                  <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Rua / Av</Label>
-                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" />
+                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Rua / Av</Label>
+                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" />
                 </div>
                 <div>
-                  <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Nº</Label>
-                  <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" />
+                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">NÂº</Label>
+                  <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" />
                 </div>
               </div>
 
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Complemento (Opcional)</Label>
-                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className="border-2 border-emerald-50 focus:border-emerald-500 h-12 font-bold rounded-xl" placeholder="APTO, BLOCO, FUNDOS..." />
+                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Complemento (Opcional)</Label>
+                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="APTO, BLOCO, FUNDOS..." />
               </div>
             </div>
           )}
         </Card>
 
         {/* Pagamento */}
-        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl">
-          <div className="mb-6 flex items-center gap-3 border-b-2 border-emerald-50 pb-4">
-            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <Card className="p-6 border border-border shadow-panel bg-white">
+          <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
+            <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
               <CreditCard className="h-6 w-6" />
             </div>
-            <h2 className="font-black text-xl uppercase tracking-tight italic text-emerald-900">Pagamento</h2>
+            <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Pagamento</h2>
           </div>
           <div className="space-y-4">
             <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="space-y-3">
               {settings?.accept_pix && (
-                <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-black">PIX</div>
-                    PIX (LIBERAÇÃO IMEDIATA)
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
+                    PIX (LIBERAÃ‡ÃƒO IMEDIATA)
                   </Label>
                 </div>
               )}
               {settings?.accept_cash && (
-                <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'dinheiro' ? 'border-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'dinheiro' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                   <RadioGroupItem value="dinheiro" id="dinheiro" />
                   <Label htmlFor="dinheiro" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
                     <Wallet className="h-5 w-5" /> Dinheiro
@@ -502,16 +604,16 @@ const PublicCheckout = () => {
               )}
               {settings?.accept_card_on_delivery && (
                 <>
-                  <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'cartao_credito_entrega' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                  <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_credito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                     <RadioGroupItem value="cartao_credito_entrega" id="cartao_credito_entrega" />
                     <Label htmlFor="cartao_credito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                      <CreditCard className="h-5 w-5" /> Cartão de Crédito (na entrega)
+                      <CreditCard className="h-5 w-5" /> CartÃ£o de CrÃ©dito (na entrega)
                     </Label>
                   </div>
-                  <div className={cn("relative flex items-center gap-3 border-2 p-4 rounded-xl transition-all cursor-pointer", paymentMethod === 'cartao_debito_entrega' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-emerald-50 text-emerald-400')}>
+                  <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_debito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                     <RadioGroupItem value="cartao_debito_entrega" id="cartao_debito_entrega" />
                     <Label htmlFor="cartao_debito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                      <CreditCard className="h-5 w-5" /> Cartão de Débito (na entrega)
+                      <CreditCard className="h-5 w-5" /> CartÃ£o de DÃ©bito (na entrega)
                     </Label>
                   </div>
                 </>
@@ -519,27 +621,27 @@ const PublicCheckout = () => {
             </RadioGroup>
             {paymentMethod === "dinheiro" && (
               <div className="animate-in slide-in-from-left-4">
-                <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700">Troco para quanto?</Label>
-                <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} type="number" className="border-2 border-emerald-50 h-12 font-bold rounded-xl" placeholder="EX: 100" />
+                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Troco para quanto?</Label>
+                <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} type="number" className="border border-border h-12 font-bold" placeholder="EX: 100" />
               </div>
             )}
           </div>
         </Card>
 
-        {/* Observações */}
-        <Card className="p-6 border-2 border-emerald-100 shadow-xl shadow-emerald-900/5 bg-white rounded-2xl">
-          <Label className="uppercase text-[10px] font-black tracking-widest text-emerald-700 mb-2 block">Observações do Pedido</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="border-2 border-emerald-50 focus:border-emerald-500 rounded-xl font-bold min-h-[100px]" placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..." />
+        {/* ObservaÃ§Ãµes */}
+        <Card className="p-6 border border-border shadow-panel bg-white">
+          <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground mb-2 block">ObservaÃ§Ãµes do Pedido</Label>
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="border border-border focus:border-primary font-bold min-h-[100px]" placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..." />
         </Card>
 
         {/* Footer com Total */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-emerald-900 border-t-4 border-emerald-400 z-30 shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-border z-30 shadow-2xl">
           <div className="container max-w-xl mx-auto flex items-center justify-between gap-4">
-            <div className="text-white">
-              <p className="text-[10px] uppercase font-black text-emerald-300 tracking-widest leading-none mb-1 italic">Total do Pedido</p>
-              <p className="text-2xl font-black tracking-tighter text-white">{formatBRL(total)}</p>
+            <div className="text-slate-950">
+              <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1 italic">Total do Pedido</p>
+              <p className="text-2xl font-black tracking-tighter text-slate-950">{formatBRL(total)}</p>
             </div>
-            <Button onClick={submit} disabled={submitting || items.length === 0} className="bg-emerald-400 hover:bg-emerald-300 text-emerald-950 px-8 h-14 font-black uppercase tracking-tighter text-lg rounded-xl shadow-lg transition-transform active:scale-95">
+            <Button onClick={submit} disabled={submitting || items.length === 0} className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 font-black uppercase tracking-tighter text-lg rounded-xl shadow-lg transition-transform active:scale-95">
               {submitting ? <Loader2 className="h-6 w-6 animate-spin" /> : "ENVIAR PEDIDO"}
             </Button>
           </div>
@@ -552,28 +654,28 @@ const PublicCheckout = () => {
         }
         setShowPixModal(open);
       }}>
-        <DialogContent className="max-w-[400px] border-2 border-emerald-500 rounded-3xl p-0 overflow-hidden bg-white sm:rounded-3xl shadow-2xl">
-          <div className="bg-emerald-900 p-6 text-center border-b-4 border-emerald-400">
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Pagamento via Pix</h2>
+        <DialogContent className="max-w-[400px] border border-primary p-0 overflow-hidden bg-white sm:rounded-3xl shadow-2xl">
+          <div className="bg-primary p-6 text-center border-b border-primary/20">
+            <h2 className="text-xl font-black text-primary-foreground uppercase tracking-tighter italic">Pagamento via Pix</h2>
           </div>
           
           <div className="p-8 flex flex-col items-center gap-6">
             {isPaid ? (
               <div className="flex flex-col items-center gap-4 py-8 animate-in zoom-in duration-500">
-                <div className="h-20 w-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <div className="h-20 w-20 bg-primary/10 text-primary flex items-center justify-center">
                   <CheckCircle2 className="h-12 w-12" />
                 </div>
-                <h3 className="text-2xl font-black uppercase text-emerald-900 italic">Pago com Sucesso!</h3>
+                <h3 className="text-2xl font-black uppercase text-slate-950 italic">Pago com Sucesso!</h3>
                 <p className="text-sm text-center text-muted-foreground uppercase font-bold">Redirecionando para o acompanhamento...</p>
               </div>
             ) : (
               <>
-                <div className="h-16 w-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-2">
+                <div className="h-16 w-16 bg-primary/10 flex items-center justify-center text-primary mb-2">
                   <QrCode className="h-10 w-10" />
                 </div>
 
             {pixData?.qrCodeUrl && (
-              <div className="bg-white p-4 border-4 border-emerald-50 rounded-2xl shadow-xl shadow-emerald-900/10">
+              <div className="bg-white p-4 border border-border shadow-panel">
                 <img 
                   src={pixData.qrCodeUrl.startsWith('data:') ? pixData.qrCodeUrl : `data:image/png;base64,${pixData.qrCodeUrl}`} 
                   alt="QR Code PIX" 
@@ -583,36 +685,36 @@ const PublicCheckout = () => {
             )}
 
             <div className="w-full space-y-3">
-              <p className="text-[10px] font-black uppercase text-emerald-700 tracking-widest text-center">Pix Copia e Cola</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">Pix Copia e Cola</p>
               <div className="relative group">
                 <Input 
                   readOnly 
                   value={pixData?.pixCode || ""} 
-                  className="h-14 border-2 border-emerald-100 rounded-xl font-bold bg-emerald-50/50 pr-4 focus-visible:ring-emerald-500 text-center"
+                  className="h-14 border border-border font-bold bg-muted/70 pr-4 focus-visible:ring-primary text-center"
                 />
               </div>
             </div>
 
             <Button 
-              className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-tight rounded-xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-lg transition-all active:scale-95"
+              className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-tight rounded-xl shadow-panel flex items-center justify-center gap-2 text-lg transition-all active:scale-95"
               onClick={() => {
                 if (pixData?.pixCode) {
                   navigator.clipboard.writeText(pixData.pixCode);
-                  toast.success("Código PIX copiado!");
+                  toast.success("CÃ³digo PIX copiado!");
                 }
               }}
             >
-              <Copy className="h-5 w-5" /> Copiar Código Pix
+              <Copy className="h-5 w-5" /> Copiar CÃ³digo Pix
             </Button>
 
-            <p className="text-center text-[11px] font-bold text-emerald-800 leading-tight uppercase tracking-tight opacity-70 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-              Após o pagamento, o seu pedido será confirmado automaticamente.
+            <p className="text-center text-[11px] font-bold text-muted-foreground leading-tight uppercase tracking-tight opacity-80 bg-muted p-4 border border-border">
+              ApÃ³s o pagamento, o seu pedido serÃ¡ confirmado automaticamente.
             </p>
 
             <div className="w-full pt-2">
               <Button 
                 variant="outline"
-                className="w-full h-14 border-2 border-emerald-900 text-emerald-900 font-black uppercase tracking-tighter text-lg rounded-xl hover:bg-emerald-50 transition-all active:scale-95 shadow-[4px_4px_0px_0px_rgba(6,78,59,1)]"
+                className="w-full h-14 border border-primary text-primary font-black uppercase tracking-tighter text-lg rounded-xl hover:bg-muted transition-all active:scale-95 shadow-panel"
                 onClick={() => {
                   if (createdOrder?.public_token) {
                     navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
@@ -634,3 +736,5 @@ const PublicCheckout = () => {
 };
 
 export default PublicCheckout;
+
+

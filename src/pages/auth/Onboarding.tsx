@@ -13,6 +13,8 @@ import { Loader2 } from "lucide-react";
 import { slugify, formatPhone, formatDoc } from "@/lib/format";
 import { z } from "zod";
 import { getDeliveryBaseUrl } from "@/lib/domains";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyStoreCreated } from "@/functions/evolution";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(100),
@@ -30,6 +32,7 @@ const Onboarding = () => {
   const [form, setForm] = useState({ name: "", slug: "", description: "", whatsapp: "", document: "", city: "", state: "" });
   const [loading, setLoading] = useState(false);
   const publicBaseUrl = `${getDeliveryBaseUrl()}/loja/`;
+  const notifyStoreCreatedFn = useServerFn(notifyStoreCreated);
 
   useEffect(() => {
     if (!authLoading) {
@@ -47,6 +50,64 @@ const Onboarding = () => {
   useEffect(() => {
     if (form.name && !form.slug) setForm((f) => ({ ...f, slug: slugify(form.name) }));
   }, [form.name, form.slug]);
+
+  const ensureStoreOwnerAccess = async (storeId: string) => {
+    const settingsResult = await supabase.from("store_settings").insert({ store_id: storeId });
+    if (settingsResult.error) throw settingsResult.error;
+
+    const profileResult = await supabase
+      .from("profiles")
+      .update({
+        store_id: storeId,
+        role: "store_owner",
+        full_name: profile?.full_name ?? user?.user_metadata?.full_name ?? null,
+        email: user?.email?.toLowerCase() ?? null,
+      } as any)
+      .eq("user_id", user?.id);
+
+    if (profileResult.error) throw profileResult.error;
+
+    const { data: existingRoles, error: roleReadError } = await supabase
+      .from("user_roles" as any)
+      .select("id, store_id")
+      .eq("user_id", user?.id || "")
+      .eq("role", "store_owner");
+
+    if (roleReadError) throw roleReadError;
+
+    if (existingRoles?.length) {
+      const roleUpdate = await supabase
+        .from("user_roles" as any)
+        .update({ store_id: storeId })
+        .eq("id", existingRoles[0].id);
+
+      if (roleUpdate.error) throw roleUpdate.error;
+      await supabase
+        .from("user_roles" as any)
+        .delete()
+        .eq("user_id", user?.id || "")
+        .eq("role", "customer")
+        .then(({ error }) => {
+          if (error) console.warn("Could not remove temporary customer role:", error);
+        });
+      return;
+    }
+
+    const roleInsert = await supabase
+      .from("user_roles" as any)
+      .insert({ user_id: user?.id, role: "store_owner", store_id: storeId });
+
+    if (roleInsert.error) throw roleInsert.error;
+
+    await supabase
+      .from("user_roles" as any)
+      .delete()
+      .eq("user_id", user?.id || "")
+      .eq("role", "customer")
+      .then(({ error }) => {
+        if (error) console.warn("Could not remove temporary customer role:", error);
+      });
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,14 +144,19 @@ const Onboarding = () => {
       return toast.error("Erro ao criar loja: " + (storeErr?.message ?? "desconhecido"));
     }
 
-    await Promise.all([
-      supabase.from("store_settings").insert({ store_id: store.id }),
-      supabase.from("profiles").update({ store_id: store.id, role: "store_owner", full_name: profile?.full_name ?? null } as any).eq("user_id", user.id),
-      supabase.from("user_roles").upsert({ user_id: user.id, role: "store_owner", store_id: store.id }, { onConflict: "user_id,role" }),
-    ]);
+    try {
+      await ensureStoreOwnerAccess(store.id);
+    } catch (accessError: any) {
+      setLoading(false);
+      return toast.error("Loja criada, mas houve erro ao liberar o acesso de parceiro: " + (accessError?.message || "desconhecido"));
+    }
 
     setLoading(false);
     await refreshProfile();
+    await notifyStoreCreatedFn({ data: { storeId: store.id } }).catch((error) => {
+      console.warn("Evolution onboarding notification skipped:", error);
+      return null;
+    });
     toast.success("Loja criada!");
     
     if (profile?.is_exempt) {

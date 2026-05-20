@@ -222,11 +222,11 @@ const Orders = () => {
           <p className="text-muted-foreground font-medium">Acompanhe e processe as vendas do seu delivery.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-none text-[10px] font-black uppercase tracking-widest">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-foreground">
+            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             Em Tempo Real
           </div>
-          <Button variant="outline" size="sm" onClick={load} className="rounded-none border-black font-bold uppercase tracking-widest text-[10px]">
+          <Button variant="outline" size="sm" onClick={load} className="rounded-xl border-border font-bold uppercase tracking-widest text-[10px]">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
         </div>
@@ -243,12 +243,12 @@ const Orders = () => {
           
           return (
             <div key={col.key} className="flex-shrink-0 w-80 flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b-2 border-black pb-2 px-1">
+              <div className="flex items-center justify-between border-b border-border pb-2 px-1">
                 <h3 className="font-black text-xs uppercase tracking-widest">{col.label}</h3>
-                <span className="bg-black text-white text-[10px] font-black px-2 py-0.5">{colOrders.length}</span>
+                <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">{colOrders.length}</span>
               </div>
               
-              <div className="space-y-3 min-h-[500px] bg-muted/20 p-2 border-x border-b border-dashed border-black/10">
+              <div className="space-y-3 min-h-[500px] rounded-2xl border border-dashed border-border bg-muted/20 p-2">
                 <AnimatePresence mode="popLayout">
                   {colOrders.map((o) => (
                     <motion.div
@@ -265,7 +265,7 @@ const Orders = () => {
                     >
                       <Card 
                         className={cn(
-                          "p-4 cursor-pointer hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 border-2 border-black rounded-none bg-white relative overflow-hidden",
+                          "p-4 cursor-pointer hover:shadow-elegant hover:-translate-y-0.5 transition-all duration-200 border border-border rounded-2xl bg-white relative overflow-hidden",
                           !o.is_seen && col.key === "novo" ? "ring-2 ring-primary" : ""
                         )} 
                         onClick={() => openDetails(o)}
@@ -280,13 +280,13 @@ const Orders = () => {
                           </motion.div>
                         )}
                         <div className="flex items-center justify-between mb-3">
-                          <span className="font-black text-xs bg-black text-white px-2 py-0.5 tracking-tighter">#{o.order_number}</span>
+                          <span className="rounded-full bg-foreground px-2 py-0.5 text-xs font-black tracking-tighter text-background">#{o.order_number}</span>
                           <span className="text-[10px] font-bold uppercase text-muted-foreground">{new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
                         
                         <div className="font-black uppercase tracking-tight truncate mb-1">{o.customer_name}</div>
                         <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="rounded-none border-black/20 text-[9px] font-black uppercase tracking-widest h-5">
+                          <Badge variant="outline" className="h-5 rounded-full border-border text-[9px] font-black uppercase tracking-widest">
                             {o.delivery_type}
                           </Badge>
                           <div className="font-black text-sm">{formatBRL(o.total)}</div>
@@ -313,7 +313,7 @@ const Orders = () => {
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="h-20 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border border-dashed border-black/10"
+                    className="h-20 flex items-center justify-center rounded-xl border border-dashed border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40"
                   >
                     Vazio
                   </motion.div>

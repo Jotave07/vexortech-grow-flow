@@ -47,7 +47,7 @@ export const HeroAnimation = () => {
             <span className="text-[10px] font-bold uppercase text-white/60">Pagamento</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="rounded-full bg-primary p-3"><Bike className="h-6 w-6 text-white" /></div>
+            <div className="rounded-full bg-primary p-3"><Bike className="h-6 w-6 text-primary-foreground" /></div>
             <span className="text-[10px] font-bold uppercase text-primary">Entrega</span>
           </div>
         </div>
@@ -95,7 +95,7 @@ export const HeroAnimation = () => {
               <motion.div 
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-primary shadow-[0_0_8px_rgba(182,255,0,0.55)]" 
               />
             </motion.div>
             <motion.span variants={itemVariants} className="text-[10px] font-black uppercase tracking-widest text-white/50">Recebido</motion.span>
@@ -116,7 +116,7 @@ export const HeroAnimation = () => {
                 transition={{ delay: 1.6, type: "spring" }}
                 className="absolute -bottom-1 -right-1 rounded-full bg-black"
               >
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                <CheckCircle2 className="h-5 w-5 text-primary" />
               </motion.div>
             </motion.div>
             <motion.span variants={itemVariants} className="text-[10px] font-black uppercase tracking-widest text-white/50">Pago</motion.span>
@@ -214,7 +214,7 @@ export const HeroAnimation = () => {
               </motion.div>
               
               <div className="absolute right-4 top-1/2 -mt-2">
-                <MapPin className="h-4 w-4 text-emerald-500" />
+                <MapPin className="h-4 w-4 text-primary" />
               </div>
             </div>
           </div>
@@ -224,12 +224,12 @@ export const HeroAnimation = () => {
             initial={{ scale: 0, opacity: 0, x: 20, y: -20 }}
             animate={{ scale: 1, opacity: 1, x: 40, y: -10 }}
             transition={{ delay: 5, type: "spring", stiffness: 200 }}
-            className="absolute -right-4 -top-8 z-20 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-black/80 px-3 py-2 shadow-xl backdrop-blur md:-right-8"
+            className="absolute -right-4 -top-8 z-20 flex items-center gap-2 rounded-lg border border-primary/30 bg-black/80 px-3 py-2 shadow-xl backdrop-blur md:-right-8"
           >
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/100">
               <CheckCircle2 className="h-3 w-3 text-black" />
             </div>
-            <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-emerald-500">Pedido Entregue!</span>
+            <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-primary">Pedido Entregue!</span>
           </motion.div>
         </motion.div>
 

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
-import { getUserRoles } from "@/lib/auth/roles";
+import { getPrimaryRole } from "@/lib/auth/roles";
 import { AuthShell } from "./AuthShell";
 
 const Login = () => {
@@ -32,10 +32,7 @@ const Login = () => {
       return;
     }
 
-    const roles = await getUserRoles(user?.id || "");
-    let role = "customer";
-    if (roles.includes("super_admin")) role = "super_admin";
-    else if (roles.includes("store_owner")) role = "store_owner";
+    const role = await getPrimaryRole(user?.id || "");
     
     setLoading(false);
     toast.success("Bem-vindo!");
@@ -65,7 +62,7 @@ const Login = () => {
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 
-            className="border-emerald-200 focus:border-emerald-500"
+            className="border-border focus:border-primary"
           />
         </div>
         <div className="space-y-2">
@@ -76,20 +73,20 @@ const Login = () => {
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
             required 
-            className="border-emerald-200 focus:border-emerald-500"
+            className="border-border focus:border-primary"
           />
         </div>
         <div className="text-right">
-          <Link to="/recuperar-senha" title="Recuperar Senha" className="text-sm text-emerald-600 hover:text-emerald-700 font-semibold">Esqueci minha senha</Link>
+          <Link to="/recuperar-senha" title="Recuperar Senha" className="text-sm text-primary hover:text-primary/80 font-semibold">Esqueci minha senha</Link>
         </div>
-        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11" disabled={loading}>
+        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-11" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <LogIn className="h-4 w-4 mr-2" />} 
           Entrar na Conta
         </Button>
       </form>
-      <div className="mt-6 pt-6 border-t border-emerald-100 text-center">
+      <div className="mt-6 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
-          Ainda não tem conta? <Link to={from ? `/cadastrar?redirect=${encodeURIComponent(from)}` : "/cadastrar"} className="text-emerald-600 font-bold hover:underline">Cadastre-se</Link>
+          Ainda não tem conta? <Link to={from ? `/cadastrar?redirect=${encodeURIComponent(from)}` : "/cadastrar"} className="text-primary font-bold hover:underline">Cadastre-se</Link>
         </p>
       </div>
     </AuthShell>

@@ -1,6 +1,5 @@
-import { normalizeCep, isValidCep } from "@/utils/zipCode";
-
-const VIACEP_BASE_URL = "https://viacep.com.br/ws";
+import { fetchAddressByCep as fetchNormalizedAddress, ViaCepError } from "@/services/viacep";
+import { isValidCep, normalizeCep } from "@/utils/zipCode";
 
 export interface ViaCepResponse {
   cep: string;
@@ -13,6 +12,8 @@ export interface ViaCepResponse {
   gia: string;
   ddd: string;
   siafi: string;
+  lat?: number;
+  lng?: number;
   erro?: boolean;
 }
 
@@ -20,25 +21,30 @@ export const fetchAddressByCep = async (cep: string): Promise<Partial<ViaCepResp
   const normalizedCep = normalizeCep(cep);
 
   if (!isValidCep(normalizedCep)) {
-    throw new Error("CEP inválido");
+    throw new Error("CEP invalido");
   }
 
   try {
-    const response = await fetch(`${VIACEP_BASE_URL}/${normalizedCep}/json/`);
-    
-    if (!response.ok) {
-      throw new Error("Erro na consulta do CEP");
+    const address = await fetchNormalizedAddress(normalizedCep);
+
+    return {
+      cep: address.cep,
+      logradouro: address.street,
+      complemento: address.complement ?? "",
+      bairro: address.neighborhood,
+      localidade: address.city,
+      uf: address.state,
+      ibge: address.ibgeCode ?? "",
+      gia: "",
+      ddd: address.ddd ?? "",
+      siafi: "",
+      lat: address.lat,
+      lng: address.lng,
+    };
+  } catch (error) {
+    if (error instanceof ViaCepError) {
+      throw new Error(error.message);
     }
-
-    const data = await response.json();
-
-    if (data.erro) {
-      throw new Error("CEP não encontrado");
-    }
-
-    return data;
-  } catch (error: any) {
-    console.error("ViaCEP Error:", error);
     throw error;
   }
 };

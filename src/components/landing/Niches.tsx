@@ -60,8 +60,8 @@ export const Niches = () => {
             <motion.div 
               key={niche.name} 
               variants={itemVariants}
-              whileHover={{ scale: 1.05, borderColor: "hsl(var(--primary) / 0.45)" }}
-              className="group flex min-h-32 flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card p-5 text-center shadow-card transition-colors"
+              whileHover={{ scale: 1.05, borderColor: "color-mix(in srgb, var(--primary) 45%, transparent)" }}
+              className="group flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-card p-5 text-center shadow-card transition-colors"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-md bg-secondary text-primary transition-smooth group-hover:bg-primary group-hover:text-primary-foreground">
                 <niche.icon className="h-5 w-5" />

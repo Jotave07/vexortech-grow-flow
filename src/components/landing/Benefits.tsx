@@ -63,7 +63,7 @@ export const Benefits = () => {
               <div className="mb-5 inline-flex h-11 w-11 items-center justify-center border border-primary/35 bg-primary/10 text-primary transition-smooth group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground">
                 <benefit.icon className="h-5 w-5" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold">{benefit.title}</h3>
+              <h3 className="font-display mb-2 text-lg font-bold">{benefit.title}</h3>
               <p className="text-sm leading-relaxed text-muted-foreground">{benefit.desc}</p>
             </motion.div>
           ))}

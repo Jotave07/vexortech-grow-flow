@@ -17,15 +17,22 @@ export const BrandMark = ({ compact, className, to, inverted }: BrandMarkProps) 
 
   const content = (
     <div className={cn(
-      "flex items-center gap-0.5 font-black tracking-tighter uppercase", 
+      "font-display inline-flex items-baseline gap-2 uppercase leading-none",
       compact ? "text-xl" : "text-2xl",
       inverted ? "text-white" : "text-black"
     )}>
-      <span className="relative inline-block">
-        H
-        <span className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-[#00FF00] shadow-[0_0_10px_rgba(0,255,0,0.8)]" />
+      <span className="relative font-black tracking-[-0.02em]">
+        HYPE
+        <span className="absolute -right-2 -top-1 h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_14px_rgba(182,255,0,0.95)]" />
       </span>
-      <span>YPE</span>
+      {!compact && (
+        <span className={cn(
+          "hidden text-[0.48em] font-black tracking-[0.42em] sm:inline-block",
+          inverted ? "text-white/70" : "text-muted-foreground"
+        )}>
+          DELIVERY
+        </span>
+      )}
     </div>
   );
 

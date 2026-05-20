@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+﻿import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const menu = [
   { to: "/cliente", icon: LayoutDashboard, label: "Meu Painel", end: true },
-  { to: "/", icon: Home, label: "Ir para Início" },
+  { to: "/", icon: Home, label: "Ir para InÃ­cio" },
 ];
 
 const CustomerLayout = () => {
@@ -22,34 +22,34 @@ const CustomerLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F0FDF4]"> {/* Light green background */}
+    <div className="flex min-h-screen bg-muted/60"> {/* Light green background */}
       <button
         type="button"
         aria-label={open ? "Fechar menu" : "Abrir menu"}
         onClick={() => setOpen(!open)}
-        className="fixed left-3 top-3 z-50 rounded-md border border-emerald-200 bg-white p-2 shadow-sm md:hidden text-emerald-600"
+        className="fixed left-3 top-3 z-50 rounded-xl border border-border bg-white p-2 text-foreground shadow-sm md:hidden"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-emerald-900/20 md:hidden" onClick={() => setOpen(false)} />}
+      {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setOpen(false)} />}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-emerald-100 bg-white transition-transform md:sticky md:translate-x-0",
+        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-white transition-transform md:sticky md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="border-b border-emerald-50 p-6 flex flex-col items-center">
+        <div className="border-b border-border p-6 flex flex-col items-center">
           <BrandMark compact className="mb-4" />
-          <div className="w-full rounded-xl bg-emerald-50 p-4 border border-emerald-100">
+          <div className="w-full rounded-2xl bg-muted p-4 border border-border">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm">
+              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-sm">
                 <User className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider truncate">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider truncate">
                   {profile?.full_name?.split(' ')[0] || 'Cliente'}
                 </p>
-                <p className="text-[10px] text-emerald-600 font-medium truncate italic">Área do Cliente</p>
+                <p className="text-[10px] text-muted-foreground font-medium truncate italic">Ãrea do Cliente</p>
               </div>
             </div>
           </div>
@@ -65,13 +65,13 @@ const CustomerLayout = () => {
               className={({ isActive }) => cn(
                 "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200 group",
                 isActive 
-                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-200" 
-                  : "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-primary text-primary-foreground shadow-[var(--shadow-green)]" 
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {({ isActive }) => (
                 <>
-                  <item.icon className={cn("h-5 w-5", isActive ? "text-emerald-100" : "text-emerald-400 group-hover:text-emerald-600")} />
+                  <item.icon className={cn("h-5 w-5", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
                   {item.label}
                 </>
               )}
@@ -79,10 +79,10 @@ const CustomerLayout = () => {
           ))}
         </nav>
 
-        <div className="border-t border-emerald-50 p-4">
+        <div className="border-t border-border p-4">
           <Button 
             variant="ghost" 
-            className="w-full justify-start rounded-lg text-emerald-600 hover:bg-red-50 hover:text-red-600 transition-colors" 
+            className="w-full justify-start text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors" 
             onClick={handleSignOut}
           >
             <LogOut className="h-5 w-5 mr-3" /> Sair da conta
@@ -100,3 +100,4 @@ const CustomerLayout = () => {
 };
 
 export default CustomerLayout;
+

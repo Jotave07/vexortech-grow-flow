@@ -86,14 +86,14 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const STATUS_COLORS: Record<string, string> = {
-  novo: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  aguardando_pagamento: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  confirmado: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-  em_preparo: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  saiu_para_entrega: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
-  pronto_para_retirada: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
-  entregue: "bg-green-500/10 text-green-500 border-green-500/20",
-  cancelado: "bg-red-500/10 text-red-500 border-red-500/20",
+  novo: "bg-slate-100 text-slate-700 border-slate-200",
+  aguardando_pagamento: "bg-amber-50 text-amber-700 border-amber-200",
+  confirmado: "bg-primary/15 text-foreground border-primary/35",
+  em_preparo: "bg-primary/15 text-foreground border-primary/35",
+  saiu_para_entrega: "bg-stone-100 text-stone-700 border-stone-200",
+  pronto_para_retirada: "bg-stone-100 text-stone-700 border-stone-200",
+  entregue: "bg-primary text-primary-foreground border-primary",
+  cancelado: "bg-red-50 text-red-700 border-red-200",
 };
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {

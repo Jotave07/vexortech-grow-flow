@@ -1,20 +1,64 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type UserRole = "super_admin" | "store_owner" | "customer";
+type StoredUserRole = UserRole | "admin";
+
+const ROLE_PRIORITY: UserRole[] = ["super_admin", "store_owner", "customer"];
+
+export function normalizeUserRole(role: unknown): UserRole | null {
+  if (role === "admin" || role === "super_admin") return "super_admin";
+  if (role === "store_owner") return "store_owner";
+  if (role === "customer") return "customer";
+  return null;
+}
+
+export function getPrimaryRoleFromRoles(roles: Array<UserRole | StoredUserRole | string | null | undefined>): UserRole {
+  const normalized = new Set(roles.map(normalizeUserRole).filter(Boolean) as UserRole[]);
+  return ROLE_PRIORITY.find((role) => normalized.has(role)) ?? "customer";
+}
+
+export function getRoleHomePath(role: UserRole) {
+  if (role === "super_admin") return "/admin";
+  if (role === "store_owner") return "/lojista";
+  return "/";
+}
 
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
-  try {
-    const { data, error } = await supabase
-      .from("user_roles" as any)
-      .select("role")
-      .eq("user_id", userId);
+  if (!userId) return ["customer"];
 
-    if (error) throw error;
-    return (data || []).map((r: any) => r.role as UserRole);
+  try {
+    const [{ data: roleRows, error: rolesError }, { data: profile, error: profileError }] = await Promise.all([
+      supabase
+        .from("user_roles" as any)
+        .select("role")
+        .eq("user_id", userId),
+      supabase
+        .from("profiles" as any)
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ]);
+
+    if (rolesError) throw rolesError;
+    if (profileError) console.warn("Error fetching profile role:", profileError);
+
+    const roles = [
+      ...(roleRows || []).map((row: any) => normalizeUserRole(row.role)),
+      normalizeUserRole((profile as any)?.role),
+    ].filter(Boolean) as UserRole[];
+
+    const uniqueRoles = Array.from(new Set(roles));
+    if (uniqueRoles.length === 0) return ["customer"];
+
+    return ROLE_PRIORITY.filter((role) => uniqueRoles.includes(role));
   } catch (error) {
     console.error("Error fetching user roles:", error);
     return ["customer"];
   }
+}
+
+export async function getPrimaryRole(userId: string): Promise<UserRole> {
+  return getPrimaryRoleFromRoles(await getUserRoles(userId));
 }
 
 export async function hasRole(userId: string, role: UserRole): Promise<boolean> {

@@ -39,12 +39,14 @@ const MerchantSignup = () => {
     setLoading(true);
     
     const { data: signUpData, error } = await supabase.auth.signUp({
-      email: form.email.toLowerCase(),
+      email: form.email.trim().toLowerCase(),
       password: form.password,
       options: {
         data: { 
           full_name: form.full_name.toUpperCase(),
-          document: form.document.replace(/\D/g, "")
+          document: form.document.replace(/\D/g, ""),
+          account_type: "store_owner",
+          role: "store_owner",
         },
       },
     });
@@ -62,19 +64,19 @@ const MerchantSignup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <BrandMark to="/" animated className="max-w-[10rem]" />
           <div className="flex items-center gap-4">
-            <Link to="/lojista/entrar" className="hidden text-sm font-semibold text-slate-600 hover:text-orange-600 md:block transition-colors">
+            <Link to="/lojista/entrar" className="hidden text-sm font-semibold text-muted-foreground hover:text-primary md:block transition-colors">
               Já é parceiro? Entrar
             </Link>
-            <Button variant="outline" className="border-orange-200 text-orange-600 hover:bg-orange-50 md:hidden" asChild>
+            <Button variant="outline" className="border-primary/45 text-foreground hover:bg-primary/15 md:hidden" asChild>
               <Link to="/lojista/entrar">Login</Link>
             </Button>
-            <Button className="bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md shadow-orange-100" asChild>
+            <Button className="bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold shadow-[0_4px_12px_rgba(182,255,0,0.28)]" asChild>
               <a href="#cadastro">Cadastrar Agora</a>
             </Button>
           </div>
@@ -83,26 +85,24 @@ const MerchantSignup = () => {
 
       <main>
         {/* Hero Section */}
-        <section className="relative overflow-hidden bg-slate-950 py-16 md:py-24">
-          {/* Background Decorative Elements */}
+        <section className="relative overflow-hidden bg-[var(--hype-dark)] py-16 md:py-24">
           <div className="absolute inset-0 z-0">
-            <div className="absolute -left-10 top-1/4 h-64 w-64 rounded-full bg-orange-600/20 blur-[100px]" />
-            <div className="absolute -right-10 bottom-1/4 h-64 w-64 rounded-full bg-orange-500/10 blur-[100px]" />
-            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556742049-139422cb0f5c?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-10 mix-blend-overlay" />
+            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556742049-139422cb0f5c?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-15 mix-blend-overlay" />
+            <div className="absolute inset-0 bg-black/75" />
           </div>
 
           <div className="container relative z-10 mx-auto px-4">
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
               {/* Headline */}
               <div className="max-w-2xl text-white">
-                <div className="mb-4 inline-flex items-center rounded-full bg-orange-500/10 px-3 py-1 text-sm font-bold text-orange-400 ring-1 ring-inset ring-orange-500/20">
-                  <span className="mr-2 h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                <div className="mb-4 inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary ring-1 ring-inset ring-primary/25">
+                  <span className="mr-2 h-2 w-2 rounded-full bg-primary" />
                   Seja um Parceiro Oficial
                 </div>
                 <h1 className="mb-6 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl italic uppercase">
-                  Venda muito mais com a nossa <span className="text-orange-500">Tecnologia</span>
+                  Venda muito mais com a nossa <span className="text-primary">Tecnologia</span>
                 </h1>
-                <p className="mb-8 text-lg text-slate-300 md:text-xl">
+                <p className="mb-8 text-lg text-white/70 md:text-xl">
                   Leve seu negócio para o próximo nível. Cadastre sua loja hoje e comece a receber pedidos online com taxas reduzidas e gestão simplificada.
                 </p>
                 
@@ -113,8 +113,8 @@ const MerchantSignup = () => {
                     "Suporte prioritário",
                     "Gestão 100% digital"
                   ].map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-slate-200 font-medium">
-                      <CheckCircle2 className="h-5 w-5 text-orange-500" />
+                    <div key={idx} className="flex items-center gap-2 text-white/85 font-medium">
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
                       <span>{item}</span>
                     </div>
                   ))}
@@ -123,37 +123,37 @@ const MerchantSignup = () => {
 
               {/* Form Card */}
               <div id="cadastro" className="relative">
-                <Card className="mx-auto w-full max-w-lg border-0 p-6 shadow-2xl shadow-orange-950/20 sm:p-8">
+                <Card className="mx-auto w-full max-w-lg border border-border p-6 shadow-2xl shadow-black/10 sm:p-8">
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900 italic uppercase tracking-tight">Comece agora mesmo</h2>
-                    <p className="text-slate-500">Preencha os dados para criar sua loja.</p>
+                    <h2 className="text-2xl font-bold text-foreground italic uppercase tracking-tight">Comece agora mesmo</h2>
+                    <p className="text-muted-foreground">Preencha os dados para criar sua loja.</p>
                   </div>
 
                   <form onSubmit={onSubmit} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="full_name" className="text-slate-700 font-semibold">Seu Nome Completo</Label>
+                      <Label htmlFor="full_name" className="text-foreground font-semibold">Seu Nome Completo</Label>
                       <Input 
                         id="full_name" 
                         placeholder="Ex: João Silva"
                         value={form.full_name} 
                         onChange={(e) => setForm({ ...form, full_name: e.target.value })} 
                         required 
-                        className="h-12 border-slate-200 focus-visible:ring-orange-500"
+                        className="h-12 border-border focus-visible:ring-primary"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="document" className="text-slate-700 font-semibold">CPF ou CNPJ</Label>
+                      <Label htmlFor="document" className="text-foreground font-semibold">CPF ou CNPJ</Label>
                       <Input 
                         id="document" 
                         value={formatDoc(form.document)} 
                         onChange={(e) => setForm({ ...form, document: e.target.value })} 
                         required 
                         placeholder="00.000.000/0001-00"
-                        className="h-12 border-slate-200 focus-visible:ring-orange-500"
+                        className="h-12 border-border focus-visible:ring-primary"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-slate-700 font-semibold">E-mail Profissional</Label>
+                      <Label htmlFor="email" className="text-foreground font-semibold">E-mail Profissional</Label>
                       <Input 
                         id="email" 
                         type="email" 
@@ -161,11 +161,11 @@ const MerchantSignup = () => {
                         value={form.email} 
                         onChange={(e) => setForm({ ...form, email: e.target.value })} 
                         required 
-                        className="h-12 border-slate-200 focus-visible:ring-orange-500"
+                        className="h-12 border-border focus-visible:ring-primary"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="text-slate-700 font-semibold">Crie uma Senha</Label>
+                      <Label htmlFor="password" className="text-foreground font-semibold">Crie uma Senha</Label>
                       <Input 
                         id="password" 
                         type="password" 
@@ -174,13 +174,13 @@ const MerchantSignup = () => {
                         onChange={(e) => setForm({ ...form, password: e.target.value })} 
                         required 
                         minLength={6}
-                        className="h-12 border-slate-200 focus-visible:ring-orange-500"
+                        className="h-12 border-border focus-visible:ring-primary"
                       />
                     </div>
 
                     <Button 
                       type="submit" 
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold h-12 shadow-lg shadow-orange-100 transition-all active:scale-[0.98]" 
+                      className="w-full bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold h-12 shadow-[0_4px_12px_rgba(182,255,0,0.25)] transition-all active:scale-[0.98]" 
                       disabled={loading}
                     >
                       {loading ? (
@@ -193,8 +193,8 @@ const MerchantSignup = () => {
                       )}
                     </Button>
 
-                    <p className="text-center text-xs text-slate-400">
-                      Ao se cadastrar, você concorda com nossos <Link to="/termos" className="underline hover:text-orange-500">Termos de Uso</Link> e <Link to="/privacidade" className="underline hover:text-orange-500">Política de Privacidade</Link>.
+                    <p className="text-center text-xs text-muted-foreground">
+                      Ao se cadastrar, você concorda com nossos <Link to="/termos" className="underline hover:text-primary">Termos de Uso</Link> e <Link to="/privacidade" className="underline hover:text-primary">Política de Privacidade</Link>.
                     </p>
                   </form>
                 </Card>
@@ -204,46 +204,46 @@ const MerchantSignup = () => {
         </section>
 
         {/* Benefits Section */}
-        <section id="beneficios" className="bg-slate-50 py-20">
+        <section id="beneficios" className="bg-muted py-20">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="mb-4 text-3xl font-black uppercase italic tracking-tight text-slate-900 md:text-4xl">
-              Por que ser um <span className="text-orange-600">parceiro</span>?
+            <h2 className="mb-4 text-3xl font-black uppercase italic tracking-tight text-foreground md:text-4xl">
+              Por que ser um <span className="text-[var(--hype-green-dark)]">parceiro</span>?
             </h2>
-            <p className="mx-auto mb-16 max-w-2xl text-slate-600">
+            <p className="mx-auto mb-16 max-w-2xl text-muted-foreground">
               Oferecemos todas as ferramentas que você precisa para digitalizar suas vendas e crescer de forma sustentável.
             </p>
 
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
-                  icon: <TrendingUp className="h-8 w-8 text-orange-600" />,
+                  icon: <TrendingUp className="h-8 w-8 text-[var(--hype-green-dark)]" />,
                   title: "Aumento de Vendas",
                   desc: "Alcance clientes que preferem comprar online e aumente seu faturamento."
                 },
                 {
-                  icon: <ShieldCheck className="h-8 w-8 text-orange-600" />,
+                  icon: <ShieldCheck className="h-8 w-8 text-[var(--hype-green-dark)]" />,
                   title: "Segurança Total",
                   desc: "Plataforma robusta com pagamentos integrados e proteção contra fraudes."
                 },
                 {
-                  icon: <Smartphone className="h-8 w-8 text-orange-600" />,
+                  icon: <Smartphone className="h-8 w-8 text-[var(--hype-green-dark)]" />,
                   title: "Gestão na Mão",
                   desc: "Acompanhe pedidos, estoque e relatórios de onde você estiver pelo celular."
                 },
                 {
-                  icon: <Clock className="h-8 w-8 text-orange-600" />,
+                  icon: <Clock className="h-8 w-8 text-[var(--hype-green-dark)]" />,
                   title: "Agilidade",
                   desc: "Receba pedidos instantaneamente e otimize sua operação de entrega."
                 }
               ].map((benefit, idx) => (
                 <Card key={idx} className="group border-0 p-8 shadow-sm transition-all hover:-translate-y-2 hover:shadow-xl">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 transition-colors group-hover:bg-orange-600 group-hover:text-white">
+                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <div className="transition-transform group-hover:scale-110">
                       {benefit.icon}
                     </div>
                   </div>
-                  <h3 className="mb-2 text-xl font-bold text-slate-900">{benefit.title}</h3>
-                  <p className="text-slate-500">{benefit.desc}</p>
+                  <h3 className="mb-2 text-xl font-bold text-foreground">{benefit.title}</h3>
+                  <p className="text-muted-foreground">{benefit.desc}</p>
                 </Card>
               ))}
             </div>
@@ -262,8 +262,8 @@ const MerchantSignup = () => {
                 />
               </div>
               <div className="lg:w-1/2">
-                <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tight text-slate-900 md:text-4xl">
-                  Como começar em <span className="text-orange-600">3 passos</span>
+                <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tight text-foreground md:text-4xl">
+                  Como começar em <span className="text-[var(--hype-green-dark)]">3 passos</span>
                 </h2>
                 <div className="space-y-8">
                   {[
@@ -284,12 +284,12 @@ const MerchantSignup = () => {
                     }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-6">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-600 text-lg font-black text-white italic">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-black text-primary-foreground italic">
                         {item.step}
                       </div>
                       <div>
-                        <h3 className="mb-2 text-xl font-bold text-slate-900">{item.title}</h3>
-                        <p className="text-slate-600">{item.desc}</p>
+                        <h3 className="mb-2 text-xl font-bold text-foreground">{item.title}</h3>
+                        <p className="text-muted-foreground">{item.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -300,7 +300,7 @@ const MerchantSignup = () => {
         </section>
 
         {/* Pricing/Mini Section (Optional but good for conversions) */}
-        <section className="bg-orange-600 py-16 text-white">
+        <section className="bg-[var(--hype-dark)] py-16 text-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="mb-12 text-3xl font-black uppercase italic tracking-tight md:text-4xl">Transparência é o nosso lema</h2>
             <div className="grid gap-8 md:grid-cols-3">
@@ -311,7 +311,7 @@ const MerchantSignup = () => {
               ].map((item, idx) => (
                 <div key={idx} className="rounded-2xl bg-white/10 p-6 backdrop-blur-sm">
                   <div className="mb-4 flex justify-center">{item.icon}</div>
-                  <p className="text-orange-100">{item.label}</p>
+                  <p className="text-white/70">{item.label}</p>
                   <p className="text-2xl font-black uppercase italic">{item.value}</p>
                 </div>
               ))}
@@ -322,8 +322,8 @@ const MerchantSignup = () => {
         {/* FAQ Section */}
         <section id="faq" className="bg-white py-20">
           <div className="container mx-auto max-w-3xl px-4">
-            <h2 className="mb-12 text-center text-3xl font-black uppercase italic tracking-tight text-slate-900 md:text-4xl">
-              Dúvidas <span className="text-orange-600">Frequentes</span>
+            <h2 className="mb-12 text-center text-3xl font-black uppercase italic tracking-tight text-foreground md:text-4xl">
+              Dúvidas <span className="text-[var(--hype-green-dark)]">Frequentes</span>
             </h2>
             <Accordion type="single" collapsible className="w-full">
               {[
@@ -344,11 +344,11 @@ const MerchantSignup = () => {
                   a: "Os valores são repassados automaticamente para a conta bancária cadastrada, seguindo o cronograma de repasses escolhido."
                 }
               ].map((item, idx) => (
-                <AccordionItem key={idx} value={`item-${idx}`} className="border-slate-100">
-                  <AccordionTrigger className="text-left font-bold text-slate-800 hover:text-orange-600">
+                <AccordionItem key={idx} value={`item-${idx}`} className="border-border">
+                  <AccordionTrigger className="text-left font-bold text-foreground hover:text-primary">
                     {item.q}
                   </AccordionTrigger>
-                  <AccordionContent className="text-slate-600">
+                  <AccordionContent className="text-muted-foreground">
                     {item.a}
                   </AccordionContent>
                 </AccordionItem>
@@ -358,15 +358,15 @@ const MerchantSignup = () => {
         </section>
 
         {/* Final CTA */}
-        <section className="bg-slate-950 py-20">
+        <section className="bg-[var(--hype-dark)] py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tight text-white md:text-5xl">
-              Pronto para <span className="text-orange-600">escalar</span> seu negócio?
+              Pronto para <span className="text-primary">escalar</span> seu negócio?
             </h2>
-            <p className="mx-auto mb-10 max-w-2xl text-lg text-slate-400">
+            <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground">
               Não perca mais tempo com processos manuais. Junte-se a centenas de lojistas que já estão lucrando com nossa plataforma.
             </p>
-            <Button size="lg" className="h-14 bg-orange-600 px-10 text-lg font-black hover:bg-orange-700 shadow-xl shadow-orange-950/20 active:scale-95 transition-all" asChild>
+            <Button size="lg" className="h-14 bg-primary px-10 text-lg font-black text-primary-foreground hover:bg-[var(--hype-green-dark)] shadow-xl shadow-black/10 active:scale-95 transition-all" asChild>
               <a href="#cadastro">
                 CRIAR MINHA LOJA AGORA <ChevronRight className="ml-2 h-5 w-5" />
               </a>
@@ -376,16 +376,16 @@ const MerchantSignup = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-100 bg-white py-12">
+      <footer className="border-t border-border bg-white py-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <BrandMark compact className="opacity-80" />
             <div className="flex gap-8">
-              <Link to="/" className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Portal Parceiro</Link>
-              <a href={buildDeliveryUrl("/")} className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Delivery</a>
-              <a href={buildDeliveryUrl("/entrar")} className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors">Sou Cliente</a>
+              <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Portal Parceiro</Link>
+              <a href={buildDeliveryUrl("/")} className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Delivery</a>
+              <a href={buildDeliveryUrl("/entrar")} className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Sou Cliente</a>
             </div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest italic">
               © {new Date().getFullYear()} VexorTech. Todos os direitos reservados.
             </p>
           </div>

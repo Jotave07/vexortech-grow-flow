@@ -60,7 +60,7 @@ const AdminSettings = () => {
                         type="password"
                         placeholder="Configurado nos Segredos do Sistema"
                         readOnly
-                        className="bg-muted/50 border-2 border-dashed border-primary/20 rounded-none h-12 font-bold"
+                        className="h-12 rounded-xl border border-dashed border-primary/20 bg-muted/50 font-bold"
                       />
                       <Key className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
@@ -156,14 +156,14 @@ const AdminSettings = () => {
             ) : (
               <div className="space-y-3">
                 {logs.map((log) => (
-                  <div key={log.id} className="flex items-center justify-between p-3 border-2 border-black/5 bg-white text-xs">
+                  <div key={log.id} className="flex items-center justify-between rounded-xl border border-border bg-white p-3 text-xs">
                     <div className="space-y-1">
                       <div className="font-black uppercase">{log.stores?.name || 'LOJA DESCONHECIDA'}</div>
                       <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
                         PLANO: {log.plans?.name} · {new Date(log.updated_at).toLocaleString("pt-BR")}
                       </div>
                     </div>
-                    <Badge variant={log.status === 'ativa' ? 'default' : 'secondary'} className="rounded-none font-black uppercase text-[9px]">
+                    <Badge variant={log.status === 'ativa' ? 'default' : 'secondary'} className="rounded-full font-black uppercase text-[9px]">
                       {log.status}
                     </Badge>
                   </div>
@@ -185,12 +185,12 @@ const AdminSettings = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="p-4 bg-muted/30 border-2 border-dashed border-black/10 space-y-2">
+            <div className="space-y-2 rounded-2xl border border-dashed border-border bg-muted/30 p-4">
               <div className="flex gap-2">
                 <Input 
                   value={`${window.location.origin}/api/webhooks/asaas`} 
                   readOnly 
-                  className="bg-white border-2 border-black rounded-none font-mono text-[10px]" 
+                  className="rounded-xl border border-border bg-white font-mono text-[10px]" 
                 />
               </div>
               <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">

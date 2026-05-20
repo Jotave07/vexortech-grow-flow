@@ -1,7 +1,7 @@
 import { Session, User } from "@supabase/supabase-js";
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserRoles, UserRole } from "@/lib/auth/roles";
+import { getPrimaryRoleFromRoles, getUserRoles, normalizeUserRole, UserRole } from "@/lib/auth/roles";
 
 export type Profile = {
   id: string;
@@ -52,14 +52,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const profileData = data as any;
       
       if (profileData) {
-        // Fetch roles from the user_roles table to be sure
         const roles = await getUserRoles(userId);
-        if (roles.length > 0) {
-          // Priority: super_admin > store_owner > customer
-          if (roles.includes("super_admin")) profileData.role = "super_admin";
-          else if (roles.includes("store_owner")) profileData.role = "store_owner";
-          else profileData.role = "customer";
-        }
+        profileData.role = getPrimaryRoleFromRoles([...(roles || []), normalizeUserRole(profileData.role)]);
       }
       
       setProfile(profileData as Profile | null);

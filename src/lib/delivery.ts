@@ -91,10 +91,17 @@ export const validateDeliverySettings = (config: DeliveryConfiguration) => {
   const issues: DeliveryValidationIssue[] = [];
 
   if (config.allowDelivery) {
-    issues.push(...validateDistanceBands(config.distanceBands));
+    if (config.distanceBands.length > 0) {
+      issues.push(...validateDistanceBands(config.distanceBands));
+    } else if (config.deliveryFeePerKm <= 0) {
+      issues.push({ field: "deliveryFeePerKm", message: "Informe um valor por KM ou cadastre faixas de distancia para a entrega." });
+    }
 
     if (config.deliveryRadiusKm !== null && config.deliveryRadiusKm <= 0) {
       issues.push({ field: "deliveryRadiusKm", message: "Informe um raio maior que zero para usar entrega por distancia." });
+    }
+    if (config.deliveryFeePerKm < 0) {
+      issues.push({ field: "deliveryFeePerKm", message: "O valor por KM nao pode ser negativo." });
     }
     if (config.averagePrepTimeMinutes <= 0) {
       issues.push({ field: "averagePrepTimeMinutes", message: "Defina um tempo medio de entrega/preparo valido." });
@@ -126,7 +133,9 @@ export const getMaxBandDistance = (bands: DeliveryDistanceBand[]) =>
 
 export const formatDeliveryFeePreview = (bands: DeliveryDistanceBand[], radiusKm: number | null) => {
   if (bands.length === 0) {
-    return "Nenhuma faixa de distancia configurada ainda.";
+    return radiusKm === null
+      ? "Nenhuma faixa de distancia configurada ainda."
+      : `Raio maximo configurado: ${radiusKm.toFixed(1).replace(".", ",")} km. O valor por KM sera usado quando estiver preenchido.`;
   }
 
   const preview = bands

@@ -42,11 +42,11 @@ export const Navbar = () => {
   };
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/92 backdrop-blur-xl">
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-white/92 backdrop-blur-xl">
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         <BrandMark to="/" animated className="max-w-[10rem]" />
         <div className="hidden items-center gap-7 md:flex">
-          <a href={buildDeliveryUrl("/")} className="text-sm font-bold text-emerald-600 transition-smooth hover:text-emerald-800 uppercase tracking-widest italic">Ver Delivery</a>
+          <a href={buildDeliveryUrl("/")} className="text-sm font-black text-foreground transition-smooth hover:text-primary uppercase tracking-widest">Ver Delivery</a>
           <a href="#beneficios" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Beneficios</a>
           <a href="#nichos" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Segmentos</a>
           <a href="#planos" className="text-sm text-muted-foreground transition-smooth hover:text-foreground">Planos</a>

@@ -35,15 +35,22 @@ const AdminStores = () => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: s }, { data: p }, { data: profilesData }] = await Promise.all([
+    const [{ data: s }, { data: p }] = await Promise.all([
       supabase.from("stores").select("*, subscriptions(status, plan_id, plans(name, price_monthly))").order("created_at", { ascending: false }),
       supabase.from("plans").select("*").order("sort_order"),
-      supabase.from("profiles").select("id, store_id, is_exempt").eq("role", "store_owner")
     ]);
+
+    const ownerUserIds = Array.from(new Set((s ?? []).map((store) => store.owner_user_id).filter(Boolean)));
+    const { data: profilesData } = ownerUserIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, user_id, store_id, is_exempt, role, email")
+          .in("user_id", ownerUserIds)
+      : { data: [] as any[] };
     
     // Attach is_exempt from owner profile to store
     const storesWithExempt = (s ?? []).map(store => {
-      const ownerProfile = (profilesData ?? []).find(prof => prof.store_id === store.id);
+      const ownerProfile = (profilesData ?? []).find((prof: any) => prof.user_id === store.owner_user_id || prof.store_id === store.id);
       return { ...store, is_exempt: ownerProfile?.is_exempt || false, owner_profile_id: ownerProfile?.id };
     });
 

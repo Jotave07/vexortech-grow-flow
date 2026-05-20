@@ -12,20 +12,20 @@ type AuthShellProps = {
 
 export const AuthShell = ({ children, theme = "customer", title, subtitle }: AuthShellProps) => {
   const themeClasses = {
-    customer: "bg-emerald-50 border-emerald-100",
-    merchant: "bg-orange-50 border-orange-100",
+    customer: "bg-muted border-border",
+    merchant: "bg-muted border-border",
     admin: "bg-zinc-950 border-zinc-800",
   };
 
   const cardClasses = {
-    customer: "border-emerald-200 shadow-emerald-100",
-    merchant: "border-orange-200 shadow-orange-100",
+    customer: "border-border shadow-[var(--shadow-panel)]",
+    merchant: "border-border shadow-[var(--shadow-panel)]",
     admin: "border-zinc-800 bg-zinc-900 text-zinc-100 shadow-black/40",
   };
 
   const titleClasses = {
-    customer: "text-emerald-900",
-    merchant: "text-orange-900",
+    customer: "text-foreground",
+    merchant: "text-foreground",
     admin: "text-white",
   };
 
@@ -33,9 +33,9 @@ export const AuthShell = ({ children, theme = "customer", title, subtitle }: Aut
     <div className={cn("min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-500", themeClasses[theme])}>
       <BrandMark to="/" className="mb-8 scale-125" inverted={theme === "admin"} />
       
-      <Card className={cn("w-full max-w-md p-8 border-2 shadow-xl transition-all duration-300", cardClasses[theme])}>
+      <Card className={cn("w-full max-w-md rounded-3xl p-8 border shadow-xl transition-all duration-300", cardClasses[theme])}>
         <div className="mb-6 text-center">
-          <h1 className={cn("text-2xl font-black uppercase tracking-tight italic", titleClasses[theme])}>{title}</h1>
+          <h1 className={cn("font-display text-2xl font-black uppercase tracking-tight", titleClasses[theme])}>{title}</h1>
           {subtitle && <p className={cn("mt-2 text-sm font-medium", theme === "admin" ? "text-zinc-400" : "text-muted-foreground")}>{subtitle}</p>}
         </div>
         

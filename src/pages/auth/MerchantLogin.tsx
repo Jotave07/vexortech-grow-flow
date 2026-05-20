@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Store } from "lucide-react";
 import { AuthShell } from "./AuthShell";
+import { getPrimaryRole } from "@/lib/auth/roles";
 
 const MerchantLogin = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const MerchantLogin = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data: { user }, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: { user }, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     
     if (error) {
       setLoading(false);
@@ -28,8 +29,7 @@ const MerchantLogin = () => {
       return;
     }
 
-    const { data: roleData } = await supabase.from("user_roles" as any).select("role").eq("user_id", user?.id || "").maybeSingle();
-    const role = (roleData as any)?.role || "customer";
+    const role = await getPrimaryRole(user?.id || "");
     
     setLoading(false);
     
@@ -53,7 +53,7 @@ const MerchantLogin = () => {
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 
-            className="border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+            className="border-border focus:border-primary focus:ring-primary"
           />
         </div>
         <div className="space-y-2">
@@ -64,20 +64,20 @@ const MerchantLogin = () => {
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
             required 
-            className="border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+            className="border-border focus:border-primary focus:ring-primary"
           />
         </div>
         <div className="text-right">
-          <Link to="/recuperar-senha" title="Recuperar Senha" className="text-sm text-orange-600 hover:text-orange-700 font-semibold">Esqueci minha senha</Link>
+          <Link to="/recuperar-senha" title="Recuperar Senha" className="text-sm text-foreground hover:text-primary font-semibold">Esqueci minha senha</Link>
         </div>
-        <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-11" disabled={loading}>
+        <Button type="submit" className="w-full bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold h-11" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Store className="h-4 w-4 mr-2" />} 
           Entrar no Painel
         </Button>
       </form>
-      <div className="mt-6 pt-6 border-t border-orange-100 text-center">
+      <div className="mt-6 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
-          Ainda não tem uma loja? <Link to="/cadastrar-loja" className="text-orange-600 font-bold hover:underline">Comece agora</Link>
+          Ainda não tem uma loja? <Link to="/cadastrar-loja" className="text-[var(--hype-green-dark)] font-bold hover:underline">Comece agora</Link>
         </p>
       </div>
     </AuthShell>

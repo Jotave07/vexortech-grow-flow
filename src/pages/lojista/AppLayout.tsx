@@ -26,24 +26,73 @@ const menu = [
 
 const AppLayout = () => {
   const navigate = useNavigate();
-  const { profile, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [store, setStore] = useState<any>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
-    if (!profile?.store_id) {
-      navigate("/onboarding", { replace: true });
-      return;
-    }
-    supabase.from("stores" as any).select("*").eq("id", profile.store_id).maybeSingle().then(({ data, error }) => {
+    let cancelled = false;
+
+    const loadStore = async () => {
+      if (!profile?.store_id) {
+        if (profile?.role === "super_admin") {
+          navigate("/admin", { replace: true });
+          return;
+        }
+
+        if (!user?.id) {
+          navigate("/lojista/entrar", { replace: true });
+          return;
+        }
+
+        const { data: ownedStore, error: ownerError } = await supabase
+          .from("stores" as any)
+          .select("*")
+          .eq("owner_user_id", user.id)
+          .maybeSingle();
+
+        if (ownerError) console.error("Error fetching owned store:", ownerError);
+
+        if (ownedStore) {
+          await supabase
+            .from("profiles" as any)
+            .update({ store_id: ownedStore.id, role: "store_owner" })
+            .eq("user_id", user.id);
+
+          if (!cancelled) setStore(ownedStore);
+          return;
+        }
+
+        navigate("/onboarding", { replace: true });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("stores" as any)
+        .select("*")
+        .eq("id", profile.store_id)
+        .maybeSingle();
+
       if (error) {
         console.error("Error fetching store:", error);
         return;
       }
-      setStore(data);
-    });
-  }, [loading, profile, navigate]);
+
+      if (!data) {
+        navigate("/onboarding", { replace: true });
+        return;
+      }
+
+      if (!cancelled) setStore(data);
+    };
+
+    loadStore();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, profile, user?.id, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -55,27 +104,27 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-orange-50/30">
+    <div className="flex min-h-screen bg-muted/60">
       <button
         type="button"
         aria-label={open ? "Fechar menu" : "Abrir menu"}
         onClick={() => setOpen(!open)}
-        className="fixed left-3 top-3 z-50 rounded-md border border-orange-200 bg-white p-2 shadow-sm md:hidden text-orange-600"
+        className="fixed left-3 top-3 z-50 rounded-xl border border-border bg-white p-2 text-foreground shadow-sm md:hidden"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-orange-900/20 md:hidden" onClick={() => setOpen(false)} />}
+      {open && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setOpen(false)} />}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-orange-100 bg-white transition-transform md:sticky md:translate-x-0",
+        "fixed inset-y-0 left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-white transition-transform md:sticky md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="border-b border-orange-100 p-5">
+        <div className="border-b border-border p-5">
           <BrandMark compact className="mb-5" />
-          <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm">
-            <div className="truncate text-xs font-black uppercase tracking-tight text-orange-900">{store.name}</div>
-            <a href={buildDeliveryUrl(`/loja/${store.slug}`)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600 hover:text-orange-700 hover:underline">
+          <div className="rounded-2xl border border-border bg-muted p-3 shadow-sm">
+            <div className="truncate text-xs font-black uppercase tracking-tight text-foreground">{store.name}</div>
+            <a href={buildDeliveryUrl(`/loja/${store.slug}`)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-foreground hover:text-primary hover:underline">
               Visualizar loja <ExternalLink className="h-3 w-3" />
             </a>
           </div>
@@ -91,13 +140,13 @@ const AppLayout = () => {
               className={({ isActive }) => cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 group",
                 isActive 
-                  ? "bg-orange-500 text-white shadow-md shadow-orange-200" 
-                  : "text-orange-800 hover:bg-orange-50 hover:text-orange-900"
+                  ? "bg-primary text-primary-foreground shadow-[var(--shadow-green)]" 
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {({ isActive }) => (
                 <>
-                  <item.icon className={cn("h-4 w-4", isActive ? "text-orange-100" : "text-orange-400 group-hover:text-orange-600")} />
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
                   {item.label}
                 </>
               )}
@@ -105,8 +154,8 @@ const AppLayout = () => {
           ))}
         </nav>
 
-        <div className="border-t border-orange-100 p-3">
-          <Button variant="ghost" className="w-full justify-start rounded-lg text-orange-700 hover:bg-red-50 hover:text-red-600" onClick={handleSignOut}>
+        <div className="border-t border-border p-3">
+          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:bg-red-50 hover:text-red-600" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" /> Sair
           </Button>
         </div>

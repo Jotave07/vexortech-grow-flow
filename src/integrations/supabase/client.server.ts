@@ -4,22 +4,28 @@
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { readSupabasePublishableKey, readSupabaseServiceRoleKey, readSupabaseUrl } from './env';
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SUPABASE_URL = readSupabaseUrl();
+  const SUPABASE_SERVICE_ROLE_KEY = readSupabaseServiceRoleKey();
+  const SUPABASE_FALLBACK_KEY = SUPABASE_SERVICE_ROLE_KEY || readSupabasePublishableKey();
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_FALLBACK_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
+      ...(!SUPABASE_FALLBACK_KEY ? ['SUPABASE_SERVICE_ROLE_KEY or SUPABASE_PUBLISHABLE_KEY'] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Configure the production environment before starting VexorTech.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("[Supabase] SUPABASE_SERVICE_ROLE_KEY is not configured. Server functions will use the publishable key and respect RLS.");
+  }
+
+  return createClient<Database>(SUPABASE_URL, SUPABASE_FALLBACK_KEY, {
     auth: {
       storage: undefined,
       persistSession: false,
