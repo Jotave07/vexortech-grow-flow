@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const menu = [
   { to: "/cliente", icon: LayoutDashboard, label: "Meu Painel", end: true },
-  { to: "/", icon: Home, label: "Ir para InÃ­cio" },
+  { to: "/", icon: Home, label: "Ir para Início" },
 ];
 
 const CustomerLayout = () => {
@@ -49,7 +49,7 @@ const CustomerLayout = () => {
                 <p className="text-xs font-bold text-foreground uppercase tracking-wider truncate">
                   {profile?.full_name?.split(' ')[0] || 'Cliente'}
                 </p>
-                <p className="text-[10px] text-muted-foreground font-medium truncate italic">Ãrea do Cliente</p>
+                <p className="text-[10px] text-muted-foreground font-medium truncate italic">Área do Cliente</p>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, type CartItem } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,29 @@ import { fetchAddressFromCurrentLocation, geocodeAddressCoordinates, type Addres
 import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
 import { DeliveryQuote } from "@/types/delivery";
 import { cn } from "@/lib/utils";
+
+const toCents = (value: number | string | null | undefined) => Math.round(Number(value ?? 0) * 100);
+
+const parseMoneyInput = (value: string) => Number(value.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
+
+const optionLimits = (group: any) => {
+  const min = Math.max(group.is_required ? 1 : 0, Number(group.min_choices || 0));
+  const max = Math.max(min, Number(group.max_choices || 1));
+  return { min, max };
+};
+
+type PaymentMethod = "pix" | "dinheiro" | "cartao_credito_entrega" | "cartao_debito_entrega";
+
+const getAvailablePaymentMethods = (settings: any): PaymentMethod[] => {
+  if (!settings) return [];
+  const methods: PaymentMethod[] = [];
+  if (settings.accept_pix) methods.push("pix");
+  if (settings.accept_cash) methods.push("dinheiro");
+  if (settings.accept_card_on_delivery) {
+    methods.push("cartao_credito_entrega", "cartao_debito_entrega");
+  }
+  return methods;
+};
 
 const PublicCheckout = () => {
   const { slug } = useParams();
@@ -57,7 +80,7 @@ const PublicCheckout = () => {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [reference, setReference] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "cartao_credito_entrega" | "cartao_debito_entrega">("pix");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
   const [changeFor, setChangeFor] = useState("");
   const [notes, setNotes] = useState("");
   const [coupon, setCoupon] = useState<any>(null);
@@ -73,7 +96,7 @@ const PublicCheckout = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      toast.info("VocÃª precisa estar logado para finalizar o pedido.");
+      toast.info("Você precisa estar logado para finalizar o pedido.");
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
     }
   }, [user, authLoading, navigate, location.pathname, location.search]);
@@ -140,6 +163,14 @@ const PublicCheckout = () => {
       setOrderType("retirada");
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (!settings) return;
+    const availableMethods = getAvailablePaymentMethods(settings);
+    if (availableMethods.length && !availableMethods.includes(paymentMethod)) {
+      setPaymentMethod(availableMethods[0]);
+    }
+  }, [settings, paymentMethod]);
 
   const updateDeliveryQuote = useCallback(async (
     zip: string,
@@ -214,7 +245,7 @@ const PublicCheckout = () => {
       if (addr.localidade && addr.uf) {
         await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf, coords);
       }
-      if (!silent) toast.success("Endereco localizado e frete atualizado.");
+      if (!silent) toast.success("Endereço localizado e frete atualizado.");
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
     } finally {
@@ -237,9 +268,9 @@ const PublicCheckout = () => {
       if (addr.city && addr.state) {
         await updateDeliveryQuote(cleanCep, addr.neighborhood || "", addr.city, addr.state, addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : null);
       }
-      toast.success("Localizacao definida e frete atualizado.");
+      toast.success("Localização definida e frete atualizado.");
     } catch (e: any) {
-      toast.error(e.message || "Nao foi possivel usar sua localizacao.");
+      toast.error(e.message || "Não foi possível usar sua localização.");
     } finally {
       setLoadingLocation(false);
     }
@@ -270,6 +301,95 @@ const PublicCheckout = () => {
 
   const total = Math.max(0, subtotal + actualDeliveryFee - discount);
 
+  const validateCartForCheckout = async () => {
+    if (!store?.id) return "Loja não carregada. Atualize a página e tente novamente.";
+    if (!items.length) return "Seu carrinho está vazio.";
+
+    for (const item of items) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        return `Quantidade inválida em "${item.product_name}".`;
+      }
+    }
+
+    const productIds = [...new Set(items.map((item) => item.product_id))];
+    const { data: productData, error: productError } = await supabase
+      .from("products")
+      .select("id, name, price, promo_price, is_active, is_available")
+      .eq("store_id", store.id)
+      .in("id", productIds);
+
+    if (productError) return productError.message;
+
+    const productsById = new Map((productData ?? []).map((product: any) => [product.id, product]));
+    const { data: groupsData, error: groupsError } = await supabase
+      .from("product_options" as any)
+      .select("id, product_id, name, is_required, min_choices, max_choices")
+      .in("product_id", productIds);
+
+    if (groupsError) return groupsError.message;
+
+    const groups = groupsData ?? [];
+    const groupIds = groups.map((group: any) => group.id);
+    const { data: optionItemsData, error: optionItemsError } = groupIds.length
+      ? await supabase
+        .from("product_option_items" as any)
+        .select("id, option_id, name, extra_price, is_active")
+        .in("option_id", groupIds)
+      : { data: [], error: null };
+
+    if (optionItemsError) return optionItemsError.message;
+
+    const optionItems = optionItemsData ?? [];
+
+    for (const cartItem of items as CartItem[]) {
+      const product = productsById.get(cartItem.product_id);
+      if (!product) return `Produto "${cartItem.product_name}" não encontrado no cardápio.`;
+      if (!product.is_active || product.is_available === false) return `Produto "${product.name}" está indisponível no momento.`;
+
+      const currentUnitPrice = Number(product.promo_price ?? product.price);
+      if (toCents(currentUnitPrice) !== toCents(cartItem.unit_price)) {
+        return `O preço de "${product.name}" foi alterado. Remova e adicione o produto novamente.`;
+      }
+
+      const productGroups = groups.filter((group: any) => group.product_id === cartItem.product_id);
+      const selectedByGroup = cartItem.options.reduce<Record<string, typeof cartItem.options>>((acc, option) => {
+        acc[option.option_id] = [...(acc[option.option_id] ?? []), option];
+        return acc;
+      }, {});
+
+      for (const group of productGroups) {
+        const { min, max } = optionLimits(group);
+        const activeGroupItems = optionItems.filter((option: any) => option.option_id === group.id && option.is_active !== false);
+        const selected = selectedByGroup[group.id] ?? [];
+
+        if (min > 0 && activeGroupItems.length === 0) {
+          return `Produto "${product.name}" está sem opções disponíveis para "${group.name}".`;
+        }
+        if (selected.length < min) {
+          return `Falta escolher "${group.name}" em "${product.name}".`;
+        }
+        if (selected.length > max) {
+          return `Limite de "${group.name}" excedido em "${product.name}".`;
+        }
+      }
+
+      for (const selectedOption of cartItem.options) {
+        const group = productGroups.find((candidate: any) => candidate.id === selectedOption.option_id);
+        if (!group) return `Opção inválida em "${product.name}". Remova e adicione o produto novamente.`;
+
+        const currentOption = optionItems.find((option: any) => option.id === selectedOption.item_id);
+        if (!currentOption || currentOption.option_id !== selectedOption.option_id || currentOption.is_active === false) {
+          return `A opção "${selectedOption.item_name}" não está mais disponível.`;
+        }
+        if (toCents(currentOption.extra_price) !== toCents(selectedOption.extra_price)) {
+          return `O preço de "${selectedOption.item_name}" foi alterado. Remova e adicione o produto novamente.`;
+        }
+      }
+    }
+
+    return null;
+  };
+
   const submit = async () => {
     if (!store || !settings) return;
     
@@ -279,23 +399,30 @@ const PublicCheckout = () => {
     }
 
     if (!name.trim()) return toast.error("Informe seu nome");
-    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp invÃ¡lido");
-    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatÃ³rio para pagamento via PIX");
+    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inválido");
+    if (!getAvailablePaymentMethods(settings).includes(paymentMethod)) {
+      return toast.error("Forma de pagamento indisponível.");
+    }
+    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatório para pagamento via PIX");
     
     if (orderType === "entrega") {
-      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega nÃ£o disponÃ­vel.");
-      if (!street.trim() || !number.trim()) return toast.error("EndereÃ§o incompleto");
+      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega não disponível.");
+      if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
+    }
+    if (paymentMethod === "dinheiro" && changeFor.trim() && parseMoneyInput(changeFor) < total) {
+      return toast.error("Troco precisa ser maior ou igual ao total do pedido.");
     }
 
     setSubmitting(true);
     try {
       if (store.owner_user_id === user?.id) {
-        setSubmitting(false);
-        return toast.error("Dono da loja nÃ£o pode comprar de si mesmo.");
+        return toast.error("Dono da loja não pode comprar de si mesmo.");
       }
 
-      // 1. Garantir um cliente exclusivo para este usuÃ¡rio nesta loja.
-      // Nunca reaproveitamos cadastro por telefone, porque isso pode misturar histÃ³ricos de compra.
+      const cartValidationError = await validateCartForCheckout();
+      if (cartValidationError) return toast.error(cartValidationError);
+
+      // Garante um cliente exclusivo para este usuário nesta loja, sem misturar históricos por telefone.
       let customerId = null;
       if (user) {
         const { data: existingCustomer } = await supabase
@@ -364,7 +491,7 @@ const PublicCheckout = () => {
         discount_amount: discount,
         total,
         payment_method: paymentMethod,
-        change_for: paymentMethod === "dinheiro" ? Number(onlyDigits(changeFor)) / 100 || null : null,
+        change_for: paymentMethod === "dinheiro" && changeFor.trim() ? parseMoneyInput(changeFor) : null,
         notes: notes.trim() || null,
         // Novos campos de entrega
         zip_code: onlyDigits(zipCode),
@@ -417,7 +544,7 @@ const PublicCheckout = () => {
       if (paymentMethod === "pix") {
         const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } }).catch(e => ({ error: e.message }));
         if ((pixResult as any).error) {
-          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. VocÃª poderÃ¡ tentar pagar na tela de acompanhamento.`);
+          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Você poderá tentar pagar na tela de acompanhamento.`);
         }
         setPixData(pixResult);
         setCreatedOrder(order);
@@ -448,7 +575,7 @@ const PublicCheckout = () => {
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-6 mt-4">
-        {/* IdentificaÃ§Ã£o */}
+        {/* Identificação */}
         <Card className="p-6 border border-border shadow-panel bg-white overflow-hidden">
           <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
             <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
@@ -511,7 +638,7 @@ const PublicCheckout = () => {
                 disabled={loadingLocation}
               >
                 {loadingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                Usar minha localizacao atual
+                Usar minha localização atual
               </Button>
 
               <div>
@@ -529,7 +656,7 @@ const PublicCheckout = () => {
                   {deliveryQuote.available ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Entrega disponivel</span>
+                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Entrega disponível</span>
                         <div className="flex items-center gap-1 text-primary font-black text-sm">
                           <Truck className="h-4 w-4" /> {formatBRL(deliveryQuote.fee)}
                         </div>
@@ -548,7 +675,7 @@ const PublicCheckout = () => {
                       <div className="space-y-1">
                         <p className="text-xs font-black uppercase tracking-tight">{deliveryQuote.reason}</p>
                         {deliveryQuote.amount_to_min && (
-                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mÃ­nimo.</p>
+                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mínimo.</p>
                         )}
                       </div>
                     </div>
@@ -562,7 +689,7 @@ const PublicCheckout = () => {
                   <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" />
                 </div>
                 <div>
-                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">NÂº</Label>
+                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Nº</Label>
                   <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" />
                 </div>
               </div>
@@ -584,13 +711,13 @@ const PublicCheckout = () => {
             <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Pagamento</h2>
           </div>
           <div className="space-y-4">
-            <RadioGroup value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)} className="space-y-3">
+            <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-3">
               {settings?.accept_pix && (
                 <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
-                    PIX (LIBERAÃ‡ÃƒO IMEDIATA)
+                    PIX (LIBERAÇÃO IMEDIATA)
                   </Label>
                 </div>
               )}
@@ -607,13 +734,13 @@ const PublicCheckout = () => {
                   <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_credito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                     <RadioGroupItem value="cartao_credito_entrega" id="cartao_credito_entrega" />
                     <Label htmlFor="cartao_credito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                      <CreditCard className="h-5 w-5" /> CartÃ£o de CrÃ©dito (na entrega)
+                      <CreditCard className="h-5 w-5" /> Cartão de Crédito (na entrega)
                     </Label>
                   </div>
                   <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_debito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                     <RadioGroupItem value="cartao_debito_entrega" id="cartao_debito_entrega" />
                     <Label htmlFor="cartao_debito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                      <CreditCard className="h-5 w-5" /> CartÃ£o de DÃ©bito (na entrega)
+                      <CreditCard className="h-5 w-5" /> Cartão de Débito (na entrega)
                     </Label>
                   </div>
                 </>
@@ -628,9 +755,9 @@ const PublicCheckout = () => {
           </div>
         </Card>
 
-        {/* ObservaÃ§Ãµes */}
+        {/* Observações */}
         <Card className="p-6 border border-border shadow-panel bg-white">
-          <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground mb-2 block">ObservaÃ§Ãµes do Pedido</Label>
+          <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground mb-2 block">Observações do Pedido</Label>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="border border-border focus:border-primary font-bold min-h-[100px]" placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..." />
         </Card>
 
@@ -700,15 +827,15 @@ const PublicCheckout = () => {
               onClick={() => {
                 if (pixData?.pixCode) {
                   navigator.clipboard.writeText(pixData.pixCode);
-                  toast.success("CÃ³digo PIX copiado!");
+                  toast.success("Código PIX copiado!");
                 }
               }}
             >
-              <Copy className="h-5 w-5" /> Copiar CÃ³digo Pix
+              <Copy className="h-5 w-5" /> Copiar Código Pix
             </Button>
 
             <p className="text-center text-[11px] font-bold text-muted-foreground leading-tight uppercase tracking-tight opacity-80 bg-muted p-4 border border-border">
-              ApÃ³s o pagamento, o seu pedido serÃ¡ confirmado automaticamente.
+              Após o pagamento, o seu pedido será confirmado automaticamente.
             </p>
 
             <div className="w-full pt-2">

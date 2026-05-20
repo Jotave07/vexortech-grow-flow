@@ -64,23 +64,26 @@ const PublicStore = () => {
     return products.filter((product) => {
       const matchesSearch =
         !query ||
-        product.name.toLowerCase().includes(query) ||
-        (product.description ?? "").toLowerCase().includes(query);
+        String(product.name ?? "").toLowerCase().includes(query) ||
+        String(product.description ?? "").toLowerCase().includes(query);
       const matchesCategory = activeCategory === "all" || product.category_id === activeCategory;
       return matchesSearch && matchesCategory;
     });
   }, [activeCategory, products, search]);
 
-  const sections = useMemo(
-    () =>
-      categories
-        .map((category) => ({
-          ...category,
-          items: filteredProducts.filter((product) => product.category_id === category.id),
-        }))
-        .filter((category) => category.items.length > 0),
-    [categories, filteredProducts],
-  );
+  const sections = useMemo(() => {
+    const categoryIds = new Set(categories.map((category) => category.id));
+    const categorySections = categories
+      .map((category) => ({
+        ...category,
+        items: filteredProducts.filter((product) => product.category_id === category.id),
+      }))
+      .filter((category) => category.items.length > 0);
+    const uncategorizedProducts = filteredProducts.filter((product) => !product.category_id || !categoryIds.has(product.category_id));
+    return uncategorizedProducts.length
+      ? [...categorySections, { id: "uncategorized", name: "Outros", items: uncategorizedProducts }]
+      : categorySections;
+  }, [categories, filteredProducts]);
 
   if (loading) {
     return (
@@ -91,7 +94,7 @@ const PublicStore = () => {
   }
 
   if (!store) {
-    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loja nao encontrada</div>;
+    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loja não encontrada</div>;
   }
 
   const isOpen = settings ? isStoreOpen(settings.business_hours, settings.is_open) : false;
@@ -123,7 +126,7 @@ const PublicStore = () => {
                   size="icon" 
                   onClick={async () => {
                     await signOut();
-                    toast.success("VocÃª saiu da conta.");
+                    toast.success("Você saiu da conta.");
                     navigate("/");
                   }}
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5"
@@ -178,7 +181,7 @@ const PublicStore = () => {
                   )}
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
-                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Regiao</div>
+                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Região</div>
                       <div className="flex items-center gap-2 text-sm font-semibold text-black">
                         <MapPin className="h-4 w-4 text-primary" />
                         <span>{store.city || "Cidade"}{store.state ? `/${store.state}` : ""}</span>
@@ -192,7 +195,7 @@ const PublicStore = () => {
                       </div>
                     </div>
                     <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
-                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Minimo</div>
+                      <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Mínimo</div>
                       <div className="text-sm font-semibold text-black">
                         {settings?.min_order_value > 0 ? formatBRL(settings.min_order_value) : "Livre"}
                       </div>
@@ -203,13 +206,13 @@ const PublicStore = () => {
             </Card>
 
             <Card className="rounded-3xl border-[#e1d7c7] bg-white p-5 shadow-sm">
-              <div className="mb-4 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Cardapio</div>
+              <div className="mb-4 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Cardápio</div>
               <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="h-11 rounded-xl border-[#e6e8de] pl-9"
-                    placeholder="Buscar no cardapio"
+                    placeholder="Buscar no cardápio"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                   />
@@ -243,7 +246,7 @@ const PublicStore = () => {
         {user && store.owner_user_id === user.id && (
           <div className="mb-6 border border-blue-200 bg-blue-50 p-4 text-center">
             <p className="text-sm text-blue-800 font-medium">
-              VocÃª estÃ¡ visualizando sua loja como <strong>Administrador</strong>. 
+              Você está visualizando sua loja como <strong>Administrador</strong>.
               Para testar o fluxo de compra completo como cliente, por favor use uma conta de cliente ou <button onClick={() => signOut()} className="underline font-bold hover:text-blue-600">saia da conta</button>.
             </p>
           </div>
@@ -251,28 +254,28 @@ const PublicStore = () => {
 
         {isSuspended && (
           <div className="mb-6 border-4 border-destructive bg-destructive/10 p-6 text-center text-destructive">
-            <h3 className="text-xl font-black uppercase tracking-tight italic mb-2">OperaÃ§Ã£o Temporariamente Suspensa</h3>
-            <p className="font-bold text-sm">Esta loja nÃ£o estÃ¡ aceitando pedidos no momento por questÃµes administrativas.</p>
+            <h3 className="text-xl font-black uppercase tracking-tight italic mb-2">Operação Temporariamente Suspensa</h3>
+            <p className="font-bold text-sm">Esta loja não está aceitando pedidos no momento por questões administrativas.</p>
           </div>
         )}
 
         {!isSuspended && !acceptOrders && (
           <div className="mb-6 border border-warning/35 bg-warning/10 p-4 text-center text-sm text-warning font-bold uppercase tracking-widest">
-            A loja estÃ¡ fechada e nÃ£o estÃ¡ aceitando pedidos no momento.
+            A loja está fechada e não está aceitando pedidos no momento.
           </div>
         )}
 
         <div className="space-y-8">
           {sections.length === 0 ? (
             <Card className="rounded-3xl border-[#e6e8de] p-10 text-center text-muted-foreground">
-              {products.length === 0 ? "Cardapio em construcao." : "Nenhum produto encontrado."}
+              {products.length === 0 ? "Cardápio em construção." : "Nenhum produto encontrado."}
             </Card>
           ) : (
             sections.map((section) => (
               <section key={section.id} className="space-y-4">
                 <div className="flex items-end justify-between gap-4 border-b border-[#e6e8de] pb-3">
                   <div>
-                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-primary">Secao do cardapio</div>
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-primary">Seção do cardápio</div>
                     <h2 className="text-2xl font-bold text-stone-950">{section.name}</h2>
                   </div>
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">

@@ -20,7 +20,7 @@ const schema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(100),
   slug: z.string().trim().min(3, "Slug muito curto").max(50).regex(/^[a-z0-9-]+$/, "Use apenas letras, numeros e hifen"),
   description: z.string().max(500).optional(),
-  whatsapp: z.string().trim().min(10, "WhatsApp invalido").max(20),
+  whatsapp: z.string().trim().min(10, "WhatsApp inválido").max(20),
   document: z.string().trim().min(11, "CPF ou CNPJ inválido").max(18),
   city: z.string().trim().min(2, "Informe sua cidade").max(100),
   state: z.string().trim().length(2, "UF deve ter 2 letras"),
@@ -182,7 +182,7 @@ const Onboarding = () => {
             <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Burger Vexor" required />
           </div>
           <div>
-            <Label htmlFor="slug">Endereco da loja *</Label>
+            <Label htmlFor="slug">Endereço da loja *</Label>
             <div className="mt-1 flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{publicBaseUrl}</span>
               <Input id="slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })} placeholder="burger-vexor" required />

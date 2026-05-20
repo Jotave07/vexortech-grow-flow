@@ -35,6 +35,56 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 const STORAGE_PREFIX = "vexor_cart_";
 
+const createUid = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const normalizeNotes = (notes?: string) => notes?.trim() || "";
+
+const optionSignature = (options: CartOption[]) =>
+  [...options]
+    .map((option) => [
+      option.option_id,
+      option.item_id,
+      Number(option.extra_price).toFixed(2),
+    ].join(":"))
+    .sort()
+    .join("|");
+
+const cartLineSignature = (item: Omit<CartItem, "uid">) =>
+  [
+    item.product_id,
+    Number(item.unit_price).toFixed(2),
+    normalizeNotes(item.notes),
+    optionSignature(item.options),
+  ].join("||");
+
+const normalizeCartItem = (item: Partial<CartItem>): CartItem | null => {
+  if (!item.product_id || !item.product_name) return null;
+  const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+  return {
+    uid: item.uid || createUid(),
+    product_id: item.product_id,
+    product_name: item.product_name,
+    unit_price: Number(item.unit_price || 0),
+    quantity,
+    options: Array.isArray(item.options) ? item.options : [],
+    notes: normalizeNotes(item.notes) || undefined,
+  };
+};
+
+const parseStoredCartItems = (raw: string | null): CartItem[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeCartItem).filter((item): item is CartItem => Boolean(item));
+  } catch {
+    return [];
+  }
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [storeSlug, setStoreSlugState] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -45,15 +95,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const slug = localStorage.getItem("vexor_active_store_slug");
     if (!slug) return [];
     const raw = localStorage.getItem(STORAGE_PREFIX + slug);
-    return raw ? JSON.parse(raw) : [];
+    return parseStoredCartItems(raw);
   });
 
   useEffect(() => {
     if (!storeSlug || typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + storeSlug);
-      if (raw) setItems(JSON.parse(raw));
-      else setItems([]);
+      setItems(parseStoredCartItems(raw));
     } catch {
       setItems([]);
     }
@@ -72,7 +121,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addItem: CartContextValue["addItem"] = (item) => {
-    setItems((prev) => [...prev, { ...item, uid: crypto.randomUUID() }]);
+    const normalizedItem = normalizeCartItem(item);
+    if (!normalizedItem) return;
+    const nextSignature = cartLineSignature(normalizedItem);
+
+    setItems((prev) => {
+      const existing = prev.find((current) => cartLineSignature(current) === nextSignature);
+      if (!existing) return [...prev, normalizedItem];
+      return prev.map((current) =>
+        current.uid === existing.uid
+          ? { ...current, quantity: current.quantity + normalizedItem.quantity }
+          : current,
+      );
+    });
   };
   const updateQty = (uid: string, qty: number) => {
     if (qty <= 0) return removeItem(uid);

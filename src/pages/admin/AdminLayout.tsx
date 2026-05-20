@@ -49,7 +49,7 @@ const AdminLayout = () => {
         <div className="max-w-sm text-center">
           <ShieldAlert className="mx-auto mb-3 h-12 w-12 text-destructive" />
           <h1 className="mb-2 text-xl font-bold">Acesso restrito</h1>
-          <p className="mb-4 text-sm text-muted-foreground">Voce nao tem permissao de administrador Vexor.</p>
+          <p className="mb-4 text-sm text-muted-foreground">Você não tem permissão de administrador Vexor.</p>
           <Button asChild variant="outline"><a href="/lojista">Voltar</a></Button>
         </div>
       </div>

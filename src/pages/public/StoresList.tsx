@@ -23,6 +23,9 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 
+const normalizeCategoryName = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 export default function StoresList() {
   const [stores, setStores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,13 +45,13 @@ export default function StoresList() {
   const categories = [
     { name: "Todos", icon: ShoppingBag },
     { name: "Restaurantes", icon: Utensils },
-    { name: "Acai", icon: Star },
+    { name: "Açaí", icon: Star },
     { name: "Pizza", icon: Utensils },
     { name: "Lanches", icon: ShoppingBag },
     { name: "Mercados", icon: ShoppingBasket },
     { name: "Bebidas", icon: Wine },
-    { name: "Farmacia", icon: Pill },
-    { name: "Promocoes", icon: Tag },
+    { name: "Farmácia", icon: Pill },
+    { name: "Promoções", icon: Tag },
     { name: "Mais pedidos", icon: Star },
   ];
 
@@ -70,14 +73,14 @@ export default function StoresList() {
 
   const handleCepLookup = useCallback(async (cepOverride?: string, silent = false) => {
     const cleanCep = onlyDigits(cepOverride ?? tempCep);
-    if (cleanCep.length !== 8) return toast.error("CEP invalido");
+    if (cleanCep.length !== 8) return toast.error("CEP inválido");
     setLoadingCep(true);
     try {
       const addr = await fetchAddressByCep(cleanCep);
       saveAddress(addr, cleanCep);
       setTempCep(cleanCep);
       setLastResolvedCep(cleanCep);
-      if (!silent) toast.success("Endereco definido!");
+      if (!silent) toast.success("Endereço definido!");
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
     } finally {
@@ -100,9 +103,9 @@ export default function StoresList() {
       const addr = await fetchAddressFromCurrentLocation();
       saveAddress(addr, onlyDigits(addr.cep));
       setTempCep(onlyDigits(addr.cep));
-      toast.success("Localizacao definida automaticamente.");
+      toast.success("Localização definida automaticamente.");
     } catch (e: any) {
-      toast.error(e.message || "Nao foi possivel usar sua localizacao.");
+      toast.error(e.message || "Não foi possível usar sua localização.");
     } finally {
       setLoadingLocation(false);
     }
@@ -161,8 +164,8 @@ export default function StoresList() {
       const matchesCategory =
         activeCategory === "Todos" ||
         activeCategory === "Mais pedidos" ||
-        activeCategory === "Promocoes" ||
-        s.delivery_kind === activeCategory;
+        activeCategory === "Promoções" ||
+        normalizeCategoryName(s.delivery_kind) === normalizeCategoryName(activeCategory);
       
       return matchesSearch && matchesCategory;
     }).sort((a, b) => {
@@ -182,7 +185,7 @@ export default function StoresList() {
       <div className="hidden">
         {/* SEO Metadata */}
         <title>Marketplace | VexorTech</title>
-        <meta name="description" content="Encontre restaurantes, explore opÃ§Ãµes disponÃ­veis e faÃ§a seu pedido de forma simples pela VexorTech." />
+        <meta name="description" content="Encontre restaurantes, explore opções disponíveis e faça seu pedido de forma simples pela VexorTech." />
       </div>
       {/* Header Desktop */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#ffffff]/95 border-b border-[#e6e8de] shadow-sm backdrop-blur-xl">
@@ -193,9 +196,9 @@ export default function StoresList() {
             <nav className="hidden lg:flex items-center gap-6">
               <button 
                 onClick={() => navigate("/")}
-                className={`text-sm font-bold uppercase tracking-widest transition-colors ${activeCategory === "InÃ­cio" ? "text-primary" : "text-gray-500 hover:text-gray-900"}`}
+                className={`text-sm font-bold uppercase tracking-widest transition-colors ${activeCategory === "Início" ? "text-primary" : "text-gray-500 hover:text-gray-900"}`}
               >
-                InÃ­cio
+                Início
               </button>
               <button 
                 onClick={() => setActiveCategory("Restaurantes")}
@@ -232,7 +235,7 @@ export default function StoresList() {
               <div className="text-left hidden lg:block">
                 <p className="text-[10px] uppercase font-bold text-gray-400 leading-none mb-0.5">Entregar em</p>
                 <p className="text-sm font-bold text-gray-900 leading-none truncate max-w-[150px]">
-                  {address ? `${address.neighborhood}, ${address.city}` : "Escolha um endereÃ§o"}
+                  {address ? `${address.neighborhood}, ${address.city}` : "Escolha um endereço"}
                 </p>
               </div>
               <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
@@ -332,7 +335,7 @@ export default function StoresList() {
               >
                 <MapPin className="h-4 w-4 text-primary" />
                 <span className="truncate max-w-[100px]">
-                  {address ? address.neighborhood : "EndereÃ§o"}
+                  {address ? address.neighborhood : "Endereço"}
                 </span>
                 <ChevronDown className="h-3 w-3" />
               </button>
@@ -373,7 +376,7 @@ export default function StoresList() {
           <div className="text-center py-24 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100">
             <ShoppingBag className="h-16 w-16 mx-auto text-gray-200 mb-4" />
             <h3 className="text-xl font-bold uppercase text-gray-900 tracking-tight italic">Nenhum restaurante encontrado</h3>
-            <p className="text-gray-500 font-medium">Tente ajustar sua busca ou mudar sua localizaÃ§Ã£o.</p>
+            <p className="text-gray-500 font-medium">Tente ajustar sua busca ou mudar sua localização.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -417,7 +420,7 @@ export default function StoresList() {
                     <div className="grid grid-cols-2 gap-2 text-stone-600 text-xs font-bold mb-4">
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3.5 w-3.5 text-primary" />
-                        {store.city || 'Cidade nÃ£o informada'}
+                        {store.city || 'Cidade não informada'}
                       </div>
                       {store.store_settings?.avg_prep_time_minutes && (
                         <div className="flex items-center gap-1.5">
@@ -429,10 +432,10 @@ export default function StoresList() {
 
                     <div className="mt-auto pt-4 border-t border-[#e6e8de] flex items-center justify-between gap-3">
                        <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
-                          {store.store_settings?.delivery_radius_km ? `Raio ${store.store_settings.delivery_radius_km} km` : 'Cardapio online'}
+                          {store.store_settings?.delivery_radius_km ? `Raio ${store.store_settings.delivery_radius_km} km` : 'Cardápio online'}
                        </p>
                       <Button variant="ghost" className="text-primary font-bold text-xs h-8 px-0 group-hover:translate-x-1 transition-transform">
-                        CardÃ¡pio
+                        Cardápio
                       </Button>
                     </div>
                   </div>
@@ -447,7 +450,7 @@ export default function StoresList() {
         <DialogContent className="max-w-md rounded-xl border-none p-0 overflow-hidden">
           <div className="bg-white p-8">
             <div className="flex justify-between items-center mb-6">
-               <DialogTitle className="text-xl font-bold text-gray-900 italic uppercase tracking-tight">Onde vocÃª quer receber seu pedido?</DialogTitle>
+               <DialogTitle className="text-xl font-bold text-gray-900 italic uppercase tracking-tight">Onde você quer receber seu pedido?</DialogTitle>
             </div>
             
             <div className="space-y-6">
@@ -456,7 +459,7 @@ export default function StoresList() {
                 <Input 
                   value={formatCEP(tempCep)} 
                   onChange={(e) => setTempCep(e.target.value)} 
-                  placeholder="Buscar endereÃ§o e nÃºmero (ou CEP)"
+                  placeholder="Buscar endereço e número (ou CEP)"
                   className="h-14 pl-12 border-gray-100 bg-gray-50 rounded-xl font-medium focus:bg-white focus:border-primary transition-all"
                 />
               </div>
@@ -466,7 +469,7 @@ export default function StoresList() {
                 disabled={loadingCep}
                 className="w-full h-14 bg-primary hover:brightness-110 text-primary-foreground font-bold uppercase tracking-widest shadow-panel"
               >
-                {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirmar localizacao"}
+                {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirmar localização"}
               </Button>
 
               <Button
@@ -477,13 +480,13 @@ export default function StoresList() {
                 disabled={loadingLocation}
               >
                 {loadingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-                Usar localizacao atual
+                Usar localização atual
               </Button>
 
               {!user && (
                 <div className="pt-6 border-t border-gray-100 text-center">
                    <p className="text-sm text-gray-500 font-medium mb-4 text-balance">
-                      Entre para ver seus endereÃ§os salvos e pedir mais rÃ¡pido.
+                      Entre para ver seus endereços salvos e pedir mais rápido.
                    </p>
                    <Button variant="outline" className="w-full h-12 font-bold uppercase tracking-widest rounded-xl border-gray-200" onClick={() => navigate("/entrar")}>
                       Entrar ou Cadastrar

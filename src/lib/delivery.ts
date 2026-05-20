@@ -65,22 +65,22 @@ export const validateDistanceBands = (bands: DeliveryDistanceBand[]) => {
   const sorted = [...bands].sort((a, b) => a.startKm - b.startKm);
 
   if (sorted.length === 0) {
-    issues.push({ field: "distanceBands", message: "Cadastre pelo menos uma faixa de distancia para a entrega." });
+    issues.push({ field: "distanceBands", message: "Cadastre pelo menos uma faixa de distância para a entrega." });
     return issues;
   }
 
   sorted.forEach((band, index) => {
     if (band.startKm < 0) {
-      issues.push({ field: "distanceBands", message: `A faixa ${index + 1} nao pode comecar com distancia negativa.` });
+      issues.push({ field: "distanceBands", message: `A faixa ${index + 1} não pode começar com distância negativa.` });
     }
     if (band.endKm <= band.startKm) {
       issues.push({ field: "distanceBands", message: `A faixa ${index + 1} precisa terminar depois do valor inicial.` });
     }
     if (band.fee < 0) {
-      issues.push({ field: "distanceBands", message: `A taxa da faixa ${index + 1} nao pode ser negativa.` });
+      issues.push({ field: "distanceBands", message: `A taxa da faixa ${index + 1} não pode ser negativa.` });
     }
     if (index > 0 && band.startKm < sorted[index - 1].endKm) {
-      issues.push({ field: "distanceBands", message: `As faixas ${index} e ${index + 1} estao sobrepostas.` });
+      issues.push({ field: "distanceBands", message: `As faixas ${index} e ${index + 1} estão sobrepostas.` });
     }
   });
 
@@ -94,24 +94,24 @@ export const validateDeliverySettings = (config: DeliveryConfiguration) => {
     if (config.distanceBands.length > 0) {
       issues.push(...validateDistanceBands(config.distanceBands));
     } else if (config.deliveryFeePerKm <= 0) {
-      issues.push({ field: "deliveryFeePerKm", message: "Informe um valor por KM ou cadastre faixas de distancia para a entrega." });
+      issues.push({ field: "deliveryFeePerKm", message: "Informe um valor por KM ou cadastre faixas de distância para a entrega." });
     }
 
     if (config.deliveryRadiusKm !== null && config.deliveryRadiusKm <= 0) {
-      issues.push({ field: "deliveryRadiusKm", message: "Informe um raio maior que zero para usar entrega por distancia." });
+      issues.push({ field: "deliveryRadiusKm", message: "Informe um raio maior que zero para usar entrega por distância." });
     }
     if (config.deliveryFeePerKm < 0) {
-      issues.push({ field: "deliveryFeePerKm", message: "O valor por KM nao pode ser negativo." });
+      issues.push({ field: "deliveryFeePerKm", message: "O valor por KM não pode ser negativo." });
     }
     if (config.averagePrepTimeMinutes <= 0) {
-      issues.push({ field: "averagePrepTimeMinutes", message: "Defina um tempo medio de entrega/preparo valido." });
+      issues.push({ field: "averagePrepTimeMinutes", message: "Defina um tempo médio de entrega/preparo válido." });
     }
 
     const maxBandDistance = getMaxBandDistance(config.distanceBands);
     if (config.deliveryRadiusKm !== null && maxBandDistance !== null && config.deliveryRadiusKm < maxBandDistance) {
       issues.push({
         field: "deliveryRadiusKm",
-        message: "O raio maximo deve cobrir pelo menos o limite final da ultima faixa configurada.",
+        message: "O raio máximo deve cobrir pelo menos o limite final da última faixa configurada.",
       });
     }
   }
@@ -134,8 +134,8 @@ export const getMaxBandDistance = (bands: DeliveryDistanceBand[]) =>
 export const formatDeliveryFeePreview = (bands: DeliveryDistanceBand[], radiusKm: number | null) => {
   if (bands.length === 0) {
     return radiusKm === null
-      ? "Nenhuma faixa de distancia configurada ainda."
-      : `Raio maximo configurado: ${radiusKm.toFixed(1).replace(".", ",")} km. O valor por KM sera usado quando estiver preenchido.`;
+      ? "Nenhuma faixa de distância configurada ainda."
+      : `Raio máximo configurado: ${radiusKm.toFixed(1).replace(".", ",")} km. O valor por KM será usado quando estiver preenchido.`;
   }
 
   const preview = bands
@@ -143,10 +143,10 @@ export const formatDeliveryFeePreview = (bands: DeliveryDistanceBand[], radiusKm
     .join(" | ");
 
   if (radiusKm === null) {
-    return `${preview}. O bloqueio por distancia real so sera aplicado quando a loja e o cliente tiverem coordenadas confiaveis.`;
+    return `${preview}. O bloqueio por distância real só será aplicado quando a loja e o cliente tiverem coordenadas confiáveis.`;
   }
 
-  return `${preview}. Raio maximo configurado: ${radiusKm.toFixed(1).replace(".", ",")} km.`;
+  return `${preview}. Raio máximo configurado: ${radiusKm.toFixed(1).replace(".", ",")} km.`;
 };
 
 export const getDistanceBandForDistance = (distanceKm: number, bands: DeliveryDistanceBand[]) =>
@@ -183,7 +183,7 @@ export const canDeliverToAddress = ({
       canDeliver: true,
       distanceKm: null,
       reason: "missing_radius",
-      message: "A loja ainda nao definiu um raio de entrega por distancia.",
+      message: "A loja ainda não definiu um raio de entrega por distância.",
       deliveryFee: null,
       matchedBand: null,
     };
@@ -194,7 +194,7 @@ export const canDeliverToAddress = ({
       canDeliver: true,
       distanceKm: null,
       reason: "missing_coordinates",
-      message: `Endereco salvo para validacao futura por distancia: ${buildAddressLabel(storeAddress)} -> ${buildAddressLabel(customerAddress)}.`,
+      message: `Endereço salvo para validação futura por distância: ${buildAddressLabel(storeAddress)} -> ${buildAddressLabel(customerAddress)}.`,
       deliveryFee: null,
       matchedBand: null,
     };
@@ -208,7 +208,7 @@ export const canDeliverToAddress = ({
       canDeliver: false,
       distanceKm,
       reason: "outside_radius",
-      message: `No momento, esta loja atende entregas em um raio de ate ${fallbackRadius} km. O endereco informado esta fora da area de atendimento.`,
+      message: `No momento, esta loja atende entregas em um raio de até ${fallbackRadius} km. O endereço informado está fora da área de atendimento.`,
       deliveryFee: null,
       matchedBand: null,
     };
@@ -222,15 +222,15 @@ export const canDeliverToAddress = ({
     distanceKm,
     reason: "ok",
     message: matchedBand
-      ? `Endereco dentro da area configurada, a aproximadamente ${distanceKm.toFixed(2).replace(".", ",")} km da loja.`
-      : `Endereco dentro da area configurada, a aproximadamente ${distanceKm.toFixed(2).replace(".", ",")} km da loja.`,
+      ? `Endereço dentro da área configurada, a aproximadamente ${distanceKm.toFixed(2).replace(".", ",")} km da loja.`
+      : `Endereço dentro da área configurada, a aproximadamente ${distanceKm.toFixed(2).replace(".", ",")} km da loja.`,
     deliveryFee: fee,
     matchedBand,
   };
 };
 
 export const formatBandLabel = (band: DeliveryDistanceBand) =>
-  `${band.startKm.toFixed(1).replace(".", ",")} km ate ${band.endKm.toFixed(1).replace(".", ",")} km`;
+  `${band.startKm.toFixed(1).replace(".", ",")} km até ${band.endKm.toFixed(1).replace(".", ",")} km`;
 
 const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
 

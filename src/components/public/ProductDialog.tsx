@@ -9,7 +9,7 @@ import { useCart, CartOption } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type OptGroup = { id: string; name: string; is_required: boolean; min_choices: number; max_choices: number };
+type OptGroup = { id: string; name: string; is_required: boolean; min_choices: number | null; max_choices: number | null };
 type OptItem = { id: string; option_id: string; name: string; extra_price: number; is_active: boolean };
 
 export const ProductDialog = ({ product, onClose }: { product: any; onClose: () => void }) => {
@@ -46,10 +46,17 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
     })();
   }, [product.id]);
 
+  const groupLimits = (group: OptGroup) => {
+    const min = Math.max(group.is_required ? 1 : 0, Number(group.min_choices || 0));
+    const max = Math.max(min, Number(group.max_choices || 1));
+    return { min, max };
+  };
+
   const toggleItem = (group: OptGroup, itemId: string) => {
     setSelected((previous) => {
       const current = previous[group.id] ?? [];
-      if (group.max_choices === 1) {
+      const { max } = groupLimits(group);
+      if (max === 1) {
         return { ...previous, [group.id]: current[0] === itemId ? [] : [itemId] };
       }
 
@@ -58,8 +65,8 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
         return { ...previous, [group.id]: current.filter((value) => value !== itemId) };
       }
 
-      if (current.length >= group.max_choices) {
-        toast.error(`Maximo ${group.max_choices} em ${group.name}`);
+      if (current.length >= max) {
+        toast.error(`Máximo ${max} em ${group.name}`);
         return previous;
       }
 
@@ -77,17 +84,31 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
     .filter((group) => !group.is_required)
     .flatMap((group) => items.filter((item) => item.option_id === group.id).map((item) => ({ group, item })))
     .slice(0, 4);
-  const quickNotes = ["Sem cebola", "Molho separado", "Caprichar no molho", "Talher descartavel"];
+  const quickNotes = ["Sem cebola", "Molho separado", "Caprichar no molho", "Talher descartável"];
   const choiceGroups = groups.filter((group) => items.some((item) => item.option_id === group.id));
-  const requiredMinimum = (group: OptGroup) => Math.max(group.is_required ? 1 : 0, group.min_choices || 0);
-  const missingRequiredGroups = choiceGroups.filter((group) => (selected[group.id] ?? []).length < requiredMinimum(group));
+  const requiredGroups = groups.filter((group) => groupLimits(group).min > 0);
+  const missingRequiredGroups = requiredGroups.filter((group) => (selected[group.id] ?? []).length < groupLimits(group).min);
+  const unavailableRequiredGroups = requiredGroups.filter((group) => !items.some((item) => item.option_id === group.id));
 
   const handleAdd = () => {
-    for (const group of choiceGroups) {
+    if (product.is_available === false) {
+      return toast.error("Produto indisponível no momento");
+    }
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      return toast.error("Preço do produto inválido");
+    }
+
+    for (const group of requiredGroups) {
+      if (!items.some((item) => item.option_id === group.id)) {
+        return toast.error(`Produto indisponível para montagem: ${group.name}`);
+      }
       const selection = selected[group.id] ?? [];
-      const minimum = requiredMinimum(group);
-      if (minimum > 0 && selection.length < minimum) {
+      const { min, max } = groupLimits(group);
+      if (selection.length < min) {
         return toast.error(`Selecione em "${group.name}"`);
+      }
+      if (selection.length > max) {
+        return toast.error(`Máximo ${max} em "${group.name}"`);
       }
     }
 
@@ -157,8 +178,8 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
               const groupItems = items.filter((item) => item.option_id === group.id);
               if (!groupItems.length) return null;
               const selection = selected[group.id] ?? [];
-              const minimum = requiredMinimum(group);
-              const missing = Math.max(0, minimum - selection.length);
+              const { min, max } = groupLimits(group);
+              const missing = Math.max(0, min - selection.length);
 
               return (
                 <div key={group.id} className="space-y-3 border border-[#e6e8de] bg-white p-4">
@@ -166,16 +187,16 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                     <div>
                       <h4 className="text-sm font-bold text-stone-950">{group.name}</h4>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {minimum > 0
-                          ? `Escolha pelo menos ${minimum}${group.max_choices > minimum ? ` e ate ${group.max_choices}` : ""}`
-                          : `Escolha ate ${group.max_choices} opcao${group.max_choices > 1 ? "es" : ""}`}
+                        {min > 0
+                          ? `Escolha pelo menos ${min}${max > min ? ` e até ${max}` : ""}`
+                          : `Escolha até ${max} opção${max > 1 ? "ões" : ""}`}
                       </p>
                     </div>
                     <span className={cn(
                       "border px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
                       missing > 0 ? "border-primary/25 bg-primary/10 text-primary" : "border-[#e6e8de] bg-[#f6f7f2] text-stone-500",
                     )}>
-                      {missing > 0 ? `Faltam ${missing}` : "Ok"} {selection.length}/{group.max_choices}
+                      {missing > 0 ? `Faltam ${missing}` : "Ok"} {selection.length}/{max}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -214,7 +235,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
             <div className="space-y-3 border border-[#e6e8de] bg-[#f6f7f2] p-4">
               <div className="flex items-center gap-2 text-sm font-bold text-stone-950">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Sugestoes para incluir no pedido
+                Sugestões para incluir no pedido
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {optionalSuggestions.map(({ group, item }) => {
@@ -244,8 +265,14 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
             </div>
           )}
 
+          {!loading && unavailableRequiredGroups.length > 0 && (
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
+              Indisponível para montagem: {unavailableRequiredGroups.map((group) => group.name).join(", ")}
+            </div>
+          )}
+
           <div>
-            <h4 className="mb-2 text-sm font-medium">Observacoes</h4>
+            <h4 className="mb-2 text-sm font-medium">Observações</h4>
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ex: sem cebola" rows={2} maxLength={200} />
             <div className="mt-2 flex flex-wrap gap-2">
               {quickNotes.map((note) => (
@@ -271,8 +298,8 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            <Button variant="hero" className="flex-1" onClick={handleAdd} disabled={loading || missingRequiredGroups.length > 0}>
-              Adicionar â€¢ {formatBRL(total)}
+            <Button variant="hero" className="flex-1" onClick={handleAdd} disabled={loading || missingRequiredGroups.length > 0 || unavailableRequiredGroups.length > 0}>
+              Adicionar • {formatBRL(total)}
             </Button>
           </div>
         </div>

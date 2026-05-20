@@ -22,7 +22,7 @@ const ResetPassword = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) return toast.error("Minimo 6 caracteres");
+    if (password.length < 6) return toast.error("Mínimo 6 caracteres");
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);

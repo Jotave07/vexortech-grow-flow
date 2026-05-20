@@ -99,7 +99,7 @@ const Settings = () => {
 
     if (!storeRes.data) {
       setLoading(false);
-      setLoadingError("Nao foi possivel localizar os dados da loja.");
+      setLoadingError("Não foi possível localizar os dados da loja.");
       return;
     }
 
@@ -164,10 +164,10 @@ const Settings = () => {
         state: address.uf || storeForm.state,
         address_complement: storeForm.address_complement || address.complemento || null,
       });
-      setCepLookup({ status: "success", message: "Endereco encontrado e preenchido. Revise os campos antes de salvar." });
-      toast.success("Endereco localizado pelo CEP.");
+      setCepLookup({ status: "success", message: "Endereço encontrado e preenchido. Revise os campos antes de salvar." });
+      toast.success("Endereço localizado pelo CEP.");
     } catch (error) {
-      const message = error instanceof ViaCepError ? error.message : "Nao foi possivel consultar o CEP.";
+      const message = error instanceof ViaCepError ? error.message : "Não foi possível consultar o CEP.";
       setCepLookup({ status: "error", message });
       toast.error(message);
     }
@@ -187,7 +187,7 @@ const Settings = () => {
       });
 
       if (!coordinates) {
-        toast.error("Nao foi possivel gerar coordenadas. Confira rua, numero, cidade e UF.");
+        toast.error("Não foi possível gerar coordenadas. Confira rua, número, cidade e UF.");
         return;
       }
 
@@ -213,9 +213,9 @@ const Settings = () => {
         latitude: address.lat ?? storeForm.latitude,
         longitude: address.lng ?? storeForm.longitude,
       });
-      toast.success("Localizacao atual aplicada a loja. Revise numero e complemento.");
+      toast.success("Localização atual aplicada à loja. Revise número e complemento.");
     } catch (error: any) {
-      toast.error(error.message || "Nao foi possivel usar a localizacao atual.");
+      toast.error(error.message || "Não foi possível usar a localização atual.");
     } finally {
       setGeocodingStore(false);
     }
@@ -238,7 +238,7 @@ const Settings = () => {
 
     const validation = validateDeliverySettings(deliveryConfig);
     if (!validation.valid) {
-      toast.error(validation.issues[0]?.message ?? "Revise as configuracoes de entrega.");
+      toast.error(validation.issues[0]?.message ?? "Revise as configurações de entrega.");
       return;
     }
 
@@ -311,14 +311,14 @@ const Settings = () => {
     setSaving(false);
 
     if (safeStoreUpdate.error || safeSettingsUpdate.error) {
-      return toast.error(safeStoreUpdate.error?.message ?? safeSettingsUpdate.error?.message ?? "Erro ao salvar configuracoes.");
+      return toast.error(safeStoreUpdate.error?.message ?? safeSettingsUpdate.error?.message ?? "Erro ao salvar configurações.");
     }
 
-    toast.success("Configuracoes salvas com sucesso.");
+    toast.success("Configurações salvas com sucesso.");
     if (shouldRetryWithLegacySchema(storeUpdate.error) || shouldRetryWithLegacySchema(settingsUpdate.error)) {
-      toast.message("As configuracoes basicas foram salvas. Campos avancados dependem de migrations ainda nao aplicadas no banco.");
+      toast.message("As configurações básicas foram salvas. Campos avançados dependem de migrations ainda não aplicadas no banco.");
     }
-    setCepLookup((current) => current.status === "success" ? { ...current, message: "Endereco salvo com sucesso." } : current);
+    setCepLookup((current) => current.status === "success" ? { ...current, message: "Endereço salvo com sucesso." } : current);
     void load();
   };
 
@@ -337,7 +337,7 @@ const Settings = () => {
     return (
       <Card className="p-6">
         <div className="space-y-3">
-          <h1 className="text-xl font-semibold">Nao foi possivel carregar as configuracoes</h1>
+          <h1 className="text-xl font-semibold">Não foi possível carregar as configurações</h1>
           <p className="text-sm text-muted-foreground">{loadingError}</p>
           <Button variant="outline" onClick={() => void load()}>Tentar novamente</Button>
         </div>
@@ -349,8 +349,8 @@ const Settings = () => {
     return (
       <Card className="p-6">
         <div className="space-y-3">
-          <h1 className="text-xl font-semibold">Configuracoes indisponiveis</h1>
-          <p className="text-sm text-muted-foreground">Os dados iniciais da loja nao puderam ser preparados.</p>
+          <h1 className="text-xl font-semibold">Configurações indisponíveis</h1>
+          <p className="text-sm text-muted-foreground">Os dados iniciais da loja não puderam ser preparados.</p>
           <Button variant="outline" onClick={() => void load()}>Recarregar</Button>
         </div>
       </Card>
@@ -373,7 +373,7 @@ const Settings = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Configuracoes</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Configurações</h1>
           <p className="text-muted-foreground">Estruture sua operacao, endereco, entrega, pagamentos e assinatura sem perder o acabamento premium da loja.</p>
         </div>
         <Button variant="hero" onClick={save} disabled={saving}>
@@ -385,7 +385,7 @@ const Settings = () => {
       <Tabs defaultValue="general" className="space-y-5">
         <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-secondary/80 p-1">
           <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="address">Endereco</TabsTrigger>
+          <TabsTrigger value="address">Endereço</TabsTrigger>
           <TabsTrigger value="delivery">Entrega</TabsTrigger>
           <TabsTrigger value="payments">Pagamentos</TabsTrigger>
           <TabsTrigger value="subscription">Assinatura</TabsTrigger>
@@ -405,7 +405,7 @@ const Settings = () => {
                 <Input id="store-name" value={storeForm.name ?? ""} onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value.toUpperCase() })} />
               </Field>
               <Field>
-                <Label htmlFor="store-public-name">Nome publico</Label>
+                <Label htmlFor="store-public-name">Nome público</Label>
                 <Input
                   id="store-public-name"
                   value={storeForm.public_name ?? ""}
@@ -455,15 +455,15 @@ const Settings = () => {
                   <SelectContent>
                     <SelectItem value="open">Aberta agora</SelectItem>
                     <SelectItem value="closed">Fechada</SelectItem>
-                    <SelectItem value="paused">Pausa temporaria</SelectItem>
+                    <SelectItem value="paused">Pausa temporária</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
 
               <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground">
                 {getStoreStatusValue(storeSettings) === "open" && "A loja fica visivel e aceita pedidos normalmente."}
-                {getStoreStatusValue(storeSettings) === "closed" && "A loja continua publicada, mas o checkout nao deve aceitar novos pedidos."}
-                {getStoreStatusValue(storeSettings) === "paused" && "A operacao fica em pausa, com a base pronta para comportamento diferenciado em fluxos futuros."}
+                {getStoreStatusValue(storeSettings) === "closed" && "A loja continua publicada, mas o checkout não deve aceitar novos pedidos."}
+                {getStoreStatusValue(storeSettings) === "paused" && "A operação fica em pausa, com a base pronta para comportamento diferenciado em fluxos futuros."}
               </div>
             </div>
 
@@ -507,7 +507,7 @@ const Settings = () => {
           <Card className="p-6 space-y-5">
             <SectionHeader
               icon={MapPin}
-              title="Endereco da loja"
+              title="Endereço da loja"
               description="Use o ViaCEP para preencher rua, bairro, cidade e UF. Numero e complemento continuam editaveis manualmente."
             />
 
@@ -569,7 +569,7 @@ const Settings = () => {
             </div>
 
             <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
-              <div className="font-medium text-foreground">Endereco consolidado</div>
+              <div className="font-medium text-foreground">Endereço consolidado</div>
               <div>{buildAddressLabel({
                 street: storeForm.address ?? "",
                 number: storeForm.address_number ?? "",
@@ -580,7 +580,7 @@ const Settings = () => {
               <div>
                 Coordenadas: {storeForm.latitude && storeForm.longitude
                   ? `${storeForm.latitude}, ${storeForm.longitude}`
-                  : "ainda nao configuradas. Gere coordenadas para ativar o raio automatico com mais precisao."}
+                  : "ainda não configuradas. Gere coordenadas para ativar o raio automático com mais precisão."}
               </div>
             </div>
           </Card>
@@ -597,13 +597,13 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SwitchRow
                 label="Ativar entrega"
-                description="Quando desligado, o checkout publico nao deve oferecer entrega."
+                description="Quando desligado, o checkout público não deve oferecer entrega."
                 checked={storeSettings.allow_delivery}
                 onCheckedChange={(value) => setStoreSettings({ ...storeSettings, allow_delivery: value })}
               />
               <SwitchRow
                 label="Ativar retirada no local"
-                description="Mantem a opcao de retirada sem exigir motoboy."
+                description="Mantém a opção de retirada sem exigir motoboy."
                 checked={storeSettings.allow_pickup}
                 onCheckedChange={(value) => setStoreSettings({ ...storeSettings, allow_pickup: value })}
               />
@@ -648,7 +648,7 @@ const Settings = () => {
                 />
               </Field>
               <Field>
-                <Label>Tempo medio de entrega/preparo (min)</Label>
+                <Label>Tempo médio de entrega/preparo (min)</Label>
                 <Input
                   type="number"
                   value={storeSettings.avg_prep_time_minutes ?? 30}
@@ -656,7 +656,7 @@ const Settings = () => {
                 />
               </Field>
               <Field>
-                <Label>Maior distancia configurada</Label>
+                <Label>Maior distância configurada</Label>
                 <div className="flex h-10 items-center rounded-md border border-border bg-background px-3 text-sm text-muted-foreground">
                   {getMaxBandDistance(distanceBands) !== null
                     ? `${getMaxBandDistance(distanceBands)?.toFixed(1).replace(".", ",")} km`
@@ -668,9 +668,9 @@ const Settings = () => {
             <div className="space-y-4 rounded-lg border border-border bg-background/55 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="font-medium">Faixas de distancia e frete</div>
+                  <div className="font-medium">Faixas de distância e frete</div>
                   <div className="text-sm text-muted-foreground">
-                    Configure o valor por intervalo de KM. Exemplo: 0 a 2 km por R$ 2,00; acima disso, a proxima faixa assume.
+                    Configure o valor por intervalo de KM. Exemplo: 0 a 2 km por R$ 2,00; acima disso, a próxima faixa assume.
                   </div>
                 </div>
                 <Button type="button" variant="outline" onClick={() => setDistanceBands((current) => [...current, createDistanceBand(current)])}>
@@ -681,7 +681,7 @@ const Settings = () => {
 
               {distanceBands.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  Nenhuma faixa cadastrada. Adicione pelo menos uma para definir a cobranca por distancia.
+                  Nenhuma faixa cadastrada. Adicione pelo menos uma para definir a cobrança por distância.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -764,9 +764,9 @@ const Settings = () => {
               <div className="font-medium text-foreground">Resumo atual</div>
               <div>{formatDeliveryFeePreview(distanceBands, toNullableNumber(storeSettings.delivery_radius_km))}</div>
               <div>
-                Validacao por distancia automatica: {storeForm.latitude && storeForm.longitude
-                  ? "ativa. O checkout cruza coordenadas, consulta rota publica quando possivel e bloqueia pedidos fora do raio."
-                  : "aguardando coordenadas confiaveis da loja. Use Gerar coordenadas na aba Endereco."}
+                Validação por distância automática: {storeForm.latitude && storeForm.longitude
+                  ? "ativa. O checkout cruza coordenadas, consulta rota pública quando possível e bloqueia pedidos fora do raio."
+                  : "aguardando coordenadas confiáveis da loja. Use Gerar coordenadas na aba Endereço."}
               </div>
               <div>
                 Zonas por bairro existentes continuam em <Link to="/lojista/entregas" className="text-primary underline-offset-4 hover:underline">Entregas</Link> para o fluxo atual do checkout.
@@ -901,7 +901,7 @@ const Settings = () => {
             <SectionHeader
               icon={TimerReset}
               title="Assinatura da loja"
-              description="Status atual, limites conhecidos e atalho rapido para a gestao completa do plano."
+              description="Status atual, limites conhecidos e atalho rápido para a gestão completa do plano."
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
@@ -920,7 +920,7 @@ const Settings = () => {
                 {activePlan && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <MiniStat label="Produtos" value={planLimits.products ? String(planLimits.products) : "Ilimitado"} />
-                    <MiniStat label="Pedidos por mes" value={planLimits.monthlyOrders ? String(planLimits.monthlyOrders) : "Ilimitado"} />
+                    <MiniStat label="Pedidos por mês" value={planLimits.monthlyOrders ? String(planLimits.monthlyOrders) : "Ilimitado"} />
                     <MiniStat label="Lojas/unidades" value={planLimits.stores ? String(planLimits.stores) : "Ilimitado"} />
                     <MiniStat label="Usuarios internos" value={planLimits.internalUsers ? String(planLimits.internalUsers) : "Ilimitado"} />
                   </div>
@@ -933,7 +933,7 @@ const Settings = () => {
                   <div className="text-2xl font-bold">{formatBRL(activePlan?.priceMonthly ?? 0)}</div>
                 </div>
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/lojista/assinatura">Abrir gestao completa da assinatura</Link>
+                  <Link to="/lojista/assinatura">Abrir gestão completa da assinatura</Link>
                 </Button>
               </div>
             </div>

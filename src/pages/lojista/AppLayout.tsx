@@ -11,7 +11,7 @@ import { buildDeliveryUrl } from "@/lib/domains";
 const menu = [
   { to: "/lojista", icon: LayoutDashboard, label: "Dashboard", end: true },
   { to: "/lojista/pedidos", icon: ShoppingBag, label: "Pedidos" },
-  { to: "/lojista/cardapio", icon: UtensilsCrossed, label: "Cardapio" },
+  { to: "/lojista/cardapio", icon: UtensilsCrossed, label: "Cardápio" },
   { to: "/lojista/categorias", icon: Tags, label: "Categorias" },
   { to: "/lojista/clientes", icon: Users, label: "Clientes" },
   { to: "/lojista/cupons", icon: Ticket, label: "Cupons" },
