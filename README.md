@@ -14,12 +14,46 @@ Aplicacao de delivery com painel administrativo, painel do lojista, loja publica
 ## Scripts
 
 ```bash
+npm ci
+npm run typecheck
 npm run dev
 npm run lint
+npm test
 npm run build
+npm run db:migrate
+npm run db:check
 npm run start
 ```
 
 ## Ambiente
 
 Copie `.env.example` para `.env` no desenvolvimento local. Em producao, a VPS usa `/etc/vexortech/vexortech.env`.
+
+Variaveis criticas em producao:
+
+- `DATABASE_URL` ou `POSTGRES_HOST`/`POSTGRES_DATABASE`/`POSTGRES_USER`/`POSTGRES_PASSWORD`
+- `JWT_SECRET` forte, com pelo menos 32 caracteres
+- `PUBLIC_APP_URL`
+- `STORAGE_DIR`
+- `ASAAS_WEBHOOK_SECRET`
+- `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE` e `EVOLUTION_SENDER_PHONE=11971582072` quando Evolution estiver ativo
+
+## Deploy Seguro
+
+1. Atualize o codigo na VPS em `/var/www/vexortech/current` ou mantenha esse caminho como symlink para a release ativa.
+2. Configure `/etc/vexortech/vexortech.env` sem versionar secrets.
+3. Execute:
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run db:migrate
+npm run db:check
+sudo systemctl restart vexortech
+curl -f https://hypedelivery.com.br/api/health
+```
+
+Rollback: volte o symlink `/var/www/vexortech/current` para a release anterior, restaure o backup do banco se a migration ja tiver sido aplicada, rode `npm run db:check` e reinicie o servico.

@@ -26,6 +26,48 @@ const paymentStatusForEvent = (event: string) => {
 
 const safeJsonError = (message: string, status: number) => Response.json({ error: message }, { status });
 
+const hashPayload = (payload: unknown) =>
+  crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+
+const redactPayload = (body: any) => ({
+  event: body?.event || null,
+  payment: body?.payment
+    ? {
+      id: body.payment.id || null,
+      status: body.payment.status || null,
+      externalReference: body.payment.externalReference || null,
+      value: body.payment.value ?? null,
+      billingType: body.payment.billingType || null,
+      dateCreated: body.payment.dateCreated || null,
+      paymentDate: body.payment.paymentDate || null,
+    }
+    : null,
+});
+
+const insertPaymentEvent = async (
+  client: { query: (sql: string, params?: unknown[]) => Promise<any> },
+  input: { event: string; payment: any; body: any; orderId?: string | null; storeId?: string | null },
+) => {
+  const redacted = redactPayload(input.body);
+  const { rows } = await client.query(
+    `INSERT INTO public.payment_events (
+       provider, event_type, external_payment_id, order_id, store_id, payload_hash, payload_redacted
+     )
+     VALUES ('asaas', $1, $2, $3, $4, $5, $6::jsonb)
+     ON CONFLICT DO NOTHING
+     RETURNING id`,
+    [
+      input.event,
+      input.payment?.id || null,
+      input.orderId || null,
+      input.storeId || null,
+      hashPayload(redacted),
+      JSON.stringify(redacted),
+    ],
+  );
+  return Boolean(rows[0]);
+};
+
 const updateSubscriptionIfPresent = async (event: string, payment: any) => {
   if (!paidEvents.has(event)) return;
   if (!payment.subscription && !payment.externalReference) return;
@@ -77,7 +119,7 @@ export const handleAsaasWebhook = async (request: Request) => {
 
   const result = await withTransaction(async (client) => {
     const { rows: payments } = await client.query(
-      `SELECT p.*, o.id AS order_exists
+      `SELECT p.*, o.id AS order_exists, o.total AS order_total
        FROM public.payments p
        JOIN public.orders o ON o.id = p.order_id
        WHERE (p.external_id = $1 OR p.asaas_id = $1 OR (p.order_id::text = $2 AND (p.external_id IS NULL OR p.external_id = $1)))
@@ -87,7 +129,32 @@ export const handleAsaasWebhook = async (request: Request) => {
       [payment.id, payment.externalReference],
     );
     const localPayment = payments[0];
-    if (!localPayment) return { updated: false };
+    if (!localPayment) {
+      await insertPaymentEvent(client, { event, payment, body });
+      return { updated: false };
+    }
+
+    await insertPaymentEvent(client, {
+      event,
+      payment,
+      body,
+      orderId: localPayment.order_id,
+      storeId: localPayment.store_id,
+    });
+
+    if (mappedStatus === "pago") {
+      const expected = Number(localPayment.order_total || 0);
+      const received = Number(payment.value);
+      if (!Number.isFinite(received) || Math.abs(received - expected) > 0.01) {
+        await client.query(
+          `UPDATE public.payments
+           SET last_error = $2, updated_at = now()
+           WHERE id = $1`,
+          [localPayment.id, `Valor divergente no webhook Asaas. Esperado ${expected}, recebido ${payment.value ?? "ausente"}`],
+        );
+        return { updated: false, suspicious: true };
+      }
+    }
 
     const wasPaid = localPayment.status === "pago";
     const { rows: updatedPayments } = await client.query(
@@ -143,6 +210,7 @@ export const handleAsaasWebhook = async (request: Request) => {
       event,
       paymentId: payment.id,
       hasExternalReference: Boolean(payment.externalReference),
+      suspicious: Boolean((result as any).suspicious),
     });
     return Response.json({ success: true, ignored: true });
   }

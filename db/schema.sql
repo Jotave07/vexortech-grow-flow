@@ -1,0 +1,8 @@
+-- Canonical schema entrypoint for the local PostgreSQL backend.
+-- Apply with:
+--   npm run db:migrate
+--   npm run db:check
+--
+-- The executable schema is kept in db/migrations so existing production
+-- databases can be upgraded idempotently and clean databases can be created
+-- by replaying migrations in order.

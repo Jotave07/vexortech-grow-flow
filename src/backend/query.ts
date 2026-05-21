@@ -33,42 +33,216 @@ const splitTopLevel = (input: string) => {
   return items;
 };
 
-type Relation = {
+export type Relation = {
   table: string;
   local: string;
   foreign: string;
+  foreignType: PgScalarType;
   many: boolean;
   nested?: Record<string, Relation>;
 };
 
+export type PgScalarType = "uuid" | "text" | "numeric" | "integer" | "boolean" | "timestamptz";
+
+const pgArrayTypeByScalar: Record<PgScalarType, string> = {
+  uuid: "uuid[]",
+  text: "text[]",
+  numeric: "numeric[]",
+  integer: "integer[]",
+  boolean: "boolean[]",
+  timestamptz: "timestamptz[]",
+};
+
+const uuidColumns = new Set([
+  "id",
+  "store_id",
+  "owner_user_id",
+  "user_id",
+  "customer_id",
+  "order_id",
+  "product_id",
+  "category_id",
+  "option_id",
+  "option_item_id",
+  "order_item_id",
+  "plan_id",
+  "subscription_id",
+  "delivery_region_id",
+]);
+
+const textColumns = new Set([
+  "asaas_id",
+  "external_id",
+  "provider",
+  "idempotency_key",
+  "public_token",
+  "slug",
+  "code",
+  "status",
+  "payment_status",
+  "payment_method",
+  "delivery_type",
+  "delivery_source",
+  "role",
+  "email",
+  "phone",
+  "document",
+  "name",
+  "full_name",
+  "customer_name",
+  "customer_phone",
+  "customer_document",
+  "customer_email",
+  "product_name",
+  "option_name",
+  "item_name",
+  "city",
+  "state",
+  "neighborhood",
+  "street",
+  "number",
+  "complement",
+  "zip_code",
+  "whatsapp",
+  "whatsapp_number",
+  "last_error",
+  "notes",
+]);
+
+const numericColumns = new Set([
+  "price",
+  "promo_price",
+  "unit_price",
+  "subtotal",
+  "options_total",
+  "delivery_fee",
+  "discount_amount",
+  "total",
+  "change_for",
+  "amount",
+  "extra_price",
+  "min_order_value",
+  "min_order_amount",
+  "free_delivery_above",
+  "distance_km",
+]);
+
+const integerColumns = new Set([
+  "order_number",
+  "quantity",
+  "usage_count",
+  "usage_limit",
+  "priority",
+  "estimated_min",
+  "estimated_max",
+  "estimated_minutes",
+  "avg_prep_time_minutes",
+  "min_choices",
+  "max_choices",
+]);
+
+const booleanColumns = new Set([
+  "is_active",
+  "is_suspended",
+  "is_available",
+  "is_required",
+  "is_open",
+  "registration_completed",
+  "accept_pix",
+  "accept_cash",
+  "accept_card_on_delivery",
+  "accept_orders_when_closed",
+  "allow_pickup",
+  "allow_delivery",
+]);
+
+const timestampColumns = new Set([
+  "created_at",
+  "updated_at",
+  "paid_at",
+  "expires_at",
+  "deleted_at",
+  "last_login",
+]);
+
+const tableColumnTypes: Record<string, Record<string, PgScalarType>> = {
+  auth_users: { id: "uuid", email: "text", encrypted_password: "text", deleted_at: "timestamptz" },
+  users: { id: "uuid", email: "text" },
+  payments: {
+    id: "uuid",
+    order_id: "uuid",
+    store_id: "uuid",
+    external_id: "text",
+    asaas_id: "text",
+    idempotency_key: "text",
+    status: "text",
+    amount: "numeric",
+    paid_at: "timestamptz",
+  },
+  orders: {
+    id: "uuid",
+    store_id: "uuid",
+    customer_id: "uuid",
+    coupon_id: "uuid",
+    delivery_region_id: "uuid",
+    public_token: "text",
+    idempotency_key: "text",
+    order_number: "integer",
+    status: "text",
+    payment_status: "text",
+    payment_method: "text",
+    total: "numeric",
+  },
+};
+
+export const getColumnPgType = (table: string, column: string): PgScalarType | null => {
+  const normalizedTable = table.replace(/^public\./, "");
+  const normalizedColumn = column.trim();
+  const tableOverride = tableColumnTypes[normalizedTable]?.[normalizedColumn];
+  if (tableOverride) return tableOverride;
+  if (uuidColumns.has(normalizedColumn)) return "uuid";
+  if (textColumns.has(normalizedColumn)) return "text";
+  if (numericColumns.has(normalizedColumn)) return "numeric";
+  if (integerColumns.has(normalizedColumn)) return "integer";
+  if (booleanColumns.has(normalizedColumn)) return "boolean";
+  if (timestampColumns.has(normalizedColumn) || normalizedColumn.endsWith("_at")) return "timestamptz";
+  return null;
+};
+
+export const arrayCastFor = (table: string, column: string) => {
+  const type = getColumnPgType(table, column);
+  return type ? pgArrayTypeByScalar[type] : null;
+};
+
 const relations: Record<string, Record<string, Relation>> = {
   stores: {
-    store_settings: { table: "store_settings", local: "id", foreign: "store_id", many: true },
+    store_settings: { table: "store_settings", local: "id", foreign: "store_id", foreignType: "uuid", many: true },
     subscriptions: {
       table: "subscriptions",
       local: "id",
       foreign: "store_id",
+      foreignType: "uuid",
       many: true,
       nested: {
-        plans: { table: "plans", local: "plan_id", foreign: "id", many: false },
+        plans: { table: "plans", local: "plan_id", foreign: "id", foreignType: "uuid", many: false },
       },
     },
   },
   subscriptions: {
-    plans: { table: "plans", local: "plan_id", foreign: "id", many: false },
-    stores: { table: "stores", local: "store_id", foreign: "id", many: false },
+    plans: { table: "plans", local: "plan_id", foreign: "id", foreignType: "uuid", many: false },
+    stores: { table: "stores", local: "store_id", foreign: "id", foreignType: "uuid", many: false },
   },
   products: {
-    categories: { table: "categories", local: "category_id", foreign: "id", many: false },
+    categories: { table: "categories", local: "category_id", foreign: "id", foreignType: "uuid", many: false },
   },
   orders: {
-    stores: { table: "stores", local: "store_id", foreign: "id", many: false },
+    stores: { table: "stores", local: "store_id", foreign: "id", foreignType: "uuid", many: false },
   },
   order_items: {
-    order_item_options: { table: "order_item_options", local: "id", foreign: "order_item_id", many: true },
+    order_item_options: { table: "order_item_options", local: "id", foreign: "order_item_id", foreignType: "uuid", many: true },
   },
   payments: {
-    orders: { table: "orders", local: "order_id", foreign: "id", many: false },
+    orders: { table: "orders", local: "order_id", foreign: "id", foreignType: "uuid", many: false },
   },
 };
 
@@ -89,7 +263,7 @@ const baseColumnsSql = (select = "*") => {
   return columns.join(", ");
 };
 
-const appendFilterSql = (filter: QueryFilter, params: unknown[]) => {
+export const appendFilterSql = (table: string, filter: QueryFilter, params: unknown[]) => {
   const column = quoteIdent(ensureName(filter.column, "coluna"));
   switch (filter.op) {
     case "eq":
@@ -112,8 +286,18 @@ const appendFilterSql = (filter: QueryFilter, params: unknown[]) => {
       return `${column} <= $${params.length}`;
     case "in":
       if (!filter.values.length) return "FALSE";
-      params.push(filter.values);
-      return `${column} = ANY($${params.length})`;
+      {
+        const arrayCast = arrayCastFor(table, filter.column);
+        if (arrayCast) {
+          params.push(filter.values);
+          return `${column} = ANY($${params.length}::${arrayCast})`;
+        }
+        const placeholders = filter.values.map((value) => {
+          params.push(value);
+          return `$${params.length}`;
+        });
+        return `${column} IN (${placeholders.join(", ")})`;
+      }
     case "is":
       if (filter.value === null) return `${column} IS NULL`;
       params.push(filter.value);
@@ -122,6 +306,9 @@ const appendFilterSql = (filter: QueryFilter, params: unknown[]) => {
       return "TRUE";
   }
 };
+
+export const relationSelectSql = (relation: Relation, paramIndex = 1) =>
+  `SELECT * FROM public.${quoteIdent(relation.table)} WHERE ${quoteIdent(relation.foreign)} = ANY($${paramIndex}::${pgArrayTypeByScalar[relation.foreignType]})`;
 
 const publicReadable = new Set([
   "stores",
@@ -374,10 +561,7 @@ const attachRelations = async (table: string, rows: any[], select = "*") => {
     if (!relation) continue;
     const localValues = Array.from(new Set(rows.map((row) => row[relation.local]).filter(Boolean)));
     if (!localValues.length) continue;
-    const { rows: relatedRows } = await query(
-      `SELECT * FROM public.${quoteIdent(relation.table)} WHERE ${quoteIdent(relation.foreign)} = ANY($1)`,
-      [localValues],
-    );
+    const { rows: relatedRows } = await query(relationSelectSql(relation), [localValues]);
     await attachNestedRelations(relation, relatedRows, selection.select);
     for (const row of rows) {
       const matches = relatedRows.filter((related) => related[relation.foreign] === row[relation.local]);
@@ -396,7 +580,7 @@ const attachNestedRelations = async (parentRelation: Relation, rows: any[], sele
     if (!relation) continue;
     const localValues = Array.from(new Set(rows.map((row) => row[relation.local]).filter(Boolean)));
     if (!localValues.length) continue;
-    const { rows: nestedRows } = await query(`SELECT * FROM public.${quoteIdent(relation.table)} WHERE ${quoteIdent(relation.foreign)} = ANY($1)`, [localValues]);
+    const { rows: nestedRows } = await query(relationSelectSql(relation), [localValues]);
     for (const row of rows) {
       const matches = nestedRows.filter((nested) => nested[relation.foreign] === row[relation.local]);
       row[selection.name] = relation.many ? matches : matches[0] || null;
@@ -420,7 +604,7 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
   try {
     const table = ensureName(payload.table, "tabela");
     const params: unknown[] = [];
-    const filters = [...(payload.filters || [])].map((filter) => appendFilterSql(filter, params));
+    const filters = [...(payload.filters || [])].map((filter) => appendFilterSql(table, filter, params));
     const access = await accessSql(table, payload.operation, ctx, params);
     const whereSql = [...filters, access].filter(Boolean).join(" AND ") || "TRUE";
 

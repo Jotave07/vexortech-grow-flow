@@ -2,11 +2,13 @@ import { backendAdmin } from "@/integrations/backend/client.server";
 
 const DEFAULT_EVOLUTION_URL = "http://127.0.0.1:32773";
 const DELIVERY_BASE_URL = "https://hypedelivery.com.br";
+const REQUIRED_EVOLUTION_SENDER_PHONE = "11971582072";
 
 const getEvolutionConfig = () => ({
   baseUrl: (process.env.EVOLUTION_API_URL || DEFAULT_EVOLUTION_URL).replace(/\/$/, ""),
   apiKey: process.env.EVOLUTION_API_KEY || process.env.AUTHENTICATION_API_KEY || "",
   instance: process.env.EVOLUTION_INSTANCE || process.env.EVOLUTION_DEFAULT_INSTANCE || "hypedelivery",
+  senderPhone: process.env.EVOLUTION_SENDER_PHONE || REQUIRED_EVOLUTION_SENDER_PHONE,
 });
 
 export const notifyOrderCreatedHandler = async (orderId: string) => {
@@ -86,8 +88,8 @@ const sendEvolutionText = async (phone: string, text: string, preferredInstanceP
   const config = getEvolutionConfig();
   if (!config.apiKey) return { sent: false, reason: "missing_api_key" };
 
-  const instance = await fetchEvolutionInstance(config.baseUrl, config.apiKey, config.instance, preferredInstancePhone);
-  if (!instance) return { sent: false, reason: "missing_instance" };
+  const instance = await fetchEvolutionInstance(config.baseUrl, config.apiKey, config.instance, config.senderPhone || preferredInstancePhone);
+  if (!instance) return { sent: false, reason: "missing_sender_instance" };
 
   const url = `${config.baseUrl}/message/sendText/${encodeURIComponent(instance)}`;
   const headers = {
@@ -140,10 +142,13 @@ const fetchEvolutionInstance = async (baseUrl: string, apiKey: string, preferred
 
     const named = instances.find((item: any) => {
       const name = getInstanceName(item).toLowerCase();
-      return candidates.includes(name);
+      const phone = getInstancePhone(item);
+      return candidates.includes(name) || (normalizedPreferredPhone && phone === normalizedPreferredPhone);
     });
 
     if (named && isEvolutionInstanceConnected(named)) return getInstanceName(named);
+
+    if (normalizedPreferredPhone) return "";
 
     const connected = instances.find(isEvolutionInstanceConnected);
     if (connected) return getInstanceName(connected);
@@ -161,6 +166,31 @@ const fetchEvolutionInstance = async (baseUrl: string, apiKey: string, preferred
 
 const getInstanceName = (item: any) =>
   item?.name || item?.instanceName || item?.instance?.instanceName || "";
+
+const getInstancePhone = (item: any) =>
+  firstPhone(
+    item?.number,
+    item?.phone,
+    item?.owner,
+    item?.ownerJid,
+    item?.profile?.phone,
+    item?.instance?.number,
+    item?.instance?.phone,
+    item?.instance?.owner,
+    item?.instance?.ownerJid,
+  )
+    ? normalizeBrazilianPhone(firstPhone(
+      item?.number,
+      item?.phone,
+      item?.owner,
+      item?.ownerJid,
+      item?.profile?.phone,
+      item?.instance?.number,
+      item?.instance?.phone,
+      item?.instance?.owner,
+      item?.instance?.ownerJid,
+    ))
+    : "";
 
 const isEvolutionInstanceConnected = (item: any) => {
   const state = String(item?.connectionStatus || item?.state || item?.instance?.state || "").toLowerCase();

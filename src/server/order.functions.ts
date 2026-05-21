@@ -64,6 +64,8 @@ const checkoutInputSchema = z.object({
   paymentMethod: z.enum(paymentMethods),
   changeFor: z.number().nonnegative().optional().nullable(),
   couponCode: z.string().max(80).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  reference: z.string().max(160).optional().nullable(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
@@ -71,6 +73,14 @@ export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
 const onlyDigits = (value?: string | null) => String(value || "").replace(/\D/g, "");
 const upper = (value?: string | null) => String(value || "").trim().toUpperCase();
 const money = (value: unknown) => Number(Number(value || 0).toFixed(2));
+
+const buildOrderNotes = (input: CheckoutInput) => {
+  const lines = [
+    input.notes?.trim() || null,
+    input.reference?.trim() ? `Referencia: ${input.reference.trim()}` : null,
+  ].filter(Boolean);
+  return lines.length ? lines.join("\n") : null;
+};
 
 const optionLimits = (group: any) => {
   const min = Math.max(group.is_required ? 1 : 0, Number(group.min_choices || 0));
@@ -333,18 +343,33 @@ const insertOrderItems = async (
 ) => {
   for (const item of calculatedItems) {
     const { rows } = await client.query(
-      `INSERT INTO public.order_items (order_id, store_id, product_id, product_name, unit_price, quantity)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO public.order_items (
+         order_id, store_id, product_id, product_name, unit_price, quantity, notes, subtotal, options_total
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [order.id, order.store_id, item.product.id, item.product.name, item.unitPrice, item.input.quantity],
+      [
+        order.id,
+        order.store_id,
+        item.product.id,
+        item.product.name,
+        item.unitPrice,
+        item.input.quantity,
+        item.input.notes?.trim() || null,
+        item.subtotal,
+        item.optionsTotal,
+      ],
     );
     const orderItem = rows[0];
     for (const option of item.options) {
       await client.query(
-        `INSERT INTO public.order_item_options (order_item_id, option_name, item_name, extra_price, name, option_item_id)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO public.order_item_options (
+           order_item_id, option_id, option_name, item_name, extra_price, name, option_item_id
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           orderItem.id,
+          option.group.id,
           option.group.name,
           option.item.name,
           option.extraPrice,
@@ -364,7 +389,7 @@ export const createCheckoutOrderForActor = async (
   const input = checkoutInputSchema.parse(rawInput);
 
   const order = await deps.withTransaction(async (client) => {
-    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`checkout:${input.idempotencyKey}`]);
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`checkout:${input.idempotencyKey}`]);
 
     const { rows: stores } = await client.query(
       `SELECT * FROM public.stores
@@ -433,6 +458,7 @@ export const createCheckoutOrderForActor = async (
       ? `${upper(input.delivery.street)}, ${input.delivery.number}${input.delivery.complement ? ` (${upper(input.delivery.complement)})` : ""} - ${upper(input.delivery.neighborhood)}`
       : "RETIRADA";
 
+    const orderNotes = buildOrderNotes(input);
     const { rows: orderRows } = await client.query(
       `INSERT INTO public.orders (
          store_id, customer_id, customer_name, customer_phone, customer_document, customer_email,
@@ -466,7 +492,7 @@ export const createCheckoutOrderForActor = async (
         total,
         input.paymentMethod,
         input.paymentMethod === "dinheiro" ? input.changeFor || null : null,
-        null,
+        orderNotes,
         onlyDigits(input.delivery.zipCode),
         upper(input.delivery.neighborhood),
         upper(input.delivery.city),

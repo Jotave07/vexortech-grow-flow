@@ -18,7 +18,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 export const Route = createFileRoute("/api/backend")({
   server: {
     handlers: {
-      GET: async () => createRealtimeStream(),
+      GET: async ({ request }) => createRealtimeStream(request),
       POST: async ({ request }) => {
         const token = parseBearerToken(request);
         const contentType = request.headers.get("content-type") || "";

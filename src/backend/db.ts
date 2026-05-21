@@ -45,15 +45,77 @@ export const getPool = () => {
   return g.__hypePgPool;
 };
 
+let sqlLogSequence = 0;
+
+const isSqlDebugEnabled = () => process.env.SQL_DEBUG === "true";
+const shouldLogSqlErrors = () => process.env.NODE_ENV !== "production" || isSqlDebugEnabled();
+
+const describeParam = (value: unknown) => {
+  if (Array.isArray(value)) {
+    const sample = value.find((item) => item !== null && item !== undefined);
+    return {
+      type: "array",
+      length: value.length,
+      itemType: sample === undefined ? "unknown" : typeof sample,
+    };
+  }
+  if (value === null) return { type: "null" };
+  if (value instanceof Date) return { type: "date" };
+  return { type: typeof value };
+};
+
+const normalizeSqlForLog = (text: string) => text.replace(/\s+/g, " ").trim();
+
+const logSql = (level: "debug" | "error", payload: Record<string, unknown>) => {
+  const line = JSON.stringify(payload);
+  if (level === "debug") console.debug(line);
+  else console.error(line);
+};
+
+const runLoggedQuery = async <T extends pg.QueryResultRow = pg.QueryResultRow>(
+  executor: (text: string, params?: unknown[]) => Promise<pg.QueryResult<T>>,
+  text: string,
+  params: unknown[] = [],
+) => {
+  const requestId = `sql-${Date.now().toString(36)}-${++sqlLogSequence}`;
+  const basePayload = {
+    requestId,
+    sql: normalizeSqlForLog(text),
+    params: params.map(describeParam),
+  };
+
+  if (isSqlDebugEnabled()) {
+    logSql("debug", { event: "sql.query", ...basePayload });
+  }
+
+  try {
+    return await executor(text, params);
+  } catch (error: any) {
+    if (shouldLogSqlErrors()) {
+      logSql("error", {
+        event: "sql.error",
+        ...basePayload,
+        pgCode: error?.code || null,
+        message: error?.message || "SQL query failed",
+      });
+    }
+    throw error;
+  }
+};
+
 export const query = async <T extends pg.QueryResultRow = pg.QueryResultRow>(text: string, params: unknown[] = []) => {
-  return getPool().query<T>(text, params);
+  return runLoggedQuery<T>((sql, values) => getPool().query<T>(sql, values), text, params);
 };
 
 export const withTransaction = async <T>(fn: (client: pg.PoolClient) => Promise<T>) => {
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
-    const result = await fn(client);
+    const tracedClient = {
+      ...client,
+      query: (text: string, params: unknown[] = []) => runLoggedQuery((sql, values) => client.query(sql, values), text, params),
+    } as pg.PoolClient;
+    const result = await fn(tracedClient);
     await client.query("COMMIT");
     return result;
   } catch (error) {

@@ -278,6 +278,10 @@ class LocalRealtimeChannel {
     const url = new URL(`${window.location.origin}${API_PATH}`);
     url.searchParams.set("stream", "realtime");
     url.searchParams.set("channel", this.name);
+    const firstFilter = this.handlers[0]?.filter;
+    if (firstFilter?.table) url.searchParams.set("table", String(firstFilter.table));
+    if (firstFilter?.event) url.searchParams.set("event", String(firstFilter.event));
+    if (firstFilter?.filter) url.searchParams.set("filter", String(firstFilter.filter));
     if (token) url.searchParams.set("token", token);
     this.source = new EventSource(url.toString());
     this.source.onopen = () => callback?.("SUBSCRIBED");

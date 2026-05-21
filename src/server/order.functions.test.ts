@@ -62,6 +62,8 @@ const checkoutInput = {
   paymentMethod: "pix" as const,
   changeFor: null,
   couponCode: null,
+  notes: "entregar na portaria",
+  reference: "bloco B",
 };
 
 const createCheckoutDeps = (options: { existingOrder?: any; createPayment?: any } = {}) => {
@@ -116,7 +118,7 @@ const createCheckoutDeps = (options: { existingOrder?: any; createPayment?: any 
 
 describe("createCheckoutOrderForActor", () => {
   it("creates customer, order, item, option and one PIX payment from server-side prices", async () => {
-    const { deps, inserted } = createCheckoutDeps();
+    const { deps, inserted, client } = createCheckoutDeps();
 
     const result = await createCheckoutOrderForActor(checkoutInput, actor as any, deps as any);
 
@@ -127,6 +129,9 @@ describe("createCheckoutOrderForActor", () => {
     });
     expect(inserted).toMatchObject({ orders: 1, items: 1, options: 1, history: 1 });
     expect(deps.createPayment).toHaveBeenCalledTimes(1);
+    expect(client.query).toHaveBeenCalledWith(expect.stringContaining("notes, subtotal, options_total"), expect.arrayContaining(["sem cebola", 46, 3]));
+    expect(client.query).toHaveBeenCalledWith(expect.stringContaining("option_id"), expect.arrayContaining([checkoutInput.items[0].options[0].optionId]));
+    expect(client.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.orders"), expect.arrayContaining(["entregar na portaria\nReferencia: bloco B"]));
   });
 
   it("returns the same order for the same idempotency key without inserting another order", async () => {

@@ -76,17 +76,19 @@ const fetchQrCode = async (apiKey: string, paymentId: string, deps: PaymentDeps)
 
 const reserveLocalPayment = async (
   client: DbClient,
-  input: { orderId: string; storeId: string; attemptKey?: string },
+  input: { orderId: string; storeId: string; attemptKey?: string; publicToken?: string },
 ) => {
-  await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`payment:${input.orderId}`]);
+  await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`payment:${input.orderId}`]);
 
   const { rows: orders } = await client.query(
     `SELECT o.*, ss.asaas_api_key
      FROM public.orders o
      JOIN public.store_settings ss ON ss.store_id = o.store_id
-     WHERE o.id = $1 AND o.store_id = $2
+     WHERE o.id = $1
+       AND o.store_id = $2
+       AND ($3::text IS NULL OR o.public_token = $3::text)
      FOR UPDATE OF o`,
-    [input.orderId, input.storeId],
+    [input.orderId, input.storeId, input.publicToken || null],
   );
   const order = orders[0];
   if (!order) throw new Error("Pedido nao encontrado.");
@@ -135,7 +137,7 @@ const reserveLocalPayment = async (
 };
 
 export const createOrderPaymentForOrder = async (
-  input: { orderId: string; storeId: string; attemptKey?: string },
+  input: { orderId: string; storeId: string; attemptKey?: string; publicToken?: string },
   deps: PaymentDeps = defaultDeps,
 ) => {
   const reservation = await deps.withTransaction((client) => reserveLocalPayment(client, input));
@@ -212,23 +214,25 @@ export const createOrderPaymentForOrder = async (
 };
 
 export const getOrderPaymentInfoForOrder = async (
-  input: { orderId: string; storeId: string },
+  input: { orderId: string; storeId: string; publicToken?: string },
   deps: PaymentDeps = defaultDeps,
 ) => {
   return createOrderPaymentForOrder(input, deps);
 };
 
 export const syncOrderPaymentStatus = async (
-  input: { orderId: string; storeId: string },
+  input: { orderId: string; storeId: string; publicToken?: string },
   deps: PaymentDeps = defaultDeps,
 ) => {
   const { rows: contextRows } = await deps.query(
-    `SELECT p.*, ss.asaas_api_key
+    `SELECT p.*, ss.asaas_api_key, o.total AS order_total
      FROM public.payments p
      JOIN public.store_settings ss ON ss.store_id = p.store_id
+     JOIN public.orders o ON o.id = p.order_id
      WHERE p.order_id = $1 AND p.store_id = $2
+       AND ($3::text IS NULL OR o.public_token = $3::text)
      LIMIT 1`,
-    [input.orderId, input.storeId],
+    [input.orderId, input.storeId, input.publicToken || null],
   );
   const payment = contextRows[0];
   if (!payment?.asaas_api_key) return { status: "pending", message: "Gateway nao configurado" };
@@ -242,6 +246,19 @@ export const syncOrderPaymentStatus = async (
   }
 
   const mappedStatus = toPublicPaymentStatus(asaasPayment.status);
+  if (mappedStatus === "pago") {
+    const expected = Number(payment.order_total || payment.amount || 0);
+    const received = Number(asaasPayment.value);
+    if (!Number.isFinite(received) || Math.abs(received - expected) > 0.01) {
+      await deps.query(
+        `UPDATE public.payments
+         SET last_error = $2, updated_at = now()
+         WHERE id = $1`,
+        [payment.id, `Valor divergente no sync Asaas. Esperado ${expected}, recebido ${asaasPayment.value ?? "ausente"}`],
+      );
+      return { status: "pending", message: "Valor do pagamento divergente", asaasStatus: asaasPayment.status };
+    }
+  }
   if (mappedStatus !== "pago") {
     await deps.query(
       `UPDATE public.payments SET status = $2, updated_at = now() WHERE id = $1`,
@@ -251,7 +268,7 @@ export const syncOrderPaymentStatus = async (
   }
 
   await deps.withTransaction(async (client) => {
-    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`payment-paid:${input.orderId}`]);
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`payment-paid:${input.orderId}`]);
 
     const { rows: lockedPayments } = await client.query(
       `SELECT * FROM public.payments WHERE id = $1 FOR UPDATE`,

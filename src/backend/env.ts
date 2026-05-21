@@ -27,8 +27,24 @@ export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } =
     throw new Error("Banco PostgreSQL obrigatorio em producao.");
   }
 
+  if (!clean(process.env.PUBLIC_APP_URL)) {
+    throw new Error("PUBLIC_APP_URL obrigatorio em producao.");
+  }
+
+  if (!clean(process.env.STORAGE_DIR)) {
+    throw new Error("STORAGE_DIR obrigatorio em producao.");
+  }
+
   if (options.requireWebhookSecret && !clean(process.env.ASAAS_WEBHOOK_SECRET)) {
     throw new Error("ASAAS_WEBHOOK_SECRET obrigatorio para webhooks em producao.");
+  }
+
+  if (clean(process.env.ASAAS_API_KEY) && !clean(process.env.ASAAS_ENVIRONMENT)) {
+    throw new Error("ASAAS_ENVIRONMENT obrigatorio quando ASAAS_API_KEY esta configurada.");
+  }
+
+  if ((clean(process.env.EVOLUTION_API_KEY) || clean(process.env.EVOLUTION_API_URL)) && !clean(process.env.EVOLUTION_SENDER_PHONE)) {
+    throw new Error("EVOLUTION_SENDER_PHONE obrigatorio quando Evolution API esta configurada em producao.");
   }
 };
 

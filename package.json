@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "npm run build && playwright test",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:check": "node scripts/check-schema.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

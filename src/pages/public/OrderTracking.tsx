@@ -33,8 +33,13 @@ const OrderTracking = () => {
   const [pixInfo, setPixInfo] = useState<any>(null);
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
   const lastStatus = useRef<string | null>(null);
+  const pixInfoRef = useRef<any>(null);
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
+
+  useEffect(() => {
+    pixInfoRef.current = pixInfo;
+  }, [pixInfo]);
 
   const load = useCallback(async (isAutoRefresh = false) => {
     if (!token || token === "undefined") return;
@@ -48,7 +53,7 @@ const OrderTracking = () => {
 
       const orderData = o?.[0] ?? null;
       if (!orderData) {
-        console.warn("No order found for token:", token);
+        if (import.meta.env.DEV) console.warn("No order found for token:", token);
         setOrder(null);
         setLoading(false);
         return;
@@ -80,9 +85,9 @@ const OrderTracking = () => {
       setItems(it ?? []);
       setHistory(h ?? []);
       
-      if (orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento" && !pixInfo) {
+      if (orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento" && !pixInfoRef.current) {
         try {
-          const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id } });
+          const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id, publicToken: token } });
           setPixInfo(info);
         } catch (e) {
           if (import.meta.env.DEV) console.warn("Não foi possível carregar o PIX:", e);
@@ -96,7 +101,7 @@ const OrderTracking = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, getOrderPaymentInfoFn, pixInfo]);
+  }, [token, getOrderPaymentInfoFn]);
 
   useEffect(() => {
     if (!token) return;
@@ -114,7 +119,7 @@ const OrderTracking = () => {
           filter: `public_token=eq.${token}`,
         },
         (payload) => {
-          console.log("Order updated:", payload.new);
+          if (import.meta.env.DEV) console.debug("Order updated:", payload.new);
           const newOrder = payload.new as any;
           setOrder((prev: any) => ({ ...prev, ...newOrder }));
           
@@ -143,19 +148,19 @@ const OrderTracking = () => {
     
     const interval = setInterval(async () => {
       try {
-        const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id } });
+        const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id, publicToken: token } });
         if (result.status === "paid") {
           // The realtime listener above will catch the DB update and call load()
           // But we can call load() here too for faster feedback
           void load();
         }
       } catch (e) {
-        console.error("Sync error:", e);
+        if (import.meta.env.DEV) console.warn("Sync error:", e);
       }
     }, 5000);
     
     return () => clearInterval(interval);
-  }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load]);
+  }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load, token]);
 
   const copyPix = () => {
     if (pixInfo?.pixCode) {
@@ -251,6 +256,7 @@ const OrderTracking = () => {
                   variant="outline" 
                   size="sm" 
                   onClick={() => {
+                    pixInfoRef.current = null;
                     setPixInfo(null);
                     void load();
                   }} 

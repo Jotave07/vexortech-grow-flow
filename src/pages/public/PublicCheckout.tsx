@@ -134,7 +134,8 @@ const PublicCheckout = () => {
         const result = await syncPaymentStatusFn({ 
           data: { 
             orderId: createdOrder.id, 
-            storeId: store.id 
+            storeId: store.id,
+            publicToken: createdOrder.public_token,
           } 
         });
         
@@ -460,6 +461,8 @@ const PublicCheckout = () => {
         paymentMethod,
         changeFor: paymentMethod === "dinheiro" && changeFor.trim() ? parseMoneyInput(changeFor) : null,
         couponCode: coupon?.code || null,
+        notes: notes.trim() || null,
+        reference: reference.trim() || null,
       };
 
       const { data: checkout, error: checkoutError } = await backend.functions.invoke("create-checkout-order", {

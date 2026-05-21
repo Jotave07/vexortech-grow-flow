@@ -77,6 +77,7 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
     attemptKey: z.string().min(8).max(160).optional(),
+    publicToken: z.string().min(8).max(200).optional(),
   }))
   .handler(async ({ data }) => createOrderPaymentForOrder(data));
 
@@ -84,6 +85,7 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
   .inputValidator(z.object({
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
+    publicToken: z.string().min(8).max(200).optional(),
   }))
   .handler(async ({ data }) => getOrderPaymentInfoForOrder(data));
 
@@ -91,6 +93,7 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
+    publicToken: z.string().min(8).max(200).optional(),
   }))
   .handler(async ({ data }) => syncOrderPaymentStatus(data));
 
