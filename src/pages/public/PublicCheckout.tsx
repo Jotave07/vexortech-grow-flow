@@ -35,6 +35,14 @@ const optionLimits = (group: any) => {
 
 type PaymentMethod = "pix" | "dinheiro" | "cartao_credito_entrega" | "cartao_debito_entrega";
 
+const hasPixGatewayConfigured = (settings: any) => {
+  if (!settings) return false;
+  if (typeof settings.pix_gateway_configured === "boolean") return settings.pix_gateway_configured;
+  return Boolean(String(settings.payment_gateway_api_key || settings.asaas_api_key || "").trim());
+};
+
+const isPixCheckoutEnabled = (settings: any) => Boolean(settings?.accept_pix && hasPixGatewayConfigured(settings));
+
 const createBrowserIdempotencyKey = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   const random = globalThis.crypto?.getRandomValues
@@ -46,7 +54,7 @@ const createBrowserIdempotencyKey = () => {
 const getAvailablePaymentMethods = (settings: any): PaymentMethod[] => {
   if (!settings) return [];
   const methods: PaymentMethod[] = [];
-  if (settings.accept_pix) methods.push("pix");
+  if (isPixCheckoutEnabled(settings)) methods.push("pix");
   if (settings.accept_cash) methods.push("dinheiro");
   if (settings.accept_card_on_delivery) {
     methods.push("cartao_credito_entrega", "cartao_debito_entrega");
@@ -410,6 +418,9 @@ const PublicCheckout = () => {
 
     if (!name.trim()) return toast.error("Informe seu nome");
     if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inválido");
+    if (paymentMethod === "pix" && !isPixCheckoutEnabled(settings)) {
+      return toast.error("PIX nao habilitado para esta loja.");
+    }
     if (!getAvailablePaymentMethods(settings).includes(paymentMethod)) {
       return toast.error("Forma de pagamento indisponível.");
     }
@@ -457,6 +468,8 @@ const PublicCheckout = () => {
           city,
           state,
           regionId: deliveryQuote?.region?.id || null,
+          reference: reference.trim() || null,
+          customerCoordinates,
         },
         paymentMethod,
         changeFor: paymentMethod === "dinheiro" && changeFor.trim() ? parseMoneyInput(changeFor) : null,
@@ -644,6 +657,11 @@ const PublicCheckout = () => {
                 <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Complemento (Opcional)</Label>
                 <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="APTO, BLOCO, FUNDOS..." />
               </div>
+
+              <div>
+                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Referencia para entrega (Opcional)</Label>
+                <Input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="PORTARIA, PONTO DE REFERENCIA..." />
+              </div>
             </div>
           )}
         </Card>
@@ -658,7 +676,16 @@ const PublicCheckout = () => {
           </div>
           <div className="space-y-4">
             <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-3">
-              {settings?.accept_pix && (
+              {settings?.accept_pix && !hasPixGatewayConfigured(settings) && (
+                <div className="relative flex items-start gap-3 border border-red-100 bg-red-50 p-4 text-red-700">
+                  <AlertTriangle className="h-5 w-5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-black uppercase tracking-tight">PIX nao habilitado</p>
+                    <p className="text-[11px] font-bold uppercase tracking-tight">A loja ainda nao configurou um gateway para receber PIX online.</p>
+                  </div>
+                </div>
+              )}
+              {isPixCheckoutEnabled(settings) && (
                 <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">

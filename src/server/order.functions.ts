@@ -6,6 +6,8 @@ import { withTransaction } from "@/backend/db";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { createOrderPaymentForOrder } from "./asaas.service";
 import { notifyOrderCreatedHandler } from "@/functions/evolution.server";
+import { hasPixGatewayConfig } from "./payment-gateways";
+import { quoteDelivery } from "./delivery.service";
 
 type DbClient = Pick<pg.PoolClient, "query">;
 
@@ -16,6 +18,7 @@ type CheckoutDeps = {
   withTransaction: typeof withTransaction;
   createPayment: typeof createOrderPaymentForOrder;
   notifyOrderCreated: typeof notifyOrderCreatedHandler;
+  quoteDelivery: typeof quoteDelivery;
 };
 
 const defaultDeps: CheckoutDeps = {
@@ -23,6 +26,7 @@ const defaultDeps: CheckoutDeps = {
   withTransaction,
   createPayment: createOrderPaymentForOrder,
   notifyOrderCreated: notifyOrderCreatedHandler,
+  quoteDelivery,
 };
 
 const paymentMethods = [
@@ -60,6 +64,11 @@ const checkoutInputSchema = z.object({
     city: z.string().max(120).optional().nullable(),
     state: z.string().max(2).optional().nullable(),
     regionId: z.string().uuid().optional().nullable(),
+    reference: z.string().max(180).optional().nullable(),
+    customerCoordinates: z.object({
+      lat: z.number(),
+      lng: z.number(),
+    }).optional().nullable(),
   }),
   paymentMethod: z.enum(paymentMethods),
   changeFor: z.number().nonnegative().optional().nullable(),
@@ -75,11 +84,8 @@ const upper = (value?: string | null) => String(value || "").trim().toUpperCase(
 const money = (value: unknown) => Number(Number(value || 0).toFixed(2));
 
 const buildOrderNotes = (input: CheckoutInput) => {
-  const lines = [
-    input.notes?.trim() || null,
-    input.reference?.trim() ? `Referencia: ${input.reference.trim()}` : null,
-  ].filter(Boolean);
-  return lines.length ? lines.join("\n") : null;
+  const notes = input.notes?.trim();
+  return notes || null;
 };
 
 const optionLimits = (group: any) => {
@@ -89,107 +95,32 @@ const optionLimits = (group: any) => {
 };
 
 const isPaymentMethodAccepted = (settings: any, method: CheckoutInput["paymentMethod"]) => {
-  if (method === "pix") return Boolean(settings.accept_pix);
+  if (method === "pix") return Boolean(settings.accept_pix) && hasPixGatewayConfig(settings);
   if (method === "dinheiro") return Boolean(settings.accept_cash);
   return Boolean(settings.accept_card_on_delivery);
 };
 
-const findDeliveryZone = (zones: any[], delivery: CheckoutInput["delivery"]) => {
-  const zip = onlyDigits(delivery.zipCode);
-  const city = upper(delivery.city);
-  const state = upper(delivery.state);
-  const neighborhood = upper(delivery.neighborhood);
-
-  const matches = (zone: any) => {
-    if (delivery.regionId && zone.id === delivery.regionId) return true;
-
-    const zoneCity = upper(zone.city);
-    const zoneState = upper(zone.state);
-    const zoneNeighborhood = upper(zone.neighborhood);
-    const locationMatches =
-      (!zoneCity || zoneCity === city) &&
-      (!zoneState || zoneState === state) &&
-      (!zoneNeighborhood || zoneNeighborhood === neighborhood || zoneNeighborhood === "GERAL");
-
-    const start = onlyDigits(zone.zip_start);
-    const end = onlyDigits(zone.zip_end);
-    const zipMatches = zip && start && end ? zip >= start && zip <= end : false;
-
-    return locationMatches || zipMatches;
-  };
-
-  return zones.find(matches) || null;
-};
-
-const calculateDelivery = (
-  input: CheckoutInput,
-  store: any,
-  settings: any,
-  zones: any[],
-  subtotal: number,
-) => {
-  if (input.delivery.type === "retirada") {
-    if (!settings.allow_pickup) throw new Error("Retirada indisponivel para esta loja.");
-    return {
-      fee: 0,
-      regionId: null,
-      estimatedMin: null,
-      estimatedMax: null,
-      source: "pickup",
-      distanceKm: null,
-    };
-  }
-
-  if (!settings.allow_delivery) throw new Error("Entrega indisponivel para esta loja.");
-  if (!input.delivery.street?.trim() || !input.delivery.number?.trim()) {
-    throw new Error("Endereco incompleto.");
-  }
-
-  const zone = findDeliveryZone(zones, input.delivery);
-  const minOrder = money(zone?.min_order ?? settings.min_order_value ?? settings.min_order_amount ?? store.min_order_amount ?? 0);
-  const baseFee = money(zone?.fee ?? settings.delivery_base_fee ?? settings.delivery_fee ?? store.delivery_fee ?? 0);
-
-  if (subtotal < minOrder) {
-    throw new Error(`Pedido minimo para entrega e R$ ${minOrder.toFixed(2)}.`);
-  }
-
-  const freeAbove = money(settings.free_delivery_above ?? 0);
-  const fee = freeAbove > 0 && subtotal >= freeAbove ? 0 : baseFee;
-  const estimated = Number(zone?.estimated_minutes ?? settings.avg_prep_time_minutes ?? 0) || null;
-
-  return {
-    fee,
-    regionId: zone?.id ?? null,
-    estimatedMin: estimated,
-    estimatedMax: estimated ? Math.round(estimated * 1.25) : null,
-    source: zone ? "zone" : "settings",
-    distanceKm: null,
-  };
-};
-
 const loadProductsContext = async (client: DbClient, storeId: string, productIds: string[]) => {
-  const [{ rows: products }, { rows: groups }, { rows: optionItems }] = await Promise.all([
-    client.query(
-      `SELECT * FROM public.products
-       WHERE store_id = $1 AND id = ANY($2::uuid[])`,
-      [storeId, productIds],
-    ),
-    client.query(
-      `SELECT po.*
-       FROM public.product_options po
-       JOIN public.products p ON p.id = po.product_id
-       WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])`,
-      [storeId, productIds],
-    ),
-    client.query(
-      `SELECT poi.*
-       FROM public.product_option_items poi
-       JOIN public.product_options po ON po.id = poi.option_id
-       JOIN public.products p ON p.id = po.product_id
-       WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])`,
-      [storeId, productIds],
-    ),
-  ]);
+  const { rows: products } = await client.query(
+    `SELECT * FROM public.products
+     WHERE store_id = $1 AND id = ANY($2::uuid[])`,
+    [storeId, productIds],
+  );
+  const { rows: groups } = await client.query(
+    `SELECT po.*
+     FROM public.product_options po
+     JOIN public.products p ON p.id = po.product_id
+     WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])`,
+    [storeId, productIds],
+  );
+  const { rows: optionItems } = await client.query(
+    `SELECT poi.*
+     FROM public.product_option_items poi
+     JOIN public.product_options po ON po.id = poi.option_id
+     JOIN public.products p ON p.id = po.product_id
+     WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])`,
+    [storeId, productIds],
+  );
 
   return { products, groups, optionItems };
 };
@@ -411,7 +342,10 @@ export const createCheckoutOrderForActor = async (
       throw new Error("Loja fechada.");
     }
     if (!isPaymentMethodAccepted(settings, input.paymentMethod)) {
-      throw new Error("Forma de pagamento indisponivel.");
+      throw new Error(input.paymentMethod === "pix" ? "PIX nao habilitado para esta loja." : "Forma de pagamento indisponivel.");
+    }
+    if (input.delivery.type === "retirada" && !settings.allow_pickup) {
+      throw new Error("Retirada indisponivel para esta loja.");
     }
     if (input.paymentMethod === "pix" && onlyDigits(input.customer.document).length < 11) {
       throw new Error("CPF/CNPJ obrigatorio para pagamento via PIX.");
@@ -422,16 +356,43 @@ export const createCheckoutOrderForActor = async (
     const { products, groups, optionItems } = await loadProductsContext(client, input.storeId, productIds);
     const { calculatedItems, subtotal } = calculateItems(input, products, groups, optionItems);
 
-    const { rows: zones } = input.delivery.type === "entrega"
-      ? await client.query(
-        `SELECT * FROM public.delivery_zones
-         WHERE store_id = $1 AND COALESCE(is_active, true) IS TRUE
-         ORDER BY priority NULLS LAST, created_at NULLS LAST`,
-        [input.storeId],
-      )
-      : { rows: [] as any[] };
-
-    const delivery = calculateDelivery(input, store, settings, zones, subtotal);
+    const delivery = input.delivery.type === "retirada"
+      ? {
+        fee: 0,
+        regionId: null,
+        estimatedMin: null,
+        estimatedMax: null,
+        source: "pickup",
+        distanceKm: null,
+        normalizedAddress: null,
+      }
+      : await deps.quoteDelivery({
+        storeId: input.storeId,
+        subtotal,
+        address: {
+          cep: input.delivery.zipCode,
+          street: input.delivery.street,
+          number: input.delivery.number,
+          complement: input.delivery.complement,
+          neighborhood: input.delivery.neighborhood,
+          city: input.delivery.city,
+          state: input.delivery.state,
+        },
+        customerCoordinates: input.delivery.customerCoordinates || null,
+      }, {
+        query: client.query.bind(client) as any,
+      }).then((quote) => {
+        if (!quote.available) throw new Error(quote.reason || "Regiao nao atendida.");
+        return {
+          fee: quote.fee,
+          regionId: quote.regionId || null,
+          estimatedMin: quote.estimatedMin || null,
+          estimatedMax: quote.estimatedMax || null,
+          source: quote.source,
+          distanceKm: quote.distanceKm || null,
+          normalizedAddress: quote.normalizedAddress || null,
+        };
+      });
     const coupon = await loadCoupon(client, input.storeId, input.couponCode);
     const discount = calculateDiscount(coupon, subtotal);
     const total = money(Math.max(0, subtotal + delivery.fee - discount));
@@ -459,20 +420,21 @@ export const createCheckoutOrderForActor = async (
       : "RETIRADA";
 
     const orderNotes = buildOrderNotes(input);
+    const deliveryReference = input.delivery.reference?.trim() || input.reference?.trim() || null;
     const { rows: orderRows } = await client.query(
       `INSERT INTO public.orders (
          store_id, customer_id, customer_name, customer_phone, customer_document, customer_email,
          delivery_type, status, payment_status, delivery_address, delivery_fee, subtotal,
          discount_amount, total, payment_method, change_for, notes, zip_code, neighborhood,
-         city, state, street, number, complement, delivery_region_id, estimated_min,
+         city, state, street, number, complement, delivery_reference, delivery_region_id, estimated_min,
          estimated_max, delivery_source, distance_km, coupon_id, coupon_code, idempotency_key
        )
        VALUES (
          $1, $2, $3, $4, $5, $6,
          $7, $8, $9, $10, $11, $12,
          $13, $14, $15, $16, $17, $18, $19,
-         $20, $21, $22, $23, $24, $25, $26,
-         $27, $28, $29, $30, $31, $32
+         $20, $21, $22, $23, $24, $25, $26, $27,
+         $28, $29, $30, $31, $32, $33
        )
        RETURNING id, store_id, public_token, payment_method`,
       [
@@ -493,13 +455,14 @@ export const createCheckoutOrderForActor = async (
         input.paymentMethod,
         input.paymentMethod === "dinheiro" ? input.changeFor || null : null,
         orderNotes,
-        onlyDigits(input.delivery.zipCode),
-        upper(input.delivery.neighborhood),
-        upper(input.delivery.city),
-        upper(input.delivery.state),
-        upper(input.delivery.street),
+        delivery.normalizedAddress?.cep || onlyDigits(input.delivery.zipCode),
+        delivery.normalizedAddress?.neighborhood || upper(input.delivery.neighborhood),
+        delivery.normalizedAddress?.city || upper(input.delivery.city),
+        delivery.normalizedAddress?.state || upper(input.delivery.state),
+        delivery.normalizedAddress?.street || upper(input.delivery.street),
         input.delivery.number || null,
         input.delivery.complement?.trim() || null,
+        deliveryReference,
         delivery.regionId,
         delivery.estimatedMin,
         delivery.estimatedMax,

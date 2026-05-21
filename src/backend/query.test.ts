@@ -26,17 +26,15 @@ describe("backend query SQL generation", () => {
     expect(arrayCastFor("orders", "status")).toBe("text[]");
   });
 
-  it("does not emit untyped ANY for unknown columns", () => {
+  it("throws clearly for unknown .in column types", () => {
     const params: unknown[] = [];
-    const sql = appendFilterSql("stores", {
+    expect(() => appendFilterSql("stores", {
       op: "in",
       column: "custom_column",
       values: ["a", "b"],
-    }, params);
+    }, params)).toThrow("Tipo PostgreSQL nao mapeado para stores.custom_column");
 
-    expect(sql).toBe("\"custom_column\" IN ($1, $2)");
-    expect(sql).not.toContain("ANY(");
-    expect(params).toEqual(["a", "b"]);
+    expect(params).toEqual([]);
   });
 
   it("casts relation loads by foreign key type", () => {
@@ -44,6 +42,7 @@ describe("backend query SQL generation", () => {
       table: "order_item_options",
       local: "id",
       foreign: "order_item_id",
+      localType: "uuid",
       foreignType: "uuid",
       many: true,
     };
@@ -52,5 +51,20 @@ describe("backend query SQL generation", () => {
       "SELECT * FROM public.\"order_item_options\" WHERE \"order_item_id\" = ANY($1::uuid[])",
     );
     expect(getColumnPgType("payments", "external_id")).toBe("text");
+  });
+
+  it("casts subscription relation loads by uuid", () => {
+    const relation: Relation = {
+      table: "plans",
+      local: "plan_id",
+      foreign: "id",
+      localType: "uuid",
+      foreignType: "uuid",
+      many: false,
+    };
+
+    expect(relationSelectSql(relation)).toBe(
+      "SELECT * FROM public.\"plans\" WHERE \"id\" = ANY($1::uuid[])",
+    );
   });
 });

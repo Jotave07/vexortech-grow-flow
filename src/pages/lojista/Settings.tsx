@@ -16,7 +16,7 @@ import { Loader2, MapPin, Palette, Save, Search, Settings2, Store, TimerReset, T
 import { fetchAddressByCep } from "@/services/cep/viacepService";
 import { ViaCepError } from "@/services/viacep";
 import { buildAddressLabel, fetchAddressFromCurrentLocation, geocodeAddressCoordinates, normalizeCep } from "@/services/viacep";
-import { formatDeliveryFeePreview, validateDeliverySettings } from "@/lib/delivery";
+import { validateDeliverySettings } from "@/lib/delivery";
 import { STORE_SEGMENT_OPTIONS, normalizeStoreSegment } from "@/lib/store-segments";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
@@ -83,7 +83,6 @@ const Settings = () => {
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
-  const [excludedNeighborhoodsText, setExcludedNeighborhoodsText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -139,7 +138,6 @@ const Settings = () => {
     setSubscription((subscriptionRes.data as SubscriptionRow | null) ?? null);
     setPlans((plansRes.data as PlanRow[]) ?? []);
     setBusinessHours(parseBusinessHours(settingsRow?.business_hours));
-    setExcludedNeighborhoodsText(parseExcludedNeighborhoods(settingsRow?.excluded_neighborhoods).join("\n"));
     setLoading(false);
   }, [store?.id]);
 
@@ -239,12 +237,9 @@ const Settings = () => {
     const deliveryConfig = {
       allowDelivery: storeSettings.allow_delivery,
       allowPickup: storeSettings.allow_pickup,
-      minimumOrderValue: Number(storeSettings.min_order_value) || 0,
-      averagePrepTimeMinutes: Number(storeSettings.avg_prep_time_minutes) || 30,
       deliveryRadiusKm: toNullableNumber(storeSettings.delivery_radius_km),
-      deliveryBaseFee: Number(storeSettings.delivery_base_fee) || 0,
-      deliveryFeePerKm: Number(storeSettings.delivery_fee_per_km) || 0,
-      deliveryMessage: storeSettings.delivery_message,
+      hasStoreAddress: Boolean(storeForm.address && storeForm.address_number && storeForm.neighborhood && storeForm.city && storeForm.state),
+      hasStoreCoordinates: Boolean(storeForm.latitude && storeForm.longitude),
     };
 
     const validation = validateDeliverySettings(deliveryConfig);
@@ -280,6 +275,8 @@ const Settings = () => {
       latitude: toNullableNumber(storeForm.latitude),
       longitude: toNullableNumber(storeForm.longitude),
     };
+    const paymentGatewayProvider = String((storeSettings as any).payment_gateway_provider || "asaas").trim().toLowerCase() || "asaas";
+    const paymentGatewayApiKey = nullableText((storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key);
     const baseSettingsPayload = {
       is_open: storeSettings.is_open,
       accept_orders_when_closed: storeSettings.accept_orders_when_closed,
@@ -292,17 +289,15 @@ const Settings = () => {
       accept_card_on_delivery: storeSettings.accept_card_on_delivery,
       pix_key: nullableText(storeSettings.pix_key),
       pix_key_type: nullableText(storeSettings.pix_key_type),
-      asaas_api_key: (storeSettings as any).asaas_api_key || null,
+      asaas_api_key: paymentGatewayProvider === "asaas" ? paymentGatewayApiKey : null,
       asaas_wallet_id: (storeSettings as any).asaas_wallet_id || null,
       business_hours: businessHours as unknown as Json,
     };
     const extendedSettingsPayload = {
+      payment_gateway_provider: paymentGatewayProvider,
+      payment_gateway_api_key: paymentGatewayApiKey,
+      payment_gateway_config: ((storeSettings as any).payment_gateway_config ?? {}) as unknown as Json,
       delivery_radius_km: toNullableNumber(storeSettings.delivery_radius_km),
-      delivery_base_fee: Number(storeSettings.delivery_base_fee) || 0,
-      delivery_fee_per_km: Number(storeSettings.delivery_fee_per_km) || 0,
-      delivery_distance_rules: [] as unknown as Json,
-      delivery_message: nullableText(storeSettings.delivery_message),
-      excluded_neighborhoods: parseExcludedNeighborhoods(excludedNeighborhoodsText) as unknown as Json,
     };
 
     const storeUpdate = await backend.from("stores").update({
@@ -377,12 +372,9 @@ const Settings = () => {
   const deliveryValidation = validateDeliverySettings({
     allowDelivery: storeSettings.allow_delivery,
     allowPickup: storeSettings.allow_pickup,
-    minimumOrderValue: Number(storeSettings.min_order_value) || 0,
-    averagePrepTimeMinutes: Number(storeSettings.avg_prep_time_minutes) || 30,
     deliveryRadiusKm: toNullableNumber(storeSettings.delivery_radius_km),
-    deliveryBaseFee: Number(storeSettings.delivery_base_fee) || 0,
-    deliveryFeePerKm: Number(storeSettings.delivery_fee_per_km) || 0,
-    deliveryMessage: storeSettings.delivery_message,
+    hasStoreAddress: Boolean(storeForm.address && storeForm.address_number && storeForm.neighborhood && storeForm.city && storeForm.state),
+    hasStoreCoordinates: Boolean(storeForm.latitude && storeForm.longitude),
   });
 
   return (
@@ -621,8 +613,12 @@ const Settings = () => {
             <SectionHeader
               icon={Truck}
               title="Entrega e retirada"
-              description="Defina raio, taxa fixa e valor por KM. O checkout calcula a rota automaticamente quando cliente e loja possuem coordenadas."
+              description="Controle disponibilidade, localizacao da loja e raio maximo. Os valores de frete sao configurados na aba Entregas."
             />
+
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
+              Os valores de frete sao configurados na aba Entregas.
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SwitchRow
@@ -639,7 +635,7 @@ const Settings = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field>
                 <Label>Raio maximo de entrega (KM)</Label>
                 <Input
@@ -650,72 +646,15 @@ const Settings = () => {
                   placeholder="Ex: 8"
                 />
               </Field>
-              <Field>
-                <Label>Taxa base (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={storeSettings.delivery_base_fee ?? 0}
-                  onChange={(e) => setStoreSettings({ ...storeSettings, delivery_base_fee: Number(e.target.value) || 0 })}
-                />
-              </Field>
-              <Field>
-                <Label>Valor por KM (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={storeSettings.delivery_fee_per_km ?? 0}
-                  onChange={(e) => setStoreSettings({ ...storeSettings, delivery_fee_per_km: Number(e.target.value) || 0 })}
-                />
-              </Field>
-              <Field>
-                <Label>Pedido minimo para entrega (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={storeSettings.min_order_value ?? 0}
-                  onChange={(e) => setStoreSettings({ ...storeSettings, min_order_value: Number(e.target.value) || 0 })}
-                />
-              </Field>
-              <Field>
-                <Label>Tempo médio de entrega/preparo (min)</Label>
-                <Input
-                  type="number"
-                  value={storeSettings.avg_prep_time_minutes ?? 30}
-                  onChange={(e) => setStoreSettings({ ...storeSettings, avg_prep_time_minutes: Number(e.target.value) || 30 })}
-                />
-              </Field>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field>
-                <Label>Bairros ou regioes excluidas</Label>
-                <Textarea
-                  rows={3}
-                  value={excludedNeighborhoodsText}
-                  onChange={(e) => setExcludedNeighborhoodsText(e.target.value)}
-                  placeholder="Um bairro por linha"
-                />
-              </Field>
-            </div>
-
-            <Field>
-              <Label>Mensagem personalizada sobre entrega</Label>
-              <Textarea
-                rows={3}
-                value={storeSettings.delivery_message ?? ""}
-                onChange={(e) => setStoreSettings({ ...storeSettings, delivery_message: e.target.value })}
-                placeholder="Ex: atendemos entregas em raio limitado e confirmamos tudo pelo WhatsApp."
-              />
-            </Field>
 
             <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
               <div className="font-medium text-foreground">Resumo atual</div>
-              <div>{formatDeliveryFeePreview(
-                toNullableNumber(storeSettings.delivery_radius_km),
-                Number(storeSettings.delivery_base_fee) || 0,
-                Number(storeSettings.delivery_fee_per_km) || 0,
-              )}</div>
+              <div>
+                Raio maximo configurado: {toNullableNumber(storeSettings.delivery_radius_km)
+                  ? `${Number(storeSettings.delivery_radius_km).toFixed(1).replace(".", ",")} km`
+                  : "nao definido"}.
+              </div>
               <div>
                 Validação por distância automática: {storeForm.latitude && storeForm.longitude
                   ? "ativa. O checkout cruza coordenadas, consulta rota pública quando possível e bloqueia pedidos fora do raio."
@@ -738,19 +677,37 @@ const Settings = () => {
             <SectionHeader
               icon={Wallet}
               title="Pagamentos e Gateway"
-              description="Configure como sua loja recebe pagamentos. O PIX online exige integração com o Asaas."
+              description="Configure como sua loja recebe pagamentos. O PIX online exige um gateway conectado."
             />
 
             <div className="space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                <Activity className="h-4 w-4" /> Configuração Asaas (PIX Online)
+                <Activity className="h-4 w-4" /> Gateway do PIX Online
               </h3>
               
               <div className="grid gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
                 <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase tracking-widest">Provedor do gateway</Label>
+                    <Select
+                      value={(storeSettings as any).payment_gateway_provider || "asaas"}
+                      onValueChange={(value) => setStoreSettings({
+                        ...storeSettings,
+                        payment_gateway_provider: value,
+                      } as any)}
+                    >
+                      <SelectTrigger className="h-12 rounded-xl border border-border bg-white font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asaas">Asaas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="asaas-api-key" className="text-xs font-black uppercase tracking-widest">Chave de API Asaas</Label>
-                    {(storeSettings as any).asaas_api_key && (
+                    <Label htmlFor="payment-gateway-api-key" className="text-xs font-black uppercase tracking-widest">Chave de API do gateway</Label>
+                    {((storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key) && (
                       <Badge variant="default" className="bg-green-500 text-white border-0 flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3" /> Configurado
                       </Badge>
@@ -760,11 +717,15 @@ const Settings = () => {
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input
-                        id="asaas-api-key"
+                        id="payment-gateway-api-key"
                         type="password"
-                        placeholder={(storeSettings as any).asaas_api_key ? "••••••••••••••••••••••••" : "Insira sua API Key do Asaas"}
-                        value={(storeSettings as any).asaas_api_key || ""}
-                        onChange={(e) => setStoreSettings({ ...storeSettings, asaas_api_key: e.target.value } as any)}
+                        placeholder={((storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key) ? "API key configurada" : "Insira a API key do gateway"}
+                        value={(storeSettings as any).payment_gateway_api_key ?? (storeSettings as any).asaas_api_key ?? ""}
+                        onChange={(e) => setStoreSettings({
+                          ...storeSettings,
+                          payment_gateway_api_key: e.target.value,
+                          asaas_api_key: ((storeSettings as any).payment_gateway_provider || "asaas") === "asaas" ? e.target.value : (storeSettings as any).asaas_api_key,
+                        } as any)}
                         className="h-12 rounded-xl border border-border pr-10 font-bold"
                       />
                       <Wallet className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -773,10 +734,15 @@ const Settings = () => {
                       variant="outline" 
                       className="h-12 rounded-xl border border-border text-xs font-black uppercase"
                       onClick={async () => {
-                        const key = (storeSettings as any).asaas_api_key;
+                        const key = (storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key;
                         if (!key) return toast.error("Insira a chave de API primeiro.");
-                        toast.loading("Testando conexão...");
-                        const result = await testAsaasConnectionFn({ data: { apiKey: key } });
+                        toast.loading("Testando conexao...");
+                        const result = await testAsaasConnectionFn({
+                          data: {
+                            apiKey: key,
+                            provider: (storeSettings as any).payment_gateway_provider || "asaas",
+                          },
+                        });
                         toast.dismiss();
                         if (result.success) toast.success(result.message);
                         else toast.error(result.message);
@@ -787,8 +753,8 @@ const Settings = () => {
                   </div>
                   
                   <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest leading-relaxed">
-                    SUA SEGURANÇA: A chave é enviada apenas para o servidor e nunca fica visível para clientes. 
-                    Mantenha PIX ativo abaixo para usar esta integração no checkout.
+                    SUA SEGURANCA: A chave e enviada apenas para o servidor e nunca fica visivel para clientes.
+                    Mantenha PIX ativo abaixo para usar esta integracao no checkout.
                   </p>
                 </div>
               </div>
@@ -796,7 +762,7 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <SwitchRow
                   label="Aceitar PIX Online"
-                  description="Gera QR Code automático via Asaas."
+                  description="Gera QR Code automatico pelo gateway configurado."
                   checked={!!storeSettings.accept_pix}
                   onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_pix: val })}
                 />
@@ -821,7 +787,7 @@ const Settings = () => {
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input 
-                      value={`${window.location.origin}/api/webhooks/asaas`} 
+                      value={`${window.location.origin}/api/webhooks/${(storeSettings as any).payment_gateway_provider || "asaas"}`}
                       readOnly 
                       className="rounded-xl border border-border bg-white font-mono text-[10px]" 
                     />
@@ -830,7 +796,7 @@ const Settings = () => {
                       size="icon" 
                       className="shrink-0 rounded-xl border border-border"
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/asaas`);
+                        navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/${(storeSettings as any).payment_gateway_provider || "asaas"}`);
                         toast.success("Link copiado!");
                       }}
                     >
@@ -838,7 +804,7 @@ const Settings = () => {
                     </Button>
                   </div>
                   <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
-                    Configure esta URL no seu painel Asaas em Configurações &gt; Webhook para ativar a confirmação automática de pedidos.
+                    Configure esta URL no painel do gateway para ativar a confirmacao automatica de pedidos.
                   </p>
                 </div>
               </div>
@@ -1030,11 +996,6 @@ const parseBusinessHours = (value: Json | undefined): BusinessHours => {
   return result;
 };
 
-const parseExcludedNeighborhoods = (value: Json | undefined) => {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-};
-
 const buildStoreForm = (store: StoreFormRow): StoreFormRow => ({
   ...store,
   public_name: store.public_name ?? null,
@@ -1073,6 +1034,9 @@ const buildStoreSettings = (settings: any): any => ({
   excluded_neighborhoods: settings?.excluded_neighborhoods ?? [],
   asaas_api_key: settings?.asaas_api_key ?? null,
   asaas_wallet_id: settings?.asaas_wallet_id ?? null,
+  payment_gateway_provider: settings?.payment_gateway_provider ?? "asaas",
+  payment_gateway_api_key: settings?.payment_gateway_api_key ?? settings?.asaas_api_key ?? null,
+  payment_gateway_config: settings?.payment_gateway_config ?? {},
 });
 
 const getStoreStatusValue = (settings: StoreSettingsRow): StoreStatusValue => {

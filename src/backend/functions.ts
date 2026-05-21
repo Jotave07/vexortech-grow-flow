@@ -3,6 +3,9 @@ import { getActor, signUp } from "./auth";
 import { query, withTransaction } from "./db";
 import { publishRealtime } from "./realtime";
 import { createCheckoutOrderHandler } from "@/server/order.functions";
+import { quoteDeliveryHandler } from "@/server/delivery.service";
+import { updateOrderStatusHandler } from "@/server/order-status.service";
+import { syncOrderPaymentStatus } from "@/server/asaas.service";
 
 const errorResult = (message: string): BackendResult => ({ data: null, error: { message } });
 
@@ -17,11 +20,24 @@ export const invokeFunction = async (name: string, body: any, token?: string) =>
   try {
     if (name === "admin-create-store") return adminCreateStore(body, token);
     if (name === "admin-delete-store") return adminDeleteStore(body, token);
+    if (name === "quote-delivery") return { data: await quoteDeliveryHandler(body), error: null };
     if (name === "create-checkout-order") return createCheckoutOrderHandler(body, token);
+    if (name === "update-order-status") return { data: await updateOrderStatusHandler(body, token), error: null };
+    if (name === "sync-payment-status") return syncPaymentStatusForPanel(body, token);
     return errorResult(`Function nao implementada: ${name}`);
   } catch (error: any) {
     return errorResult(error?.message || "Erro ao executar function.");
   }
+};
+
+const syncPaymentStatusForPanel = async (body: any, token?: string) => {
+  const actor = await getActor(token);
+  if (!actor) throw new Error("Nao autenticado.");
+  const storeId = String(body?.storeId || "");
+  if (!actor.admin && !actor.ownedStoreIds.includes(storeId)) throw new Error("Acesso negado.");
+  const orderId = String(body?.orderId || "");
+  if (!orderId || !storeId) return errorResult("orderId e storeId sao obrigatorios.");
+  return { data: await syncOrderPaymentStatus({ orderId, storeId }), error: null };
 };
 
 const adminCreateStore = async (body: any, token?: string) => {

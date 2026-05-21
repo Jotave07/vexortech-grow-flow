@@ -12,6 +12,9 @@ const order = {
   customer_phone: "11999999999",
   payment_method: "pix",
   asaas_api_key: "asaas-key",
+  payment_gateway_provider: "asaas",
+  payment_gateway_api_key: "asaas-key",
+  payment_gateway_config: {},
 };
 
 const createDeps = (options: {
@@ -33,19 +36,20 @@ const createDeps = (options: {
   };
 
   const gateway = {
+    provider: "asaas",
     createCustomer: vi.fn(async () => options.customerResult ?? { id: "asaas-customer" }),
-    createSubscription: vi.fn(),
-    createStorePayment: vi.fn(async () => options.paymentResult ?? { id: "asaas-payment", invoiceUrl: "https://invoice" }),
+    createPixPayment: vi.fn(async () => options.paymentResult ?? { id: "asaas-payment", invoiceUrl: "https://invoice" }),
     findPaymentByExternalReference: vi.fn(async () => ({ data: options.remotePayment ? [options.remotePayment] : [] })),
     getPixQrCode: vi.fn(async () => ({ payload: "pix-code", encodedImage: "qr-image" })),
     getPayment: vi.fn(),
     refundPayment: vi.fn(),
+    mapPaymentStatus: vi.fn(() => "pendente"),
   };
 
   const deps = {
     withTransaction: vi.fn(async (fn: any) => fn(client)),
     query: vi.fn(async () => ({ rows: [] })),
-    gateway,
+    gateways: { asaas: gateway },
     publishRealtime: vi.fn(),
     notifyStatus: vi.fn(async () => null),
   };
@@ -61,10 +65,10 @@ describe("Asaas order payment service", () => {
 
     expect(result).toMatchObject({ paymentId: "asaas-payment", pixCode: "pix-code" });
     expect(gateway.createCustomer).toHaveBeenCalledTimes(1);
-    expect(gateway.createStorePayment).toHaveBeenCalledTimes(1);
+    expect(gateway.createPixPayment).toHaveBeenCalledTimes(1);
     expect(deps.query).toHaveBeenCalledWith(
       expect.stringContaining("SET external_id"),
-      [order.id, "asaas-payment"],
+      [order.id, "asaas-payment", "asaas"],
     );
   });
 
@@ -77,7 +81,7 @@ describe("Asaas order payment service", () => {
 
     expect(result).toMatchObject({ paymentId: "asaas-existing", pixCode: "pix-code" });
     expect(gateway.createCustomer).not.toHaveBeenCalled();
-    expect(gateway.createStorePayment).not.toHaveBeenCalled();
+    expect(gateway.createPixPayment).not.toHaveBeenCalled();
   });
 
   it("keeps failed attempts recoverable and avoids a duplicate when Asaas already has the external reference", async () => {
@@ -87,7 +91,7 @@ describe("Asaas order payment service", () => {
     await expect(
       createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, first.deps as any),
     ).rejects.toThrow("CPF invalido");
-    expect(first.gateway.createStorePayment).not.toHaveBeenCalled();
+    expect(first.gateway.createPixPayment).not.toHaveBeenCalled();
     expect(first.deps.query).toHaveBeenCalledWith(expect.stringContaining("status = 'falhou'"), expect.any(Array));
 
     const retry = createDeps({
@@ -97,6 +101,6 @@ describe("Asaas order payment service", () => {
     const result = await createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, retry.deps as any);
 
     expect(result).toMatchObject({ paymentId: "asaas-recovered" });
-    expect(retry.gateway.createStorePayment).not.toHaveBeenCalled();
+    expect(retry.gateway.createPixPayment).not.toHaveBeenCalled();
   });
 });

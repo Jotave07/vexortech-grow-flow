@@ -24,6 +24,8 @@ const settings = {
   accept_pix: true,
   accept_cash: true,
   accept_card_on_delivery: true,
+  payment_gateway_provider: "asaas",
+  payment_gateway_api_key: "gateway-key",
   accept_orders_when_closed: true,
   is_open: true,
   business_hours: {},
@@ -111,6 +113,16 @@ const createCheckoutDeps = (options: { existingOrder?: any; createPayment?: any 
     withTransaction: vi.fn(async (fn: any) => fn(client)),
     createPayment: options.createPayment || vi.fn(async () => ({ paymentId: "asaas-payment", pixCode: "pix-code" })),
     notifyOrderCreated: vi.fn(async () => null),
+    quoteDelivery: vi.fn(async () => ({
+      available: true,
+      fee: 7.5,
+      distanceKm: 2.4,
+      estimatedMin: 42,
+      estimatedMax: 53,
+      regionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      regionName: "Centro",
+      source: "region",
+    })),
   };
 
   return { deps, client, inserted };
@@ -131,7 +143,7 @@ describe("createCheckoutOrderForActor", () => {
     expect(deps.createPayment).toHaveBeenCalledTimes(1);
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining("notes, subtotal, options_total"), expect.arrayContaining(["sem cebola", 46, 3]));
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining("option_id"), expect.arrayContaining([checkoutInput.items[0].options[0].optionId]));
-    expect(client.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.orders"), expect.arrayContaining(["entregar na portaria\nReferencia: bloco B"]));
+    expect(client.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.orders"), expect.arrayContaining(["entregar na portaria", "bloco B"]));
   });
 
   it("returns the same order for the same idempotency key without inserting another order", async () => {

@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, Search, MapPin, Truck, Clock, AlertTriangle } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { DeliveryRegion } from "@/types/delivery";
-import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
 import { isValidCep, normalizeCep, formatCep } from "@/utils/zipCode";
 
 const Zones = () => {
@@ -29,6 +28,7 @@ const Zones = () => {
     state: store?.state || "",
     zip_start: "",
     zip_end: "",
+    max_radius_km: "",
     fee: "0",
     fee_per_km: "0",
     min_fee: "",
@@ -44,8 +44,14 @@ const Zones = () => {
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   
-  // Test Cep State
-  const [testCep, setTestCep] = useState("");
+  const [testAddress, setTestAddress] = useState({
+    cep: "",
+    street: "",
+    number: "",
+    neighborhood: "",
+    city: store?.city || "",
+    state: store?.state || "",
+  });
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
@@ -80,6 +86,7 @@ const Zones = () => {
       state: z.state || "",
       zip_start: z.zip_start || "",
       zip_end: z.zip_end || "",
+      max_radius_km: z.max_radius_km ? String(z.max_radius_km) : "",
       fee: String(z.fee || 0), 
       fee_per_km: String(z.fee_per_km || 0),
       min_fee: z.min_fee ? String(z.min_fee) : "",
@@ -108,6 +115,7 @@ const Zones = () => {
       state: form.state.trim().toUpperCase(),
       zip_start: normalizeCep(form.zip_start) || null,
       zip_end: normalizeCep(form.zip_end) || null,
+      max_radius_km: form.max_radius_km ? Number(form.max_radius_km) : null,
       fee: Number(form.fee) || 0,
       fee_per_km: Number(form.fee_per_km) || 0,
       min_fee: form.min_fee ? Number(form.min_fee) : null,
@@ -146,20 +154,30 @@ const Zones = () => {
   };
 
   const runTest = async () => {
-    if (!isValidCep(testCep)) return toast.error("CEP inválido");
+    if (testAddress.cep && !isValidCep(testAddress.cep)) return toast.error("CEP invalido");
+    if (!testAddress.city.trim() || !testAddress.state.trim()) return toast.error("Informe cidade e UF");
+    if (!testAddress.cep && (!testAddress.street.trim() || !testAddress.number.trim())) {
+      return toast.error("Informe CEP ou rua e numero");
+    }
     setTesting(true);
     try {
-      const quote = await calculateDeliveryQuote({
-        storeId: store.id,
-        cep: testCep,
-        neighborhood: "",
-        city: "",
-        state: "",
-        subtotal: 100
+      const { data, error } = await backend.functions.invoke("quote-delivery", {
+        body: {
+          storeId: store.id,
+          subtotal: 100,
+          address: {
+            cep: normalizeCep(testAddress.cep),
+            street: testAddress.street,
+            number: testAddress.number,
+            neighborhood: testAddress.neighborhood,
+            city: testAddress.city,
+            state: testAddress.state,
+          },
+        },
       });
-      setTestResult(quote);
+      setTestResult(error ? { available: false, reason: error.message } : data);
     } catch (err: any) {
-      toast.error("Erro ao testar CEP");
+      toast.error("Erro ao testar frete");
     } finally {
       setTesting(false);
     }
@@ -173,8 +191,8 @@ const Zones = () => {
           <p className="text-muted-foreground">Gerencie regiões, bairros e faixas de CEP atendidos.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setTestCep(""); setTestResult(null); setOpen(true); }} className="hidden md:flex">
-             Testar CEP
+          <Button variant="outline" onClick={() => setTestResult(null)} className="hidden md:flex">
+             Limpar teste
           </Button>
           <Button variant="hero" onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" /> Nova Região
@@ -231,14 +249,38 @@ const Zones = () => {
           <Card className="p-6">
             <h3 className="font-bold mb-4 flex items-center gap-2"><Search className="h-4 w-4" /> Testar Cálculo</h3>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Digite um CEP</Label>
-                <div className="flex gap-2">
-                  <Input placeholder="00000-000" value={testCep} onChange={e => setTestCep(e.target.value)} />
-                  <Button size="sm" onClick={runTest} disabled={testing || !testCep}>
-                    {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar"}
-                  </Button>
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label>CEP</Label>
+                  <Input placeholder="00000-000" value={testAddress.cep} onChange={e => setTestAddress({ ...testAddress, cep: e.target.value })} />
                 </div>
+                <div className="grid grid-cols-[1fr_90px] gap-2">
+                  <div>
+                    <Label>Rua</Label>
+                    <Input value={testAddress.street} onChange={e => setTestAddress({ ...testAddress, street: e.target.value.toUpperCase() })} />
+                  </div>
+                  <div>
+                    <Label>Numero</Label>
+                    <Input value={testAddress.number} onChange={e => setTestAddress({ ...testAddress, number: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Bairro</Label>
+                  <Input value={testAddress.neighborhood} onChange={e => setTestAddress({ ...testAddress, neighborhood: e.target.value.toUpperCase() })} />
+                </div>
+                <div className="grid grid-cols-[1fr_70px] gap-2">
+                  <div>
+                    <Label>Cidade</Label>
+                    <Input value={testAddress.city} onChange={e => setTestAddress({ ...testAddress, city: e.target.value.toUpperCase() })} />
+                  </div>
+                  <div>
+                    <Label>UF</Label>
+                    <Input maxLength={2} value={testAddress.state} onChange={e => setTestAddress({ ...testAddress, state: e.target.value.toUpperCase() })} />
+                  </div>
+                </div>
+                <Button size="sm" onClick={runTest} disabled={testing}>
+                  {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar frete"}
+                </Button>
               </div>
 
               {testResult && (
@@ -249,9 +291,10 @@ const Zones = () => {
                         Disponível!
                       </div>
                       <div className="text-sm text-green-700">
-                        Região: <strong>{testResult.region?.name || testResult.region?.neighborhood}</strong><br/>
+                        Região: <strong>{testResult.regionName || testResult.region?.name || testResult.region?.neighborhood}</strong><br/>
+                        Distância: <strong>{testResult.distanceKm ? `${Number(testResult.distanceKm).toFixed(1).replace(".", ",")} km` : "n/d"}</strong><br/>
                         Taxa: <strong>{formatBRL(testResult.fee)}</strong><br/>
-                        Previsão: <strong>{testResult.estimated_min}-{testResult.estimated_max} min</strong>
+                        Previsão: <strong>{testResult.estimatedMin || testResult.estimated_min}-{testResult.estimatedMax || testResult.estimated_max} min</strong>
                       </div>
                     </div>
                   ) : (
@@ -303,6 +346,10 @@ const Zones = () => {
                 <div>
                   <Label>Prioridade</Label>
                   <Input type="number" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Raio maximo da regiao (KM)</Label>
+                  <Input type="number" step="0.1" value={form.max_radius_km} onChange={(e) => setForm({ ...form, max_radius_km: e.target.value })} />
                 </div>
               </div>
               <div className="p-4 border rounded-lg bg-muted/30">

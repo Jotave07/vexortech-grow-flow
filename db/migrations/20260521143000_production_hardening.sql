@@ -428,6 +428,8 @@ DROP FUNCTION IF EXISTS public.get_public_order_items(uuid);
 DROP FUNCTION IF EXISTS public.get_public_order_status_history();
 DROP FUNCTION IF EXISTS public.get_public_order_status_history(uuid);
 
+DROP FUNCTION IF EXISTS public.is_vexor_admin(uuid);
+
 CREATE OR REPLACE FUNCTION public.is_vexor_admin(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -440,6 +442,10 @@ AS $$
       AND ur.role IN ('super_admin', 'admin', 'vexor_admin')
   ), false);
 $$;
+
+DROP FUNCTION IF EXISTS public.get_public_order(text);
+DROP FUNCTION IF EXISTS public.get_public_order_items(text);
+DROP FUNCTION IF EXISTS public.get_public_order_status_history(text);
 
 CREATE OR REPLACE FUNCTION public.get_public_order(_token text)
 RETURNS TABLE (
@@ -557,6 +563,8 @@ CREATE TABLE IF NOT EXISTS public.store_reviews (
   comment text,
   created_at timestamptz DEFAULT now()
 );
+
+DROP FUNCTION IF EXISTS public.get_store_rating(uuid);
 
 CREATE OR REPLACE FUNCTION public.get_store_rating(_store_id uuid)
 RETURNS TABLE (rating numeric, reviews_count integer)

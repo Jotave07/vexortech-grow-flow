@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Clock,
@@ -26,9 +29,6 @@ import { toast } from "sonner";
 import { formatBRL, STATUS_LABELS, STATUS_COLORS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
-import { syncPaymentStatus, refundOrderPayment } from "@/functions/asaas";
-import { notifyOrderStatusChanged } from "@/functions/evolution";
-import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 
 type OrderColumn = {
@@ -40,7 +40,7 @@ type OrderColumn = {
   nextLabel?: string | ((order: any) => string);
 };
 
-const COLUMNS: OrderColumn[] = [
+const OPERATIONAL_COLUMNS: OrderColumn[] = [
   {
     key: "aguardando_pagamento",
     label: "Aguardando PIX",
@@ -79,19 +79,18 @@ const COLUMNS: OrderColumn[] = [
     nextStatus: "entregue",
     nextLabel: "Concluir pedido",
   },
-  {
-    key: "entregue",
-    label: "Concluídos",
-    helper: "Histórico recente da loja.",
-    statuses: ["entregue"],
-  },
-  {
-    key: "cancelado",
-    label: "Cancelados",
-    helper: "Pedidos encerrados sem venda.",
-    statuses: ["cancelado"],
-  },
 ];
+
+const operationalStatuses = [
+  "aguardando_pagamento",
+  "novo",
+  "confirmado",
+  "em_preparo",
+  "saiu_para_entrega",
+  "pronto_para_retirada",
+];
+
+const historyStatuses = ["entregue", "cancelado", "estornado"];
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pago: "Pago",
@@ -139,33 +138,13 @@ const getItemUnitTotal = (item: any) => {
 };
 
 const getNextAction = (order: any) => {
-  const column = COLUMNS.find((candidate) => candidate.statuses.includes(order.status));
+  const column = OPERATIONAL_COLUMNS.find((candidate) => candidate.statuses.includes(order.status));
   if (!column?.nextStatus) return null;
   const nextStatus = column.nextStatus;
   return {
     status: nextStatus,
     label: typeof column.nextLabel === "function" ? column.nextLabel(order) : column.nextLabel || "Avançar",
   };
-};
-
-const statusUpdatePayload = (status: string, order: any) => {
-  const now = new Date().toISOString();
-  const payload: Record<string, any> = { status, updated_at: now };
-
-  if (status === "confirmado") payload.accepted_at = now;
-  if (status === "em_preparo") payload.preparation_started_at = now;
-  if (status === "saiu_para_entrega") payload.out_for_delivery_at = now;
-  if (status === "pronto_para_retirada") payload.ready_at = now;
-  if (status === "entregue") {
-    payload.delivered_at = now;
-    payload.payment_status = "pago";
-  }
-  if (status === "cancelado") {
-    payload.cancelled_at = now;
-    payload.payment_status = order?.payment_status === "pago" ? "estornado" : "cancelado";
-  }
-
-  return payload;
 };
 
 const Orders = () => {
@@ -179,9 +158,14 @@ const Orders = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [realtimeState, setRealtimeState] = useState<"connecting" | "online" | "offline">("connecting");
-  const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
-  const refundOrderPaymentFn = useServerFn(refundOrderPayment);
-  const notifyOrderStatusChangedFn = useServerFn(notifyOrderStatusChanged);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOrders, setHistoryOrders] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPeriod, setHistoryPeriod] = useState("7");
+  const [historyStatus, setHistoryStatus] = useState("todos");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+  const boardRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     if (!store?.id) return;
@@ -189,6 +173,7 @@ const Orders = () => {
       .from("orders")
       .select("*")
       .eq("store_id", store.id)
+      .in("status", operationalStatuses)
       .gte("created_at", new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
       .order("created_at", { ascending: false })
       .limit(250);
@@ -203,6 +188,37 @@ const Orders = () => {
     setLastSync(new Date());
     setLoading(false);
   }, [store?.id]);
+
+  const loadHistory = useCallback(async () => {
+    if (!store?.id) return;
+    setHistoryLoading(true);
+    const days = Number(historyPeriod);
+    const fromDate = Number.isFinite(days)
+      ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const statuses = historyStatus === "todos" ? historyStatuses : [historyStatus];
+
+    const { data, error } = await backend
+      .from("orders")
+      .select("*")
+      .eq("store_id", store.id)
+      .in("status", statuses)
+      .gte("created_at", fromDate)
+      .order("created_at", { ascending: false })
+      .limit(250);
+
+    if (error) toast.error(error.message);
+    setHistoryOrders(sortOrders(data ?? []));
+    setHistoryLoading(false);
+  }, [historyPeriod, historyStatus, store?.id]);
+
+  useEffect(() => {
+    if (historyOpen) void loadHistory();
+  }, [historyOpen, loadHistory]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyPeriod, historyStatus, historySearch]);
 
   useEffect(() => {
     if (!store?.id) return;
@@ -245,15 +261,22 @@ const Orders = () => {
         (payload) => {
           if (payload.eventType === "INSERT") {
             const newOrder = payload.new as any;
-            setOrders((current) => sortOrders([newOrder, ...current.filter((item) => item.id !== newOrder.id)]));
-            toast.success(`Novo pedido #${newOrder.order_number}`, { duration: 8000 });
-            playNotificationSound();
+            if (operationalStatuses.includes(newOrder.status)) {
+              setOrders((current) => sortOrders([newOrder, ...current.filter((item) => item.id !== newOrder.id)]));
+              toast.success(`Novo pedido #${newOrder.order_number}`, { duration: 8000 });
+              playNotificationSound();
+            }
           }
 
           if (payload.eventType === "UPDATE") {
             const oldOrder = payload.old as any;
             const newOrder = payload.new as any;
-            setOrders((current) => sortOrders(current.map((item) => item.id === newOrder.id ? { ...item, ...newOrder } : item)));
+            setOrders((current) => {
+              const withoutOrder = current.filter((item) => item.id !== newOrder.id);
+              return operationalStatuses.includes(newOrder.status)
+                ? sortOrders([{ ...oldOrder, ...newOrder }, ...withoutOrder])
+                : sortOrders(withoutOrder);
+            });
             setSelected((current: any) => current?.id === newOrder.id ? { ...current, ...newOrder } : current);
 
             if (oldOrder.status === "aguardando_pagamento" && newOrder.status === "novo") {
@@ -263,7 +286,6 @@ const Orders = () => {
           }
 
           setLastSync(new Date());
-          void load();
         },
       )
       .subscribe((status) => {
@@ -280,7 +302,7 @@ const Orders = () => {
   }, [store?.id, load]);
 
   const summary = useMemo(() => {
-    const active = orders.filter((order) => !["entregue", "cancelado"].includes(order.status));
+    const active = orders.filter((order) => operationalStatuses.includes(order.status));
     const waitingPayment = orders.filter((order) => order.status === "aguardando_pagamento").length;
     const production = orders.filter((order) => ["novo", "confirmado", "em_preparo"].includes(order.status)).length;
     const route = orders.filter((order) => ["saiu_para_entrega", "pronto_para_retirada"].includes(order.status)).length;
@@ -318,83 +340,34 @@ const Orders = () => {
 
     setUpdatingId(orderId);
     try {
-      const { data: updatedOrder, error } = await backend
-        .from("orders")
-        .update(statusUpdatePayload(finalStatus, order))
-        .eq("id", orderId)
-        .select("*")
-        .maybeSingle();
+      const { data: updatedOrder, error } = await backend.functions.invoke("update-order-status", {
+        body: {
+          orderId,
+          storeId: store.id,
+          status: finalStatus,
+          note: note ?? null,
+        },
+      });
 
       if (error) {
         toast.error(error.message);
         return;
       }
 
-      await backend.from("order_status_history").insert({
-        order_id: orderId,
-        store_id: store.id,
-        status: finalStatus,
-        notes: note ?? null,
-      } as any);
-
-      if (finalStatus === "entregue") {
-        if (order.customer_id && order.status !== "entregue") {
-          const { data: customer } = await backend
-            .from("customers")
-            .select("total_orders, total_spent")
-            .eq("id", order.customer_id)
-            .maybeSingle();
-
-          if (customer) {
-            await backend.from("customers").update({
-              total_orders: (customer.total_orders ?? 0) + 1,
-              total_spent: Number(customer.total_spent ?? 0) + Number(order.total),
-              last_order_at: new Date().toISOString(),
-            }).eq("id", order.customer_id);
-          }
-        }
-
-        await backend.from("payments").update({
-          status: "pago",
-          paid_at: new Date().toISOString(),
-        }).eq("order_id", orderId);
-      }
-
-      if (finalStatus === "cancelado") {
-        await backend.from("payments").update({ status: "cancelado" }).eq("order_id", orderId);
-      }
-
-      await notifyOrderStatusChangedFn({
-        data: { orderId, status: finalStatus, note: note ?? undefined },
-      }).catch((error) => {
-        console.warn("Evolution status notification skipped:", error);
-      });
-
       const mergedOrder = { ...order, ...(updatedOrder ?? {}), status: finalStatus };
-      setOrders((current) => sortOrders(current.map((item) => item.id === orderId ? mergedOrder : item)));
+      setOrders((current) => {
+        const withoutOrder = current.filter((item) => item.id !== orderId);
+        return operationalStatuses.includes(finalStatus) ? sortOrders([mergedOrder, ...withoutOrder]) : sortOrders(withoutOrder);
+      });
       if (selected?.id === orderId) setSelected(mergedOrder);
       toast.success("Status atualizado e cliente avisado");
-      void load();
     } finally {
       setUpdatingId(null);
     }
   };
 
   const cancelOrder = async (orderId: string) => {
-    if (!confirm("Cancelar este pedido? Se o PIX já estiver pago, o sistema tentará estornar automaticamente.")) return;
-
-    const order = orders.find((item) => item.id === orderId) || selected;
-    if (order?.payment_method === "pix" && order?.payment_status === "pago") {
-      try {
-        const refundRes = await refundOrderPaymentFn({ data: { orderId, storeId: store.id } });
-        if (refundRes.success) {
-          toast.success("Pagamento PIX estornado com sucesso");
-        }
-      } catch (error) {
-        console.error("Refund failed:", error);
-        toast.error("Aviso: o estorno automático falhou. Verifique no painel do Asaas.");
-      }
-    }
+    if (!confirm("Cancelar este pedido? Se o PIX ja estiver pago, o sistema tentara tratar o estorno no servidor.")) return;
 
     await updateStatus(orderId, "cancelado", "Cancelado pela loja");
   };
@@ -403,7 +376,10 @@ const Orders = () => {
     if (!selected) return;
     setSyncing(true);
     try {
-      const res = await syncPaymentStatusFn({ data: { orderId: selected.id, storeId: store.id } });
+      const { data: res, error } = await backend.functions.invoke("sync-payment-status", {
+        body: { orderId: selected.id, storeId: store.id },
+      });
+      if (error) throw error;
       if (res.status === "paid") {
         toast.success("Pagamento confirmado!");
         await load();
@@ -427,7 +403,9 @@ const Orders = () => {
     setSyncing(true);
     try {
       await Promise.allSettled(
-        pendingPixOrders.map((order) => syncPaymentStatusFn({ data: { orderId: order.id, storeId: store.id } })),
+        pendingPixOrders.map((order) => backend.functions.invoke("sync-payment-status", {
+          body: { orderId: order.id, storeId: store.id },
+        })),
       );
       await load();
       toast.success("Pagamentos PIX sincronizados.");
@@ -467,6 +445,14 @@ const Orders = () => {
 
   const selectedAction = selected ? getNextAction(selected) : null;
   const selectedItemsTotal = items.reduce((sum, item) => sum + getItemTotal(item), 0);
+  const filteredHistory = historyOrders.filter((order) => {
+    const search = historySearch.trim().toLowerCase();
+    if (!search) return true;
+    return String(order.customer_name || "").toLowerCase().includes(search) ||
+      String(order.order_number || "").includes(search);
+  });
+  const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / 25));
+  const visibleHistory = filteredHistory.slice((historyPage - 1) * 25, historyPage * 25);
 
   return (
     <div className="space-y-6">
@@ -494,6 +480,9 @@ const Orders = () => {
               Sincronizar PIX
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
+            Historico
+          </Button>
           <Button variant="outline" size="sm" onClick={load} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
@@ -508,12 +497,21 @@ const Orders = () => {
         <SummaryCard icon={CheckCircle2} label="Vendas" value={formatBRL(summary.completedRevenue)} helper="Pagas/concluídas" />
       </div>
 
-      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 md:mx-0 md:px-0">
-        {COLUMNS.map((col) => {
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => boardRef.current?.scrollBy({ left: -360, behavior: "smooth" })}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => boardRef.current?.scrollBy({ left: 360, behavior: "smooth" })}>
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div ref={boardRef} className="-mx-4 flex h-[calc(100vh-260px)] gap-4 overflow-x-auto overflow-y-hidden overscroll-contain px-4 pb-4 md:mx-0 md:px-0">
+        {OPERATIONAL_COLUMNS.map((col) => {
           const colOrders = orders.filter((order) => col.statuses.includes(order.status));
 
           return (
-            <div key={col.key} className="flex w-[21rem] shrink-0 flex-col gap-3">
+            <div key={col.key} className="flex h-full min-w-[300px] max-w-[340px] shrink-0 flex-col gap-3">
               <div className="px-1">
                 <div className="flex items-center justify-between border-b border-border pb-2">
                   <h3 className="text-xs font-black uppercase tracking-widest">{col.label}</h3>
@@ -522,7 +520,7 @@ const Orders = () => {
                 <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{col.helper}</p>
               </div>
 
-              <div className="min-h-[520px] space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-2">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border border-dashed border-border bg-muted/20 p-2">
                 <AnimatePresence mode="popLayout">
                   {colOrders.map((order) => {
                     const action = getNextAction(order);
@@ -614,6 +612,74 @@ const Orders = () => {
           );
         })}
       </div>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Historico de pedidos</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-3 md:grid-cols-[160px_180px_1fr_auto]">
+            <Select value={historyPeriod} onValueChange={setHistoryPeriod}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Hoje</SelectItem>
+                <SelectItem value="7">Ultimos 7 dias</SelectItem>
+                <SelectItem value="30">Ultimos 30 dias</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={historyStatus} onValueChange={setHistoryStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos status</SelectItem>
+                {historyStatuses.map((status) => (
+                  <SelectItem key={status} value={status}>{STATUS_LABELS[status] || status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={historySearch}
+              onChange={(event) => setHistorySearch(event.target.value)}
+              placeholder="Buscar por cliente ou numero"
+            />
+            <Button variant="outline" onClick={loadHistory} disabled={historyLoading}>
+              {historyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Atualizar
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            {visibleHistory.map((order) => (
+              <div key={order.id} className="grid gap-3 rounded-xl border border-border bg-white p-3 text-sm md:grid-cols-[90px_1fr_120px_120px] md:items-center">
+                <div className="font-black">#{order.order_number}</div>
+                <div>
+                  <div className="font-bold uppercase">{order.customer_name}</div>
+                  <div className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString("pt-BR")}</div>
+                </div>
+                <Badge variant="outline" className={cn("w-fit rounded-full text-[10px] font-black uppercase", STATUS_COLORS[order.status] || "")}>
+                  {STATUS_LABELS[order.status] || order.status}
+                </Badge>
+                <div className="font-black">{formatBRL(order.total)}</div>
+              </div>
+            ))}
+            {!historyLoading && visibleHistory.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Nenhum pedido no historico
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Pagina {historyPage} de {historyTotalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={historyPage <= 1} onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={historyPage >= historyTotalPages} onClick={() => setHistoryPage((page) => Math.min(historyTotalPages, page + 1))}>Proxima</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">

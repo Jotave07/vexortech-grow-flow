@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { asaas } from "@/server/asaas.server";
 import { backendAdmin } from "@/integrations/backend/client.server";
+import { testPixGatewayConnection } from "@/server/payment-gateways";
 import {
   createOrderPaymentForOrder,
   getOrderPaymentInfoForOrder,
@@ -11,25 +12,11 @@ import {
 export const testAsaasConnection = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     apiKey: z.string().min(1),
+    provider: z.string().optional(),
     isPlatform: z.boolean().optional(),
   }))
   .handler(async ({ data }) => {
-    const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === "sandbox" ? "https://sandbox.asaas.com/api/v3" : "https://www.asaas.com/api/v3"}/customers?limit=1`, {
-      headers: {
-        access_token: data.apiKey,
-        "User-Agent": "HypeDelivery/1.0",
-      },
-    });
-
-    if (response.ok) {
-      return { success: true, message: "Conexao estabelecida com sucesso." };
-    }
-
-    const errorData = await response.json().catch(() => ({}));
-    return {
-      success: false,
-      message: errorData.errors?.[0]?.description || "Falha ao conectar com o Asaas. Verifique sua chave de API.",
-    };
+    return testPixGatewayConnection(data.provider, data.apiKey);
   });
 
 export const createSubscriptionCheckout = createServerFn({ method: "POST" })
@@ -79,7 +66,10 @@ export const createOrderPayment = createServerFn({ method: "POST" })
     attemptKey: z.string().min(8).max(160).optional(),
     publicToken: z.string().min(8).max(200).optional(),
   }))
-  .handler(async ({ data }) => createOrderPaymentForOrder(data));
+  .handler(async ({ data }) => {
+    if (!data.publicToken) throw new Error("publicToken obrigatorio para pagamento publico.");
+    return createOrderPaymentForOrder(data);
+  });
 
 export const getOrderPaymentInfo = createServerFn({ method: "GET" })
   .inputValidator(z.object({
@@ -87,7 +77,10 @@ export const getOrderPaymentInfo = createServerFn({ method: "GET" })
     storeId: z.string().uuid(),
     publicToken: z.string().min(8).max(200).optional(),
   }))
-  .handler(async ({ data }) => getOrderPaymentInfoForOrder(data));
+  .handler(async ({ data }) => {
+    if (!data.publicToken) throw new Error("publicToken obrigatorio para consulta publica.");
+    return getOrderPaymentInfoForOrder(data);
+  });
 
 export const syncPaymentStatus = createServerFn({ method: "POST" })
   .inputValidator(z.object({
@@ -95,46 +88,16 @@ export const syncPaymentStatus = createServerFn({ method: "POST" })
     storeId: z.string().uuid(),
     publicToken: z.string().min(8).max(200).optional(),
   }))
-  .handler(async ({ data }) => syncOrderPaymentStatus(data));
+  .handler(async ({ data }) => {
+    if (!data.publicToken) throw new Error("publicToken obrigatorio para sincronizacao publica.");
+    return syncOrderPaymentStatus(data);
+  });
 
 export const refundOrderPayment = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
   }))
-  .handler(async ({ data }) => {
-    const { data: storeSettings } = await backendAdmin
-      .from("store_settings")
-      .select("asaas_api_key")
-      .eq("store_id", data.storeId)
-      .single() as any;
-
-    if (!storeSettings?.asaas_api_key) throw new Error("Gateway nao configurado");
-
-    const { data: payment } = await backendAdmin
-      .from("payments")
-      .select("*")
-      .eq("order_id", data.orderId)
-      .single();
-
-    if (!payment?.external_id || payment.status !== "pago") {
-      return { success: false, message: "Pagamento nao encontrado ou nao esta pago" };
-    }
-
-    const { data: order } = await backendAdmin.from("orders").select("total").eq("id", data.orderId).single();
-
-    const refund = await asaas.refundPayment(
-      storeSettings.asaas_api_key,
-      payment.external_id,
-      Number(order?.total || 0),
-      "Pedido cancelado pela loja",
-    );
-
-    if (refund.errors) {
-      throw new Error(`Erro Asaas no estorno: ${refund.errors[0].description}`);
-    }
-
-    await backendAdmin.from("payments").update({ status: "estornado" }).eq("id", payment.id);
-
-    return { success: true };
+  .handler(async () => {
+    throw new Error("Estorno deve ser executado pelo painel autenticado via update-order-status.");
   });

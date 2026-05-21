@@ -1115,6 +1115,9 @@ export type Database = {
           min_order_amount: number | null
           min_order_value: number | null
           next_opening_time: string | null
+          payment_gateway_api_key: string | null
+          payment_gateway_config: Json | null
+          payment_gateway_provider: string | null
           payment_methods: Json | null
           pix_key: string | null
           pix_key_type: string | null
@@ -1149,6 +1152,9 @@ export type Database = {
           min_order_amount?: number | null
           min_order_value?: number | null
           next_opening_time?: string | null
+          payment_gateway_api_key?: string | null
+          payment_gateway_config?: Json | null
+          payment_gateway_provider?: string | null
           payment_methods?: Json | null
           pix_key?: string | null
           pix_key_type?: string | null
@@ -1183,6 +1189,9 @@ export type Database = {
           min_order_amount?: number | null
           min_order_value?: number | null
           next_opening_time?: string | null
+          payment_gateway_api_key?: string | null
+          payment_gateway_config?: Json | null
+          payment_gateway_provider?: string | null
           payment_methods?: Json | null
           pix_key?: string | null
           pix_key_type?: string | null

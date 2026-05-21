@@ -57,6 +57,40 @@ const checks = [
     sql: "SELECT to_regclass('public.orders_checkout_idempotency_unique') IS NOT NULL AS ok",
   },
   {
+    label: "orders_store_customer_idempotency_unique",
+    sql: "SELECT to_regclass('public.orders_store_customer_idempotency_unique') IS NOT NULL AS ok",
+  },
+  {
+    label: "delivery quote columns",
+    sql: `
+      SELECT count(*) = 5 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'delivery_zones'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["max_radius_km", "fee_per_km", "min_fee", "max_fee", "base_prep_time"]],
+  },
+  {
+    label: "orders delivery/status columns",
+    sql: `
+      SELECT count(*) = 6 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'orders'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["delivery_reference", "distance_km", "delivery_source", "accepted_at", "ready_at", "cancelled_at"]],
+  },
+  {
+    label: "notification_events idempotency",
+    sql: `
+      SELECT
+        to_regclass('public.notification_events') IS NOT NULL
+        AND to_regclass('public.notification_events_provider_type_order_recipient_unique') IS NOT NULL AS ok
+    `,
+  },
+  {
     label: "payments_order_id_unique",
     sql: "SELECT to_regclass('public.payments_order_id_unique') IS NOT NULL AS ok",
   },

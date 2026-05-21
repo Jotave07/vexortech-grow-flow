@@ -43,8 +43,20 @@ export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } =
     throw new Error("ASAAS_ENVIRONMENT obrigatorio quando ASAAS_API_KEY esta configurada.");
   }
 
-  if ((clean(process.env.EVOLUTION_API_KEY) || clean(process.env.EVOLUTION_API_URL)) && !clean(process.env.EVOLUTION_SENDER_PHONE)) {
-    throw new Error("EVOLUTION_SENDER_PHONE obrigatorio quando Evolution API esta configurada em producao.");
+  if (!clean(process.env.ASAAS_ENVIRONMENT)) {
+    throw new Error("ASAAS_ENVIRONMENT obrigatorio em producao.");
+  }
+
+  if (!clean(process.env.EVOLUTION_API_URL)) {
+    throw new Error("EVOLUTION_API_URL obrigatorio em producao.");
+  }
+
+  if (!clean(process.env.EVOLUTION_API_KEY)) {
+    throw new Error("EVOLUTION_API_KEY obrigatorio em producao.");
+  }
+
+  if (!clean(process.env.EVOLUTION_AUTOMATION_PHONE)) {
+    throw new Error("EVOLUTION_AUTOMATION_PHONE obrigatorio em producao.");
   }
 };
 

@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/health")({
         let ok = true;
 
         try {
-          validateRuntimeEnv({ requireWebhookSecret: true });
+          validateRuntimeEnv();
           checks.env = { ok: true };
         } catch (error: any) {
           ok = false;

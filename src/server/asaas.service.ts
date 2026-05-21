@@ -2,14 +2,18 @@ import type pg from "pg";
 import { query, withTransaction } from "@/backend/db";
 import { publishRealtime } from "@/backend/realtime";
 import { sendOrderStatusNotification } from "@/functions/evolution.server";
-import { asaas } from "./asaas.server";
+import {
+  pixPaymentGateways,
+  resolvePixGatewayConfig,
+  type PixPaymentGateway,
+} from "./payment-gateways";
 
 type DbClient = Pick<pg.PoolClient, "query">;
 
 type PaymentDeps = {
   withTransaction: typeof withTransaction;
   query: typeof query;
-  gateway: typeof asaas;
+  gateways: Record<string, PixPaymentGateway>;
   publishRealtime: typeof publishRealtime;
   notifyStatus: typeof sendOrderStatusNotification;
 };
@@ -17,7 +21,7 @@ type PaymentDeps = {
 const defaultDeps: PaymentDeps = {
   withTransaction,
   query,
-  gateway: asaas,
+  gateways: pixPaymentGateways,
   publishRealtime,
   notifyStatus: sendOrderStatusNotification,
 };
@@ -29,14 +33,6 @@ const todayIsoDate = () => new Date().toISOString().split("T")[0];
 
 const errorDescription = (value: any, fallback = "Falha ao processar pagamento.") =>
   String(value?.errors?.[0]?.description || value?.message || fallback);
-
-const toPublicPaymentStatus = (asaasStatus?: string) => {
-  if (asaasStatus === "RECEIVED" || asaasStatus === "CONFIRMED" || asaasStatus === "RECEIVED_IN_CASH") return "pago";
-  if (asaasStatus === "REFUNDED" || asaasStatus === "PARTIALLY_REFUNDED") return "estornado";
-  if (asaasStatus === "DELETED" || asaasStatus === "CANCELLED") return "cancelado";
-  if (asaasStatus === "OVERDUE") return "falhou";
-  return "pendente";
-};
 
 const updatePaymentFailure = async (
   orderId: string,
@@ -51,8 +47,11 @@ const updatePaymentFailure = async (
   ).catch(() => null);
 };
 
-const fetchQrCode = async (apiKey: string, paymentId: string, deps: PaymentDeps) => {
-  const qrCode = await deps.gateway.getPixQrCode(apiKey, paymentId);
+const fetchQrCode = async (
+  gatewayConfig: NonNullable<ReturnType<typeof resolvePixGatewayConfig>>,
+  paymentId: string,
+) => {
+  const qrCode = await gatewayConfig.gateway.getPixQrCode(gatewayConfig, paymentId);
   if (qrCode?.errors) {
     return {
       paymentId,
@@ -81,7 +80,7 @@ const reserveLocalPayment = async (
   await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`payment:${input.orderId}`]);
 
   const { rows: orders } = await client.query(
-    `SELECT o.*, ss.asaas_api_key
+    `SELECT o.*, ss.asaas_api_key, ss.payment_gateway_provider, ss.payment_gateway_api_key, ss.payment_gateway_config
      FROM public.orders o
      JOIN public.store_settings ss ON ss.store_id = o.store_id
      WHERE o.id = $1
@@ -141,49 +140,49 @@ export const createOrderPaymentForOrder = async (
   deps: PaymentDeps = defaultDeps,
 ) => {
   const reservation = await deps.withTransaction((client) => reserveLocalPayment(client, input));
-  const apiKey = reservation.order.asaas_api_key;
+  const gatewayConfig = resolvePixGatewayConfig(reservation.order, deps.gateways);
 
-  if (!apiKey) {
-    const message = "Loja nao configurou o gateway de pagamento Asaas.";
+  if (!gatewayConfig) {
+    const message = "Loja nao configurou um gateway de pagamento para PIX.";
     await updatePaymentFailure(input.orderId, message, deps);
     throw new Error(message);
   }
 
   if (reservation.externalId) {
-    return fetchQrCode(apiKey, reservation.externalId, deps);
+    return fetchQrCode(gatewayConfig, reservation.externalId);
   }
 
-  const remoteExisting = await deps.gateway.findPaymentByExternalReference(apiKey, input.orderId);
+  const remoteExisting = await gatewayConfig.gateway.findPaymentByExternalReference(gatewayConfig, input.orderId);
   const remotePayment = !remoteExisting?.errors ? remoteExisting?.data?.[0] : null;
   if (remotePayment?.id) {
     await deps.query(
       `UPDATE public.payments
-       SET external_id = $2, asaas_id = $2, status = $3, last_error = NULL, updated_at = now()
+       SET external_id = $2, asaas_id = $2, provider = $3, status = $4, last_error = NULL, updated_at = now()
        WHERE order_id = $1`,
-      [input.orderId, remotePayment.id, toPublicPaymentStatus(remotePayment.status)],
+      [input.orderId, remotePayment.id, gatewayConfig.provider, gatewayConfig.gateway.mapPaymentStatus(remotePayment.status)],
     );
-    return fetchQrCode(apiKey, remotePayment.id, deps);
+    return fetchQrCode(gatewayConfig, remotePayment.id);
   }
 
-  const customer = await deps.gateway.createCustomer(
+  const customer = await gatewayConfig.gateway.createCustomer(
+    gatewayConfig,
     {
       name: reservation.order.customer_name || "Cliente",
       email: reservation.order.customer_email || "cliente@sememail.com.br",
       cpfCnpj: reservation.order.customer_document || "",
       mobilePhone: reservation.order.customer_phone || undefined,
     },
-    apiKey,
   );
 
   if (customer?.errors || !customer?.id) {
-    const message = `Erro Asaas (Cliente): ${errorDescription(customer)}`;
+    const message = `Erro do gateway (cliente): ${errorDescription(customer)}`;
     await updatePaymentFailure(input.orderId, message, deps);
     throw new Error(message);
   }
 
   const idempotencyKey = input.attemptKey || `order:${input.orderId}:pix`;
-  const payment = await deps.gateway.createStorePayment(
-    apiKey,
+  const payment = await gatewayConfig.gateway.createPixPayment(
+    gatewayConfig,
     {
       customer: customer.id,
       value: Number(reservation.order.total),
@@ -195,20 +194,20 @@ export const createOrderPaymentForOrder = async (
   );
 
   if (payment?.errors || !payment?.id) {
-    const message = `Erro Asaas da Loja: ${errorDescription(payment)}`;
+    const message = `Erro do gateway da loja: ${errorDescription(payment)}`;
     await updatePaymentFailure(input.orderId, message, deps);
     throw new Error(message);
   }
 
   await deps.query(
     `UPDATE public.payments
-     SET external_id = $2, asaas_id = $2, status = 'pendente', last_error = NULL, updated_at = now()
+     SET external_id = $2, asaas_id = $2, provider = $3, status = 'pendente', last_error = NULL, updated_at = now()
      WHERE order_id = $1`,
-    [input.orderId, payment.id],
+    [input.orderId, payment.id, gatewayConfig.provider],
   );
 
   return {
-    ...(await fetchQrCode(apiKey, payment.id, deps)),
+    ...(await fetchQrCode(gatewayConfig, payment.id)),
     invoiceUrl: payment.invoiceUrl || null,
   };
 };
@@ -225,7 +224,8 @@ export const syncOrderPaymentStatus = async (
   deps: PaymentDeps = defaultDeps,
 ) => {
   const { rows: contextRows } = await deps.query(
-    `SELECT p.*, ss.asaas_api_key, o.total AS order_total
+    `SELECT p.*, ss.asaas_api_key, ss.payment_gateway_provider, ss.payment_gateway_api_key,
+            ss.payment_gateway_config, o.total AS order_total
      FROM public.payments p
      JOIN public.store_settings ss ON ss.store_id = p.store_id
      JOIN public.orders o ON o.id = p.order_id
@@ -235,28 +235,29 @@ export const syncOrderPaymentStatus = async (
     [input.orderId, input.storeId, input.publicToken || null],
   );
   const payment = contextRows[0];
-  if (!payment?.asaas_api_key) return { status: "pending", message: "Gateway nao configurado" };
+  const gatewayConfig = resolvePixGatewayConfig(payment, deps.gateways);
+  if (!gatewayConfig) return { status: "pending", message: "Gateway de pagamento nao configurado" };
   const externalId = payment.external_id || payment.asaas_id;
   if (!externalId) return { status: "pending", message: "Pagamento nao encontrado" };
   if (paidStatuses.has(String(payment.status))) return { status: "paid" };
 
-  const asaasPayment = await deps.gateway.getPayment(payment.asaas_api_key, externalId);
-  if (asaasPayment?.errors) {
-    return { status: "pending", message: errorDescription(asaasPayment), asaasStatus: null };
+  const gatewayPayment = await gatewayConfig.gateway.getPayment(gatewayConfig, externalId);
+  if (gatewayPayment?.errors) {
+    return { status: "pending", message: errorDescription(gatewayPayment), gatewayStatus: null };
   }
 
-  const mappedStatus = toPublicPaymentStatus(asaasPayment.status);
+  const mappedStatus = gatewayConfig.gateway.mapPaymentStatus(gatewayPayment.status);
   if (mappedStatus === "pago") {
     const expected = Number(payment.order_total || payment.amount || 0);
-    const received = Number(asaasPayment.value);
+    const received = Number(gatewayPayment.value);
     if (!Number.isFinite(received) || Math.abs(received - expected) > 0.01) {
       await deps.query(
         `UPDATE public.payments
          SET last_error = $2, updated_at = now()
          WHERE id = $1`,
-        [payment.id, `Valor divergente no sync Asaas. Esperado ${expected}, recebido ${asaasPayment.value ?? "ausente"}`],
+        [payment.id, `Valor divergente no sync do gateway. Esperado ${expected}, recebido ${gatewayPayment.value ?? "ausente"}`],
       );
-      return { status: "pending", message: "Valor do pagamento divergente", asaasStatus: asaasPayment.status };
+      return { status: "pending", message: "Valor do pagamento divergente", gatewayStatus: gatewayPayment.status };
     }
   }
   if (mappedStatus !== "pago") {
@@ -264,7 +265,7 @@ export const syncOrderPaymentStatus = async (
       `UPDATE public.payments SET status = $2, updated_at = now() WHERE id = $1`,
       [payment.id, mappedStatus],
     ).catch(() => null);
-    return { status: "pending", asaasStatus: asaasPayment.status };
+    return { status: "pending", gatewayStatus: gatewayPayment.status };
   }
 
   await deps.withTransaction(async (client) => {

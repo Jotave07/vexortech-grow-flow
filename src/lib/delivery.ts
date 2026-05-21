@@ -8,12 +8,9 @@ import {
 export type DeliveryConfiguration = {
   allowDelivery: boolean;
   allowPickup: boolean;
-  minimumOrderValue: number;
-  averagePrepTimeMinutes: number;
   deliveryRadiusKm: number | null;
-  deliveryBaseFee: number;
-  deliveryFeePerKm: number;
-  deliveryMessage?: string | null;
+  hasStoreAddress?: boolean;
+  hasStoreCoordinates?: boolean;
 };
 
 export type DeliveryValidationIssue = {
@@ -36,19 +33,19 @@ export const validateDeliverySettings = (config: DeliveryConfiguration) => {
     if (config.deliveryRadiusKm === null || config.deliveryRadiusKm <= 0) {
       issues.push({
         field: "deliveryRadiusKm",
-        message: "Informe um raio maior que zero para calcular entregas por distância.",
+        message: "Informe um raio maior que zero para calcular entregas por distancia.",
       });
     }
-    if (config.deliveryBaseFee < 0) {
-      issues.push({ field: "deliveryBaseFee", message: "A taxa base não pode ser negativa." });
-    }
-    if (config.deliveryFeePerKm < 0) {
-      issues.push({ field: "deliveryFeePerKm", message: "O valor por KM não pode ser negativo." });
-    }
-    if (config.averagePrepTimeMinutes <= 0) {
+    if (!config.hasStoreAddress) {
       issues.push({
-        field: "averagePrepTimeMinutes",
-        message: "Defina um tempo médio de entrega/preparo válido.",
+        field: "deliveryRadiusKm",
+        message: "Complete o endereco da loja para ativar entregas.",
+      });
+    }
+    if (!config.hasStoreCoordinates) {
+      issues.push({
+        field: "deliveryRadiusKm",
+        message: "Gere coordenadas da loja antes de ativar entregas.",
       });
     }
   }

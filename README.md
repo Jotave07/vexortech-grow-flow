@@ -36,7 +36,7 @@ Variaveis criticas em producao:
 - `PUBLIC_APP_URL`
 - `STORAGE_DIR`
 - `ASAAS_WEBHOOK_SECRET`
-- `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE` e `EVOLUTION_SENDER_PHONE=11971582072` quando Evolution estiver ativo
+- `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE` e `EVOLUTION_AUTOMATION_PHONE` quando Evolution estiver ativo
 
 ## Deploy Seguro
 
@@ -53,7 +53,7 @@ npm run build
 npm run db:migrate
 npm run db:check
 sudo systemctl restart vexortech
-curl -f https://hypedelivery.com.br/api/health
+curl -f "$PUBLIC_APP_URL/api/health"
 ```
 
 Rollback: volte o symlink `/var/www/vexortech/current` para a release anterior, restaure o backup do banco se a migration ja tiver sido aplicada, rode `npm run db:check` e reinicie o servico.

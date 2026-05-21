@@ -37,6 +37,7 @@ export type Relation = {
   table: string;
   local: string;
   foreign: string;
+  localType: PgScalarType;
   foreignType: PgScalarType;
   many: boolean;
   nested?: Record<string, Relation>;
@@ -44,134 +45,150 @@ export type Relation = {
 
 export type PgScalarType = "uuid" | "text" | "numeric" | "integer" | "boolean" | "timestamptz";
 
-const pgArrayTypeByScalar: Record<PgScalarType, string> = {
-  uuid: "uuid[]",
-  text: "text[]",
-  numeric: "numeric[]",
-  integer: "integer[]",
-  boolean: "boolean[]",
-  timestamptz: "timestamptz[]",
-};
-
-const uuidColumns = new Set([
-  "id",
-  "store_id",
-  "owner_user_id",
-  "user_id",
-  "customer_id",
-  "order_id",
-  "product_id",
-  "category_id",
-  "option_id",
-  "option_item_id",
-  "order_item_id",
-  "plan_id",
-  "subscription_id",
-  "delivery_region_id",
-]);
-
-const textColumns = new Set([
-  "asaas_id",
-  "external_id",
-  "provider",
-  "idempotency_key",
-  "public_token",
-  "slug",
-  "code",
-  "status",
-  "payment_status",
-  "payment_method",
-  "delivery_type",
-  "delivery_source",
-  "role",
-  "email",
-  "phone",
-  "document",
-  "name",
-  "full_name",
-  "customer_name",
-  "customer_phone",
-  "customer_document",
-  "customer_email",
-  "product_name",
-  "option_name",
-  "item_name",
-  "city",
-  "state",
-  "neighborhood",
-  "street",
-  "number",
-  "complement",
-  "zip_code",
-  "whatsapp",
-  "whatsapp_number",
-  "last_error",
-  "notes",
-]);
-
-const numericColumns = new Set([
-  "price",
-  "promo_price",
-  "unit_price",
-  "subtotal",
-  "options_total",
-  "delivery_fee",
-  "discount_amount",
-  "total",
-  "change_for",
-  "amount",
-  "extra_price",
-  "min_order_value",
-  "min_order_amount",
-  "free_delivery_above",
-  "distance_km",
-]);
-
-const integerColumns = new Set([
-  "order_number",
-  "quantity",
-  "usage_count",
-  "usage_limit",
-  "priority",
-  "estimated_min",
-  "estimated_max",
-  "estimated_minutes",
-  "avg_prep_time_minutes",
-  "min_choices",
-  "max_choices",
-]);
-
-const booleanColumns = new Set([
-  "is_active",
-  "is_suspended",
-  "is_available",
-  "is_required",
-  "is_open",
-  "registration_completed",
-  "accept_pix",
-  "accept_cash",
-  "accept_card_on_delivery",
-  "accept_orders_when_closed",
-  "allow_pickup",
-  "allow_delivery",
-]);
-
-const timestampColumns = new Set([
-  "created_at",
-  "updated_at",
-  "paid_at",
-  "expires_at",
-  "deleted_at",
-  "last_login",
-]);
-
-const tableColumnTypes: Record<string, Record<string, PgScalarType>> = {
-  auth_users: { id: "uuid", email: "text", encrypted_password: "text", deleted_at: "timestamptz" },
-  users: { id: "uuid", email: "text" },
+export const columnTypes: Record<string, Record<string, PgScalarType>> = {
+  stores: {
+    id: "uuid",
+    owner_user_id: "uuid",
+    slug: "text",
+    name: "text",
+    public_name: "text",
+    city: "text",
+    state: "text",
+    phone: "text",
+    whatsapp: "text",
+    whatsapp_number: "text",
+    is_active: "boolean",
+    is_suspended: "boolean",
+    created_at: "timestamptz",
+  },
+  store_settings: {
+    id: "uuid",
+    store_id: "uuid",
+    asaas_api_key: "text",
+    payment_gateway_provider: "text",
+    payment_gateway_api_key: "text",
+    pix_key: "text",
+    pix_key_type: "text",
+    allow_delivery: "boolean",
+    allow_pickup: "boolean",
+    accept_pix: "boolean",
+    accept_cash: "boolean",
+    accept_card_on_delivery: "boolean",
+    accept_orders_when_closed: "boolean",
+    is_open: "boolean",
+    delivery_radius_km: "numeric",
+    delivery_base_fee: "numeric",
+    delivery_fee_per_km: "numeric",
+    min_order_value: "numeric",
+    min_order_amount: "numeric",
+    free_delivery_above: "numeric",
+    avg_prep_time_minutes: "integer",
+  },
+  products: {
+    id: "uuid",
+    store_id: "uuid",
+    category_id: "uuid",
+    name: "text",
+    is_active: "boolean",
+    is_available: "boolean",
+    price: "numeric",
+    promo_price: "numeric",
+    sort_order: "integer",
+  },
+  product_options: {
+    id: "uuid",
+    product_id: "uuid",
+    name: "text",
+    is_required: "boolean",
+    min_choices: "integer",
+    max_choices: "integer",
+    sort_order: "integer",
+  },
+  product_option_items: {
+    id: "uuid",
+    option_id: "uuid",
+    name: "text",
+    extra_price: "numeric",
+    is_active: "boolean",
+    sort_order: "integer",
+  },
+  categories: {
+    id: "uuid",
+    store_id: "uuid",
+    name: "text",
+    is_active: "boolean",
+    sort_order: "integer",
+  },
+  customers: {
+    id: "uuid",
+    store_id: "uuid",
+    user_id: "uuid",
+    name: "text",
+    full_name: "text",
+    phone: "text",
+    document: "text",
+    total_orders: "integer",
+    total_spent: "numeric",
+    last_order_at: "timestamptz",
+  },
+  orders: {
+    id: "uuid",
+    store_id: "uuid",
+    customer_id: "uuid",
+    delivery_region_id: "uuid",
+    coupon_id: "uuid",
+    status: "text",
+    payment_status: "text",
+    payment_method: "text",
+    public_token: "text",
+    idempotency_key: "text",
+    order_number: "integer",
+    delivery_type: "text",
+    delivery_source: "text",
+    customer_name: "text",
+    customer_phone: "text",
+    customer_document: "text",
+    customer_email: "text",
+    subtotal: "numeric",
+    delivery_fee: "numeric",
+    discount_amount: "numeric",
+    total: "numeric",
+    distance_km: "numeric",
+    estimated_min: "integer",
+    estimated_max: "integer",
+    is_seen: "boolean",
+    created_at: "timestamptz",
+    updated_at: "timestamptz",
+  },
+  order_items: {
+    id: "uuid",
+    order_id: "uuid",
+    store_id: "uuid",
+    product_id: "uuid",
+    product_name: "text",
+    unit_price: "numeric",
+    quantity: "integer",
+    notes: "text",
+    subtotal: "numeric",
+    options_total: "numeric",
+    created_at: "timestamptz",
+  },
+  order_item_options: {
+    id: "uuid",
+    order_item_id: "uuid",
+    option_id: "uuid",
+    option_item_id: "uuid",
+    option_name: "text",
+    item_name: "text",
+    extra_price: "numeric",
+    name: "text",
+    created_at: "timestamptz",
+  },
   payments: {
     id: "uuid",
     order_id: "uuid",
     store_id: "uuid",
+    provider: "text",
     external_id: "text",
     asaas_id: "text",
     idempotency_key: "text",
@@ -179,70 +196,141 @@ const tableColumnTypes: Record<string, Record<string, PgScalarType>> = {
     amount: "numeric",
     paid_at: "timestamptz",
   },
-  orders: {
+  delivery_zones: {
     id: "uuid",
     store_id: "uuid",
-    customer_id: "uuid",
-    coupon_id: "uuid",
-    delivery_region_id: "uuid",
-    public_token: "text",
-    idempotency_key: "text",
-    order_number: "integer",
+    city: "text",
+    state: "text",
+    neighborhood: "text",
+    zip_start: "text",
+    zip_end: "text",
+    is_active: "boolean",
+    max_radius_km: "numeric",
+    fee: "numeric",
+    fee_per_km: "numeric",
+    min_fee: "numeric",
+    max_fee: "numeric",
+    min_order: "numeric",
+    base_prep_time: "integer",
+    minutes_per_km: "numeric",
+    additional_region_time: "integer",
+    priority: "integer",
+  },
+  coupons: {
+    id: "uuid",
+    store_id: "uuid",
+    code: "text",
+    is_active: "boolean",
+    min_order_value: "numeric",
+    usage_count: "integer",
+    usage_limit: "integer",
+    expires_at: "timestamptz",
+  },
+  subscriptions: {
+    id: "uuid",
+    store_id: "uuid",
+    plan_id: "uuid",
     status: "text",
-    payment_status: "text",
-    payment_method: "text",
-    total: "numeric",
+    asaas_subscription_id: "text",
+  },
+  plans: {
+    id: "uuid",
+    is_active: "boolean",
+    sort_order: "integer",
+  },
+  profiles: {
+    id: "uuid",
+    user_id: "uuid",
+    store_id: "uuid",
+    role: "text",
+  },
+  user_roles: {
+    id: "uuid",
+    user_id: "uuid",
+    store_id: "uuid",
+    role: "text",
+  },
+  order_status_history: {
+    id: "uuid",
+    order_id: "uuid",
+    store_id: "uuid",
+    status: "text",
+    created_at: "timestamptz",
+  },
+  customer_addresses: {
+    id: "uuid",
+    user_id: "uuid",
+    city: "text",
+    state: "text",
+  },
+  customer_favorites: {
+    id: "uuid",
+    user_id: "uuid",
+    store_id: "uuid",
+  },
+  auth_users: {
+    id: "uuid",
+    email: "text",
+    encrypted_password: "text",
+    deleted_at: "timestamptz",
+  },
+  users: {
+    id: "uuid",
+    email: "text",
+  },
+  store_reviews: {
+    id: "uuid",
+    store_id: "uuid",
+    rating: "integer",
   },
 };
 
-export const getColumnPgType = (table: string, column: string): PgScalarType | null => {
+export const getColumnPgType = (table: string, column: string): PgScalarType => {
   const normalizedTable = table.replace(/^public\./, "");
   const normalizedColumn = column.trim();
-  const tableOverride = tableColumnTypes[normalizedTable]?.[normalizedColumn];
-  if (tableOverride) return tableOverride;
-  if (uuidColumns.has(normalizedColumn)) return "uuid";
-  if (textColumns.has(normalizedColumn)) return "text";
-  if (numericColumns.has(normalizedColumn)) return "numeric";
-  if (integerColumns.has(normalizedColumn)) return "integer";
-  if (booleanColumns.has(normalizedColumn)) return "boolean";
-  if (timestampColumns.has(normalizedColumn) || normalizedColumn.endsWith("_at")) return "timestamptz";
-  return null;
+  const type = columnTypes[normalizedTable]?.[normalizedColumn];
+  if (!type) {
+    throw new Error(`Tipo PostgreSQL nao mapeado para ${normalizedTable}.${normalizedColumn}`);
+  }
+  return type;
 };
 
+export const pgArrayCast = (type: PgScalarType) => `${type}[]`;
+
 export const arrayCastFor = (table: string, column: string) => {
-  const type = getColumnPgType(table, column);
-  return type ? pgArrayTypeByScalar[type] : null;
+  return pgArrayCast(getColumnPgType(table, column));
 };
 
 const relations: Record<string, Record<string, Relation>> = {
   stores: {
-    store_settings: { table: "store_settings", local: "id", foreign: "store_id", foreignType: "uuid", many: true },
+    store_settings: { table: "store_settings", local: "id", foreign: "store_id", localType: "uuid", foreignType: "uuid", many: true },
     subscriptions: {
       table: "subscriptions",
       local: "id",
       foreign: "store_id",
+      localType: "uuid",
       foreignType: "uuid",
       many: true,
       nested: {
-        plans: { table: "plans", local: "plan_id", foreign: "id", foreignType: "uuid", many: false },
+        plans: { table: "plans", local: "plan_id", foreign: "id", localType: "uuid", foreignType: "uuid", many: false },
       },
     },
   },
   subscriptions: {
-    plans: { table: "plans", local: "plan_id", foreign: "id", foreignType: "uuid", many: false },
-    stores: { table: "stores", local: "store_id", foreign: "id", foreignType: "uuid", many: false },
+    plans: { table: "plans", local: "plan_id", foreign: "id", localType: "uuid", foreignType: "uuid", many: false },
+    stores: { table: "stores", local: "store_id", foreign: "id", localType: "uuid", foreignType: "uuid", many: false },
   },
   products: {
-    categories: { table: "categories", local: "category_id", foreign: "id", foreignType: "uuid", many: false },
+    categories: { table: "categories", local: "category_id", foreign: "id", localType: "uuid", foreignType: "uuid", many: false },
   },
   orders: {
-    stores: { table: "stores", local: "store_id", foreign: "id", foreignType: "uuid", many: false },
+    stores: { table: "stores", local: "store_id", foreign: "id", localType: "uuid", foreignType: "uuid", many: false },
   },
   order_items: {
-    order_item_options: { table: "order_item_options", local: "id", foreign: "order_item_id", foreignType: "uuid", many: true },
+    order_item_options: { table: "order_item_options", local: "id", foreign: "order_item_id", localType: "uuid", foreignType: "uuid", many: true },
   },
   payments: {
-    orders: { table: "orders", local: "order_id", foreign: "id", foreignType: "uuid", many: false },
+    orders: { table: "orders", local: "order_id", foreign: "id", localType: "uuid", foreignType: "uuid", many: false },
   },
 };
 
@@ -288,15 +376,8 @@ export const appendFilterSql = (table: string, filter: QueryFilter, params: unkn
       if (!filter.values.length) return "FALSE";
       {
         const arrayCast = arrayCastFor(table, filter.column);
-        if (arrayCast) {
-          params.push(filter.values);
-          return `${column} = ANY($${params.length}::${arrayCast})`;
-        }
-        const placeholders = filter.values.map((value) => {
-          params.push(value);
-          return `$${params.length}`;
-        });
-        return `${column} IN (${placeholders.join(", ")})`;
+        params.push(filter.values);
+        return `${column} = ANY($${params.length}::${arrayCast})`;
       }
     case "is":
       if (filter.value === null) return `${column} IS NULL`;
@@ -308,7 +389,7 @@ export const appendFilterSql = (table: string, filter: QueryFilter, params: unkn
 };
 
 export const relationSelectSql = (relation: Relation, paramIndex = 1) =>
-  `SELECT * FROM public.${quoteIdent(relation.table)} WHERE ${quoteIdent(relation.foreign)} = ANY($${paramIndex}::${pgArrayTypeByScalar[relation.foreignType]})`;
+  `SELECT * FROM public.${quoteIdent(relation.table)} WHERE ${quoteIdent(relation.foreign)} = ANY($${paramIndex}::${pgArrayCast(relation.foreignType)})`;
 
 const publicReadable = new Set([
   "stores",
@@ -600,6 +681,27 @@ const publishRows = (table: string, eventType: "INSERT" | "UPDATE" | "DELETE", r
   }
 };
 
+const hasTextValue = (value: unknown) => String(value ?? "").trim().length > 0;
+
+const sanitizeStoreSettingsRows = async (table: string, rows: any[], ctx: QueryContext) => {
+  if (table !== "store_settings" || !rows.length || ctx.admin) return rows;
+  const actor = await getActor(ctx.token);
+  if (actor?.admin) return rows;
+
+  return rows.map((row) => {
+    if (actor?.ownedStoreIds.includes(String(row.store_id))) return row;
+    const gatewayConfigured = hasTextValue(row.payment_gateway_api_key) || hasTextValue(row.asaas_api_key);
+    return {
+      ...row,
+      asaas_api_key: null,
+      asaas_wallet_id: null,
+      payment_gateway_api_key: null,
+      payment_gateway_config: null,
+      pix_gateway_configured: gatewayConfigured,
+    };
+  });
+};
+
 export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryContext = {}) => {
   try {
     const table = ensureName(payload.table, "tabela");
@@ -625,7 +727,7 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
         `SELECT ${baseColumnsSql(payload.select)} FROM public.${quoteIdent(table)} WHERE ${whereSql}${orderSql ? ` ORDER BY ${orderSql}` : ""}${limitSql}`,
         params,
       );
-      const rows = await attachRelations(table, result.rows, payload.select);
+      const rows = await sanitizeStoreSettingsRows(table, await attachRelations(table, result.rows, payload.select), ctx);
       if (payload.single === "single" && rows.length !== 1) return { data: null, error: { message: "Registro nao encontrado ou resultado ambiguo." } };
       if (payload.single === "maybeSingle") return { data: rows[0] || null, error: null };
       if (payload.single === "single") return { data: rows[0], error: null };
