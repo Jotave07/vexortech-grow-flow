@@ -16,8 +16,7 @@ import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { useServerFn } from "@tanstack/react-start";
-import { createOrderPayment, syncPaymentStatus } from "@/functions/asaas";
-import { notifyOrderCreated } from "@/functions/evolution";
+import { syncPaymentStatus } from "@/functions/asaas";
 import { fetchAddressByCep } from "@/services/cep/viacepService";
 import { fetchAddressFromCurrentLocation, geocodeAddressCoordinates, type AddressCoordinates } from "@/services/viacep";
 import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
@@ -35,6 +34,14 @@ const optionLimits = (group: any) => {
 };
 
 type PaymentMethod = "pix" | "dinheiro" | "cartao_credito_entrega" | "cartao_debito_entrega";
+
+const createBrowserIdempotencyKey = () => {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const random = globalThis.crypto?.getRandomValues
+    ? Array.from(globalThis.crypto.getRandomValues(new Uint32Array(4))).map((part) => part.toString(16)).join("")
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `checkout-${random}`;
+};
 
 const getAvailablePaymentMethods = (settings: any): PaymentMethod[] => {
   if (!settings) return [];
@@ -66,9 +73,8 @@ const PublicCheckout = () => {
   const [pixData, setPixData] = useState<any>(null);
   const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState(createBrowserIdempotencyKey);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
-  const createOrderPaymentFn = useServerFn(createOrderPayment);
-  const notifyOrderCreatedFn = useServerFn(notifyOrderCreated);
 
   const [name, setName] = useState("");
   const [document, setDocument] = useState("");
@@ -422,155 +428,77 @@ const PublicCheckout = () => {
         return toast.error("Dono da loja não pode comprar de si mesmo.");
       }
 
-      const cartValidationError = await validateCartForCheckout();
-      if (cartValidationError) return toast.error(cartValidationError);
+      const checkoutPayload = {
+        storeId: store.id,
+        idempotencyKey: checkoutIdempotencyKey,
+        items: items.map((item) => ({
+          productId: item.product_id,
+          quantity: item.quantity,
+          notes: item.notes || null,
+          options: item.options.map((option: any) => ({
+            optionId: option.option_id,
+            itemId: option.item_id,
+          })),
+        })),
+        customer: {
+          name: name.trim(),
+          phone: onlyDigits(phone),
+          document: onlyDigits(document),
+          email: user?.email || null,
+        },
+        delivery: {
+          type: orderType,
+          zipCode: onlyDigits(zipCode),
+          street,
+          number,
+          complement,
+          neighborhood,
+          city,
+          state,
+          regionId: deliveryQuote?.region?.id || null,
+        },
+        paymentMethod,
+        changeFor: paymentMethod === "dinheiro" && changeFor.trim() ? parseMoneyInput(changeFor) : null,
+        couponCode: coupon?.code || null,
+      };
 
-      // Garante um cliente exclusivo para este usuário nesta loja, sem misturar históricos por telefone.
-      let customerId = null;
-      if (user) {
-        const { data: existingCustomer } = await backend
-          .from("customers")
-          .select("id")
-          .eq("store_id", store.id)
-          .eq("user_id", user.id)
-          .maybeSingle();
-        
-        if (existingCustomer) {
-          customerId = existingCustomer.id;
-          const { error: updateCustomerError } = await backend
-            .from("customers")
-            .update({
-              full_name: name.trim().toUpperCase(),
-              phone: onlyDigits(phone),
-              document: onlyDigits(document),
-              street: street.toUpperCase(),
-              number,
-              neighborhood: neighborhood.toUpperCase(),
-              city: city.toUpperCase(),
-              state: state.toUpperCase(),
-              zip_code: onlyDigits(zipCode),
-              registration_completed: true,
-            })
-            .eq("id", customerId);
-
-          if (updateCustomerError) throw updateCustomerError;
-        } else {
-          const { data: newCustomer, error: cErr } = await backend
-            .from("customers")
-            .insert({
-              store_id: store.id,
-              user_id: user.id,
-              full_name: name.trim().toUpperCase(),
-              phone: onlyDigits(phone),
-              document: onlyDigits(document),
-              street: street.toUpperCase(),
-              number: number,
-              neighborhood: neighborhood.toUpperCase(),
-              city: city.toUpperCase(),
-              state: state.toUpperCase(),
-              zip_code: onlyDigits(zipCode),
-              registration_completed: true
-            })
-            .select("id")
-            .single();
-          
-          if (cErr) throw cErr;
-          customerId = newCustomer?.id ?? null;
-        }
-      }
-
-      const { data: order, error: oErr } = await (backend.from("orders" as any).insert({
-        store_id: store.id,
-        customer_id: customerId,
-        customer_name: name.trim().toUpperCase(),
-        customer_phone: onlyDigits(phone),
-        customer_document: onlyDigits(document),
-        delivery_type: orderType,
-        status: paymentMethod === "pix" ? "aguardando_pagamento" : "novo",
-        payment_status: "pendente",
-        delivery_address: orderType === "entrega" ? `${street}, ${number}${complement ? ` (${complement})` : ''} - ${neighborhood}`.toUpperCase() : "RETIRADA",
-        delivery_fee: actualDeliveryFee,
-        subtotal,
-        discount_amount: discount,
-        total,
-        payment_method: paymentMethod,
-        change_for: paymentMethod === "dinheiro" && changeFor.trim() ? parseMoneyInput(changeFor) : null,
-        notes: notes.trim() || null,
-        // Novos campos de entrega
-        zip_code: onlyDigits(zipCode),
-        neighborhood: neighborhood.toUpperCase(),
-        city: city.toUpperCase(),
-        state: state.toUpperCase(),
-        street: street.toUpperCase(),
-        number: number,
-        complement: complement.trim() || null,
-        delivery_region_id: deliveryQuote?.region?.id || null,
-        estimated_min: deliveryQuote?.estimated_min || null,
-        estimated_max: deliveryQuote?.estimated_max || null,
-        delivery_source: deliveryQuote?.source || null,
-        distance_km: deliveryQuote?.distance_km || null,
-      }).select("id, public_token").maybeSingle() as any);
-      
-      if (oErr) throw oErr;
-      if (!order || !order.public_token) {
-        throw new Error("Erro ao gerar token do pedido. Tente novamente.");
-      }
-
-      for (const it of items) {
-        const itemPayload = {
-          order_id: order.id, store_id: store.id, product_id: it.product_id,
-          product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity,
-          subtotal: itemSubtotal(it),
-          notes: it.notes || null,
-        };
-        let orderItemPayload: Record<string, any> = itemPayload;
-        let orderItemResult: any = null;
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-          orderItemResult = await (backend.from("order_items" as any).insert(orderItemPayload).select("id").single() as any);
-          if (!orderItemResult.error) break;
-          if (isMissingColumnError(orderItemResult.error, "subtotal") && "subtotal" in orderItemPayload) {
-            orderItemPayload = { ...orderItemPayload };
-            delete orderItemPayload.subtotal;
-            continue;
-          }
-          if (isMissingColumnError(orderItemResult.error, "notes") && "notes" in orderItemPayload) {
-            orderItemPayload = { ...orderItemPayload };
-            delete orderItemPayload.notes;
-            continue;
-          }
-          break;
-        }
-        if (orderItemResult.error) throw orderItemResult.error;
-        const oi = orderItemResult.data;
-        
-        if (it.options.length) {
-          await backend.from("order_item_options" as any).insert(it.options.map((o: any) => ({
-            order_item_id: oi.id, option_name: o.option_name, item_name: o.item_name, extra_price: o.extra_price,
-            name: o.item_name, option_item_id: o.item_id
-          })));
-        }
-      }
-
-      await notifyOrderCreatedFn({ data: { orderId: order.id } }).catch((error) => {
-        console.warn("Evolution notification skipped:", error);
-        return null;
+      const { data: checkout, error: checkoutError } = await backend.functions.invoke("create-checkout-order", {
+        body: checkoutPayload,
       });
 
+      if (checkoutError) throw checkoutError;
+      if (!checkout?.publicToken || !checkout?.orderId) {
+        throw new Error("Pedido criado sem token publico. Tente novamente.");
+      }
+
+      const order = {
+        id: checkout.orderId,
+        store_id: store.id,
+        public_token: checkout.publicToken,
+      };
+
       if (paymentMethod === "pix") {
-        const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } }).catch(e => ({ error: e.message }));
-        if ((pixResult as any).error) {
-          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Você poderá tentar pagar na tela de acompanhamento.`);
+        const pixResult = checkout.payment;
+        if ((pixResult as any)?.error) {
+          clear();
+          setCheckoutIdempotencyKey(createBrowserIdempotencyKey());
+          toast.error(`Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Voce podera tentar novamente no acompanhamento.`);
+          navigate(`/pedido/${order.public_token}`, { replace: true });
+          return;
         }
         setPixData(pixResult);
         setCreatedOrder(order);
         setShowPixModal(true);
         clear();
+        setCheckoutIdempotencyKey(createBrowserIdempotencyKey());
         return;
       }
 
       clear();
+      setCheckoutIdempotencyKey(createBrowserIdempotencyKey());
       toast.success("Pedido realizado!");
       navigate(`/pedido/${order.public_token}`, { replace: true });
+      return;
     } catch (e: any) {
       toast.error(e.message || "Erro ao finalizar");
     } finally {
@@ -878,5 +806,3 @@ const PublicCheckout = () => {
 };
 
 export default PublicCheckout;
-
-

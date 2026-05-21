@@ -27,18 +27,27 @@ interface AsaasSubscription {
   externalReference?: string;
 }
 
-async function asaasRequest(endpoint: string, method: string, apiKey: string, body?: any) {
+async function asaasRequest(
+  endpoint: string,
+  method: string,
+  apiKey: string,
+  body?: any,
+  options?: { idempotencyKey?: string },
+) {
   const url = `${ASAAS_URL}${endpoint}`;
   console.log(`Asaas Request: ${method} ${url}`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'access_token': apiKey,
+    'User-Agent': 'HypeDelivery/1.0',
+  };
+
+  if (options?.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
   
   try {
     const response = await fetch(url, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': apiKey,
-        'User-Agent': 'HypeDelivery/1.0',
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -84,11 +93,19 @@ export const asaas = {
   /**
    * Store-level API calls (using store's own API Key)
    */
-  async createStorePayment(storeApiKey: string, data: any) {
+  async createStorePayment(storeApiKey: string, data: any, options?: { idempotencyKey?: string }) {
     return asaasRequest('/payments', 'POST', storeApiKey, {
       ...data,
       billingType: 'PIX', // Initially PIX only for stores
+    }, options);
+  },
+
+  async findPaymentByExternalReference(storeApiKey: string, externalReference: string) {
+    const params = new URLSearchParams({
+      externalReference,
+      limit: "1",
     });
+    return asaasRequest(`/payments?${params.toString()}`, 'GET', storeApiKey);
   },
 
   async getPixQrCode(storeApiKey: string, paymentId: string) {

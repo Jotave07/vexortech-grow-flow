@@ -266,30 +266,19 @@ const ensureMutationRowsAllowed = async (table: string, values: unknown, ctx: Qu
       throw new Error("Cliente fora do escopo do usuario.");
     }
     if (storeIdTables.has(table) && ownsStore(row.store_id)) continue;
-    if (table === "orders" && row.customer_id) {
-      const { rows: customers } = await query(`SELECT id FROM public.customers WHERE id = $1 AND user_id = $2`, [row.customer_id, actor.user.id]);
-      if (customers[0]) continue;
-    }
-    if ((table === "order_items" || table === "payments") && row.order_id) {
-      const { rows: orders } = await query(
-        `SELECT o.id
-         FROM public.orders o
-         LEFT JOIN public.customers c ON c.id = o.customer_id
-         WHERE o.id = $1 AND (o.store_id = ANY($2::uuid[]) OR c.user_id = $3)`,
-        [row.order_id, actor.ownedStoreIds, actor.user.id],
-      );
-      if (orders[0]) continue;
+    if (table === "orders" || table === "order_items" || table === "payments") {
+      throw new Error("Use o checkout seguro para criar pedidos e pagamentos.");
     }
     if (table === "order_item_options" && row.order_item_id) {
-      const { rows: items } = await query(
+      const { rows: orders } = await query(
         `SELECT oi.id
          FROM public.order_items oi
-         LEFT JOIN public.orders o ON o.id = oi.order_id
-         LEFT JOIN public.customers c ON c.id = o.customer_id
-         WHERE oi.id = $1 AND (oi.store_id = ANY($2::uuid[]) OR c.user_id = $3)`,
-        [row.order_item_id, actor.ownedStoreIds, actor.user.id],
+         JOIN public.orders o ON o.id = oi.order_id
+         WHERE oi.id = $1 AND o.store_id = ANY($2::uuid[])`,
+        [row.order_item_id, actor.ownedStoreIds],
       );
-      if (items[0]) continue;
+      if (orders[0]) continue;
+      throw new Error("Use o checkout seguro para criar opcoes do pedido.");
     }
     if (table === "product_options" && row.product_id) {
       const { rows: products } = await query(`SELECT id FROM public.products WHERE id = $1 AND store_id = ANY($2::uuid[])`, [row.product_id, actor.ownedStoreIds]);

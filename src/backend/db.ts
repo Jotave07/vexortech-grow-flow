@@ -1,4 +1,5 @@
 import pg from "pg";
+import { validateRuntimeEnv } from "./env";
 
 const { Pool } = pg;
 
@@ -33,6 +34,7 @@ const buildConnectionString = () => {
 export const getPool = () => {
   const g = globalThis as GlobalWithPool;
   if (!g.__hypePgPool) {
+    validateRuntimeEnv();
     g.__hypePgPool = new Pool({
       connectionString: buildConnectionString(),
       max: Number(process.env.POSTGRES_POOL_MAX || 10),

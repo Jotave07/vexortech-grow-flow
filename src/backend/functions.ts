@@ -2,6 +2,7 @@ import type { BackendResult, LocalSession } from "@/integrations/backend/compat-
 import { getActor, signUp } from "./auth";
 import { query, withTransaction } from "./db";
 import { publishRealtime } from "./realtime";
+import { createCheckoutOrderHandler } from "@/server/order.functions";
 
 const errorResult = (message: string): BackendResult => ({ data: null, error: { message } });
 
@@ -16,6 +17,7 @@ export const invokeFunction = async (name: string, body: any, token?: string) =>
   try {
     if (name === "admin-create-store") return adminCreateStore(body, token);
     if (name === "admin-delete-store") return adminDeleteStore(body, token);
+    if (name === "create-checkout-order") return createCheckoutOrderHandler(body, token);
     return errorResult(`Function nao implementada: ${name}`);
   } catch (error: any) {
     return errorResult(error?.message || "Erro ao executar function.");

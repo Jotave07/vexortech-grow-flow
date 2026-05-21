@@ -2,7 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { asaas } from "@/server/asaas.server";
 import { backendAdmin } from "@/integrations/backend/client.server";
-import { sendOrderStatusNotification } from "@/functions/evolution.server";
+import {
+  createOrderPaymentForOrder,
+  getOrderPaymentInfoForOrder,
+  syncOrderPaymentStatus,
+} from "@/server/asaas.service";
 
 export const testAsaasConnection = createServerFn({ method: "POST" })
   .inputValidator(z.object({
@@ -10,22 +14,22 @@ export const testAsaasConnection = createServerFn({ method: "POST" })
     isPlatform: z.boolean().optional(),
   }))
   .handler(async ({ data }) => {
-    const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'}/customers?limit=1`, {
-      headers: { 
-        'access_token': data.apiKey,
-        'User-Agent': 'HypeDelivery/1.0'
-      }
+    const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === "sandbox" ? "https://sandbox.asaas.com/api/v3" : "https://www.asaas.com/api/v3"}/customers?limit=1`, {
+      headers: {
+        access_token: data.apiKey,
+        "User-Agent": "HypeDelivery/1.0",
+      },
     });
 
     if (response.ok) {
-      return { success: true, message: "Conexão estabelecida com sucesso." };
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      return { 
-        success: false, 
-        message: errorData.errors?.[0]?.description || "Falha ao conectar com o Asaas. Verifique sua chave de API." 
-      };
+      return { success: true, message: "Conexao estabelecida com sucesso." };
     }
+
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      message: errorData.errors?.[0]?.description || "Falha ao conectar com o Asaas. Verifique sua chave de API.",
+    };
   });
 
 export const createSubscriptionCheckout = createServerFn({ method: "POST" })
@@ -50,7 +54,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       customer: asaasCustomer.id,
       billingType: "PIX",
       value: Number(plan.price_monthly),
-      nextDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      nextDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       cycle: "MONTHLY",
       description: `Assinatura Plano ${plan.name} - Hype Delivery`,
       externalReference: data.storeId,
@@ -63,7 +67,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       asaas_subscription_id: subscription.id,
       status: "pendente_pagamento",
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'store_id' });
+    }, { onConflict: "store_id" });
 
     return { invoiceUrl: subscription.invoiceUrl, subscriptionId: subscription.id };
   });
@@ -72,219 +76,23 @@ export const createOrderPayment = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
+    attemptKey: z.string().min(8).max(160).optional(),
   }))
-  .handler(async ({ data }) => {
-    const { data: storeSettings } = await backendAdmin
-      .from("store_settings")
-      .select("asaas_api_key")
-      .eq("store_id", data.storeId)
-      .single() as any;
-
-    if (!storeSettings?.asaas_api_key) {
-      throw new Error("Loja não configurou o gateway de pagamento Asaas.");
-    }
-
-    const { data: order } = await backendAdmin
-      .from("orders")
-      .select("*")
-      .eq("id", data.orderId)
-      .single();
-
-    if (!order) throw new Error("Pedido não encontrado.");
-
-    const asaasCustomer = await asaas.createCustomer({
-      name: (order as any).customer_name || "Cliente",
-      email: (order as any).customer_email || "cliente@sememail.com.br",
-      cpfCnpj: (order as any).customer_document || "",
-      mobilePhone: (order as any).customer_phone || undefined,
-    }, storeSettings.asaas_api_key);
-
-    if (asaasCustomer.errors) {
-      throw new Error(`Erro Asaas (Cliente): ${asaasCustomer.errors[0].description}`);
-    }
-
-    const payment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
-      customer: asaasCustomer.id,
-      value: Number(order.total),
-      dueDate: new Date().toISOString().split('T')[0],
-      description: `Pedido #${order.order_number} - ${order.customer_name}`,
-      externalReference: order.id,
-    });
-
-    if (payment.errors) {
-      throw new Error(`Erro Asaas da Loja: ${payment.errors[0].description}`);
-    }
-
-    if (!payment?.id) {
-      console.error("[asaas] Payment created but ID is missing or error occurred:", payment);
-      const errorMsg = payment?.errors?.[0]?.description || "Erro ao registrar pagamento no gateway. O ID da transação não foi retornado.";
-      throw new Error(errorMsg);
-    }
-
-    console.log(`[asaas] Payment created: ${payment.id}. Fetching PIX QR Code...`);
-    const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, payment.id);
-
-    // Update or Insert payment in DB
-    const { data: existingPayment } = await backendAdmin
-      .from("payments")
-      .select("id")
-      .eq("order_id", order.id)
-      .maybeSingle();
-
-    const paymentData = {
-      order_id: order.id,
-      store_id: data.storeId,
-      amount: Number(order.total),
-      external_id: payment.id,
-      asaas_id: payment.id,
-      status: "pendente"
-    };
-
-    if (existingPayment) {
-      await backendAdmin.from("payments").update(paymentData).eq("id", existingPayment.id);
-    } else {
-      await backendAdmin.from("payments").insert(paymentData);
-    }
-
-    return {
-      paymentId: payment.id,
-      pixCode: qrCode.payload || null,
-      qrCodeUrl: qrCode.encodedImage || null,
-      invoiceUrl: payment.invoiceUrl || null,
-      error: qrCode.errors ? qrCode.errors[0].description : null
-    };
-  });
+  .handler(async ({ data }) => createOrderPaymentForOrder(data));
 
 export const getOrderPaymentInfo = createServerFn({ method: "GET" })
   .inputValidator(z.object({
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
   }))
-  .handler(async ({ data }) => {
-    const { data: storeSettings } = await backendAdmin
-      .from("store_settings")
-      .select("asaas_api_key")
-      .eq("store_id", data.storeId)
-      .single() as any;
-
-    if (!storeSettings?.asaas_api_key) throw new Error("Configuração ausente");
-
-    const { data: payment } = await backendAdmin
-      .from("payments")
-      .select("external_id, asaas_id, status")
-      .eq("order_id", data.orderId)
-      .maybeSingle();
-
-    let externalId = payment?.external_id || payment?.asaas_id;
-
-    if (!externalId) {
-      console.log(`[asaas] Payment record missing for order ${data.orderId}. Attempting recovery...`);
-      try {
-        const { data: order } = await backendAdmin.from("orders").select("*").eq("id", data.orderId).single();
-        if (order && order.payment_method === "pix") {
-          const asaasCustomer = await asaas.createCustomer({
-            name: (order as any).customer_name || "Cliente",
-            email: (order as any).customer_email || "cliente@sememail.com.br",
-            cpfCnpj: (order as any).customer_document || "",
-            mobilePhone: (order as any).customer_phone || undefined,
-          }, storeSettings.asaas_api_key);
-
-          const asaasPayment = await asaas.createStorePayment(storeSettings.asaas_api_key, {
-            customer: asaasCustomer.id,
-            value: Number(order.total),
-            dueDate: new Date().toISOString().split('T')[0],
-            description: `Pedido #${order.order_number} - ${order.customer_name}`,
-            externalReference: order.id,
-          });
-
-          if (!asaasPayment.errors) {
-            externalId = asaasPayment.id;
-            await backendAdmin.from("payments").insert({
-              order_id: order.id,
-              store_id: data.storeId,
-              amount: Number(order.total),
-              external_id: externalId,
-              status: "pendente"
-            });
-          } else {
-             return { error: asaasPayment.errors[0].description };
-          }
-        }
-      } catch (e) {
-        return { error: "Falha na recuperação do pagamento" };
-      }
-    }
-
-    if (!externalId) return null;
-
-    console.log(`[asaas] Fetching PIX QR Code for payment ${externalId}...`);
-    const qrCode = await asaas.getPixQrCode(storeSettings.asaas_api_key, externalId);
-    if (qrCode.errors) {
-      return { error: qrCode.errors[0].description };
-    }
-
-    return {
-      pixCode: qrCode.payload || null,
-      qrCodeUrl: qrCode.encodedImage || null,
-    };
-  });
+  .handler(async ({ data }) => getOrderPaymentInfoForOrder(data));
 
 export const syncPaymentStatus = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     orderId: z.string().uuid(),
     storeId: z.string().uuid(),
   }))
-  .handler(async ({ data }) => {
-    const { data: storeSettings } = await backendAdmin
-      .from("store_settings")
-      .select("asaas_api_key")
-      .eq("store_id", data.storeId)
-      .single() as any;
-
-    if (!storeSettings?.asaas_api_key) return { status: "pending", message: "Gateway não configurado" };
-
-    const { data: payment } = await backendAdmin
-      .from("payments")
-      .select("*")
-      .eq("order_id", data.orderId)
-      .single();
-
-    if (!payment?.external_id) return { status: "pending", message: "Pagamento não encontrado" };
-    if (payment.status === "pago") return { status: "paid" };
-
-    const asaasPayment = await asaas.getPayment(storeSettings.asaas_api_key, payment.external_id);
-
-    if (asaasPayment.status === "RECEIVED" || asaasPayment.status === "CONFIRMED") {
-      await backendAdmin.from("payments").update({ 
-        status: "pago",
-        paid_at: new Date().toISOString()
-      }).eq("id", payment.id);
-
-      await backendAdmin.from("orders").update({ 
-        status: "novo",
-        payment_status: "pago"
-      }).eq("id", data.orderId);
-      
-      await backendAdmin.from("order_status_history").insert({ 
-        order_id: data.orderId, 
-        store_id: data.storeId, 
-        status: "novo", 
-        notes: "Pagamento PIX confirmado automaticamente" 
-      });
-
-      await sendOrderStatusNotification(
-        data.orderId,
-        "novo",
-        "Pagamento PIX confirmado automaticamente",
-      ).catch((error) => {
-        console.warn("Evolution status notification skipped:", error);
-      });
-
-      return { status: "paid" };
-    }
-
-    return { status: "pending", asaasStatus: asaasPayment.status };
-  });
+  .handler(async ({ data }) => syncOrderPaymentStatus(data));
 
 export const refundOrderPayment = createServerFn({ method: "POST" })
   .inputValidator(z.object({
@@ -298,7 +106,7 @@ export const refundOrderPayment = createServerFn({ method: "POST" })
       .eq("store_id", data.storeId)
       .single() as any;
 
-    if (!storeSettings?.asaas_api_key) throw new Error("Gateway não configurado");
+    if (!storeSettings?.asaas_api_key) throw new Error("Gateway nao configurado");
 
     const { data: payment } = await backendAdmin
       .from("payments")
@@ -307,16 +115,16 @@ export const refundOrderPayment = createServerFn({ method: "POST" })
       .single();
 
     if (!payment?.external_id || payment.status !== "pago") {
-      return { success: false, message: "Pagamento não encontrado ou não está pago" };
+      return { success: false, message: "Pagamento nao encontrado ou nao esta pago" };
     }
 
     const { data: order } = await backendAdmin.from("orders").select("total").eq("id", data.orderId).single();
 
     const refund = await asaas.refundPayment(
-      storeSettings.asaas_api_key, 
-      payment.external_id, 
+      storeSettings.asaas_api_key,
+      payment.external_id,
       Number(order?.total || 0),
-      "Pedido cancelado pela loja"
+      "Pedido cancelado pela loja",
     );
 
     if (refund.errors) {
