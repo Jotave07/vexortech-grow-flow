@@ -9,6 +9,7 @@ import { LocalQueryBuilder } from "./query-builder";
 
 const SESSION_KEY = "hype_delivery.session";
 const API_PATH = "/api/backend";
+const REQUEST_TIMEOUT_MS = 25_000;
 
 const authListeners = new Set<AuthStateCallback>();
 
@@ -42,29 +43,54 @@ const emitAuth = (event: AuthChangeEvent, session: LocalSession | null) => {
   for (const listener of authListeners) listener(event, session);
 };
 
-const authHeader = () => {
+const authHeader = (): Record<string, string> => {
   const token = readSession()?.access_token;
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-const jsonRequest = async <T = any>(payload: Record<string, unknown>): Promise<T> => {
-  const response = await fetch(API_PATH, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeader(),
-    },
-    body: JSON.stringify(payload),
-  });
+const createRequestTimeout = () => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timeoutId),
+  };
+};
 
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
+const jsonRequest = async <T = any>(payload: Record<string, unknown>): Promise<T> => {
+  const timeout = createRequestTimeout();
+  try {
+    const response = await fetch(API_PATH, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify(payload),
+      signal: timeout.signal,
+    });
+
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        data: null,
+        error: { message: body?.error || body?.message || "Erro na API local" },
+      } as T;
+    }
+    return body as T;
+  } catch (error: any) {
     return {
       data: null,
-      error: { message: body?.error || body?.message || "Erro na API local" },
+      error: {
+        message:
+          error?.name === "AbortError"
+            ? "A API local demorou demais para responder. Tente novamente."
+            : error?.message || "Falha ao comunicar com a API local.",
+      },
     } as T;
+  } finally {
+    timeout.clear();
   }
-  return body as T;
 };
 
 const maybeRecoverSessionFromUrl = async () => {
@@ -122,7 +148,10 @@ class LocalAuthClient {
       writeSession(result.data);
       emitAuth("SIGNED_IN", result.data);
     }
-    return { data: { user: result.data?.user ?? null, session: result.data ?? null }, error: result.error };
+    return {
+      data: { user: result.data?.user ?? null, session: result.data ?? null },
+      error: result.error,
+    };
   }
 
   async signUp(input: {
@@ -141,7 +170,10 @@ class LocalAuthClient {
       writeSession(result.data);
       emitAuth("SIGNED_IN", result.data);
     }
-    return { data: { user: result.data?.user ?? null, session: result.data ?? null }, error: result.error };
+    return {
+      data: { user: result.data?.user ?? null, session: result.data ?? null },
+      error: result.error,
+    };
   }
 
   async signOut() {
@@ -193,20 +225,39 @@ class LocalStorageBucket {
     form.set("upsert", options?.upsert ? "true" : "false");
     form.set("file", file);
 
-    const response = await fetch(API_PATH, {
-      method: "POST",
-      headers: authHeader(),
-      body: form,
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) return { data: null, error: { message: body?.error || "Falha ao enviar arquivo" } };
-    return body;
+    const timeout = createRequestTimeout();
+    try {
+      const response = await fetch(API_PATH, {
+        method: "POST",
+        headers: authHeader(),
+        body: form,
+        signal: timeout.signal,
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        return { data: null, error: { message: body?.error || "Falha ao enviar arquivo" } };
+      return body;
+    } catch (error: any) {
+      return {
+        data: null,
+        error: {
+          message:
+            error?.name === "AbortError"
+              ? "O envio demorou demais para responder. Tente novamente."
+              : error?.message || "Falha ao enviar arquivo",
+        },
+      };
+    } finally {
+      timeout.clear();
+    }
   }
 
   getPublicUrl(path: string) {
     const cleanPath = path.split("/").map(encodeURIComponent).join("/");
     const origin = isBrowser() ? window.location.origin : "";
-    return { data: { publicUrl: `${origin}/storage/${encodeURIComponent(this.bucket)}/${cleanPath}` } };
+    return {
+      data: { publicUrl: `${origin}/storage/${encodeURIComponent(this.bucket)}/${cleanPath}` },
+    };
   }
 }
 
@@ -256,7 +307,8 @@ const matchesRealtimeFilter = (filter: any, payload: any) => {
   if (filter.event && filter.event !== "*" && filter.event !== payload.eventType) return false;
   if (filter.filter) {
     const [column, value] = String(filter.filter).split("=eq.");
-    if (column && value && String(payload.new?.[column] ?? payload.old?.[column]) !== value) return false;
+    if (column && value && String(payload.new?.[column] ?? payload.old?.[column]) !== value)
+      return false;
   }
   return true;
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
 import type { Json, Tables } from "@/integrations/backend/types";
@@ -12,11 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, MapPin, Palette, Plus, Save, Search, Settings2, Store, TimerReset, Trash2, Truck, Upload, Wallet, Copy, ExternalLink, ShieldCheck, Activity } from "lucide-react";
+import { Loader2, MapPin, Palette, Save, Search, Settings2, Store, TimerReset, Truck, Upload, Wallet, Copy, ShieldCheck, Activity } from "lucide-react";
 import { fetchAddressByCep } from "@/services/cep/viacepService";
 import { ViaCepError } from "@/services/viacep";
 import { buildAddressLabel, fetchAddressFromCurrentLocation, geocodeAddressCoordinates, normalizeCep } from "@/services/viacep";
-import { formatBandLabel, formatDeliveryFeePreview, getMaxBandDistance, normalizeDistanceBands, type DeliveryDistanceBand, validateDeliverySettings } from "@/lib/delivery";
+import { formatDeliveryFeePreview, validateDeliverySettings } from "@/lib/delivery";
 import { STORE_SEGMENT_OPTIONS, normalizeStoreSegment } from "@/lib/store-segments";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
@@ -84,7 +84,6 @@ const Settings = () => {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
   const [excludedNeighborhoodsText, setExcludedNeighborhoodsText] = useState("");
-  const [distanceBands, setDistanceBands] = useState<DeliveryDistanceBand[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -141,7 +140,6 @@ const Settings = () => {
     setPlans((plansRes.data as PlanRow[]) ?? []);
     setBusinessHours(parseBusinessHours(settingsRow?.business_hours));
     setExcludedNeighborhoodsText(parseExcludedNeighborhoods(settingsRow?.excluded_neighborhoods).join("\n"));
-    setDistanceBands(normalizeDistanceBands(settingsRow?.delivery_distance_rules));
     setLoading(false);
   }, [store?.id]);
 
@@ -246,7 +244,6 @@ const Settings = () => {
       deliveryRadiusKm: toNullableNumber(storeSettings.delivery_radius_km),
       deliveryBaseFee: Number(storeSettings.delivery_base_fee) || 0,
       deliveryFeePerKm: Number(storeSettings.delivery_fee_per_km) || 0,
-      distanceBands,
       deliveryMessage: storeSettings.delivery_message,
     };
 
@@ -257,6 +254,7 @@ const Settings = () => {
     }
 
     setSaving(true);
+    try {
     const baseStorePayload = {
       name: storeForm.name?.toUpperCase(),
       description: nullableText(storeForm.description),
@@ -302,7 +300,7 @@ const Settings = () => {
       delivery_radius_km: toNullableNumber(storeSettings.delivery_radius_km),
       delivery_base_fee: Number(storeSettings.delivery_base_fee) || 0,
       delivery_fee_per_km: Number(storeSettings.delivery_fee_per_km) || 0,
-      delivery_distance_rules: distanceBands as unknown as Json,
+      delivery_distance_rules: [] as unknown as Json,
       delivery_message: nullableText(storeSettings.delivery_message),
       excluded_neighborhoods: parseExcludedNeighborhoods(excludedNeighborhoodsText) as unknown as Json,
     };
@@ -323,10 +321,9 @@ const Settings = () => {
       ? await backend.from("store_settings").update(baseSettingsPayload as any).eq("store_id", store.id)
       : settingsUpdate;
 
-    setSaving(false);
-
     if (safeStoreUpdate.error || safeSettingsUpdate.error) {
-      return toast.error(safeStoreUpdate.error?.message ?? safeSettingsUpdate.error?.message ?? "Erro ao salvar configurações.");
+      toast.error(safeStoreUpdate.error?.message ?? safeSettingsUpdate.error?.message ?? "Erro ao salvar configurações.");
+      return;
     }
 
     toast.success("Configurações salvas com sucesso.");
@@ -335,6 +332,11 @@ const Settings = () => {
     }
     setCepLookup((current) => current.status === "success" ? { ...current, message: "Endereço salvo com sucesso." } : current);
     void load();
+    } catch (error: any) {
+      toast.error(error?.message || "Erro inesperado ao salvar configurações.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const activePlan = useMemo(
@@ -380,7 +382,6 @@ const Settings = () => {
     deliveryRadiusKm: toNullableNumber(storeSettings.delivery_radius_km),
     deliveryBaseFee: Number(storeSettings.delivery_base_fee) || 0,
     deliveryFeePerKm: Number(storeSettings.delivery_fee_per_km) || 0,
-    distanceBands,
     deliveryMessage: storeSettings.delivery_message,
   });
 
@@ -638,7 +639,7 @@ const Settings = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
               <Field>
                 <Label>Raio maximo de entrega (KM)</Label>
                 <Input
@@ -684,87 +685,6 @@ const Settings = () => {
                   onChange={(e) => setStoreSettings({ ...storeSettings, avg_prep_time_minutes: Number(e.target.value) || 30 })}
                 />
               </Field>
-              <Field>
-                <Label>Maior distância configurada</Label>
-                <div className="flex h-10 items-center rounded-md border border-border bg-background px-3 text-sm text-muted-foreground">
-                  {getMaxBandDistance(distanceBands) !== null
-                    ? `${getMaxBandDistance(distanceBands)?.toFixed(1).replace(".", ",")} km`
-                    : "Nenhuma faixa cadastrada"}
-                </div>
-              </Field>
-            </div>
-
-            <div className="space-y-4 rounded-lg border border-border bg-background/55 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium">Faixas de distância e frete</div>
-                  <div className="text-sm text-muted-foreground">
-                    Configure o valor por intervalo de KM. Exemplo: 0 a 2 km por R$ 2,00; acima disso, a próxima faixa assume.
-                  </div>
-                </div>
-                <Button type="button" variant="outline" onClick={() => setDistanceBands((current) => [...current, createDistanceBand(current)])}>
-                  <Plus className="h-4 w-4" />
-                  Nova faixa
-                </Button>
-              </div>
-
-              {distanceBands.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  Nenhuma faixa cadastrada. Adicione pelo menos uma para definir a cobrança por distância.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {distanceBands.map((band, index) => (
-                    <div key={band.id} className="rounded-lg border border-border bg-card p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <div className="font-medium">Faixa {index + 1}</div>
-                          <div className="text-xs text-muted-foreground">{formatBandLabel(band)}</div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDistanceBands((current) => current.filter((item) => item.id !== band.id))}
-                          disabled={distanceBands.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <Field>
-                          <Label>Inicio (KM)</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={band.startKm}
-                            onChange={(e) => updateDistanceBand(setDistanceBands, band.id, "startKm", Number(e.target.value) || 0)}
-                          />
-                        </Field>
-                        <Field>
-                          <Label>Fim (KM)</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={band.endKm}
-                            onChange={(e) => updateDistanceBand(setDistanceBands, band.id, "endKm", Number(e.target.value) || 0)}
-                          />
-                        </Field>
-                        <Field>
-                          <Label>Taxa (R$)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={band.fee}
-                            onChange={(e) => updateDistanceBand(setDistanceBands, band.id, "fee", Number(e.target.value) || 0)}
-                          />
-                        </Field>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -791,14 +711,15 @@ const Settings = () => {
 
             <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
               <div className="font-medium text-foreground">Resumo atual</div>
-              <div>{formatDeliveryFeePreview(distanceBands, toNullableNumber(storeSettings.delivery_radius_km))}</div>
+              <div>{formatDeliveryFeePreview(
+                toNullableNumber(storeSettings.delivery_radius_km),
+                Number(storeSettings.delivery_base_fee) || 0,
+                Number(storeSettings.delivery_fee_per_km) || 0,
+              )}</div>
               <div>
                 Validação por distância automática: {storeForm.latitude && storeForm.longitude
                   ? "ativa. O checkout cruza coordenadas, consulta rota pública quando possível e bloqueia pedidos fora do raio."
                   : "aguardando coordenadas confiáveis da loja. Use Gerar coordenadas na aba Endereço."}
-              </div>
-              <div>
-                Zonas por bairro existentes continuam em <Link to="/lojista/entregas" className="text-primary underline-offset-4 hover:underline">Entregas</Link> para o fluxo atual do checkout.
               </div>
             </div>
 
@@ -1179,30 +1100,6 @@ const toNullableNumber = (value: number | string | null | undefined) => {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-};
-
-const createDistanceBand = (bands: DeliveryDistanceBand[]): DeliveryDistanceBand => {
-  const previous = bands[bands.length - 1];
-  const startKm = previous ? previous.endKm : 0;
-  const endKm = previous ? Number((previous.endKm + 1).toFixed(1)) : 2;
-
-  return {
-    id: crypto.randomUUID(),
-    startKm,
-    endKm,
-    fee: 0,
-  };
-};
-
-const updateDistanceBand = (
-  setBands: Dispatch<SetStateAction<DeliveryDistanceBand[]>>,
-  id: string,
-  field: keyof Omit<DeliveryDistanceBand, "id">,
-  value: number,
-) => {
-  setBands((current) => current.map((band) => (
-    band.id === id ? { ...band, [field]: value } : band
-  )));
 };
 
 const shouldRetryWithLegacySchema = (error: { message?: string } | null) =>

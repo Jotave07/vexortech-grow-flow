@@ -1,4 +1,4 @@
-import type { BackendResult } from "@/integrations/backend/compat-types";
+import type { BackendResult, LocalSession } from "@/integrations/backend/compat-types";
 import { getActor, signUp } from "./auth";
 import { query, withTransaction } from "./db";
 import { publishRealtime } from "./realtime";
@@ -32,12 +32,12 @@ const adminCreateStore = async (body: any, token?: string) => {
   const slug = String(body.slug || "").trim().toLowerCase();
   if (!email || !password || !name || !slug) return errorResult("E-mail, senha, nome e slug sao obrigatorios.");
 
-  const created = await signUp(email, password, {
+  const created = (await signUp(email, password, {
     full_name: fullName,
     document: String(body.document || "").replace(/\D/g, ""),
     account_type: "store_owner",
     role: "store_owner",
-  });
+  })) as BackendResult<LocalSession>;
   if (created.error || !created.data?.user) return created;
 
   const user = created.data.user;

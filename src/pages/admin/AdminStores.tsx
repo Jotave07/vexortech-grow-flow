@@ -40,7 +40,7 @@ const AdminStores = () => {
       backend.from("plans").select("*").order("sort_order"),
     ]);
 
-    const ownerUserIds = Array.from(new Set((s ?? []).map((store) => store.owner_user_id).filter(Boolean)));
+    const ownerUserIds = Array.from(new Set((s ?? []).map((store: any) => store.owner_user_id).filter(Boolean)));
     const { data: profilesData } = ownerUserIds.length
       ? await backend
           .from("profiles")
@@ -49,7 +49,7 @@ const AdminStores = () => {
       : { data: [] as any[] };
     
     // Attach is_exempt from owner profile to store
-    const storesWithExempt = (s ?? []).map(store => {
+    const storesWithExempt = (s ?? []).map((store: any) => {
       const ownerProfile = (profilesData ?? []).find((prof: any) => prof.user_id === store.owner_user_id || prof.store_id === store.id);
       return { ...store, is_exempt: ownerProfile?.is_exempt || false, owner_profile_id: ownerProfile?.id };
     });

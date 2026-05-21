@@ -124,7 +124,7 @@ export default function StoresList() {
         .eq("is_suspended", false);
       
       const loadedStores = data || [];
-      const storeIds = loadedStores.map((store) => store.id).filter(Boolean);
+      const storeIds = loadedStores.map((store: any) => store.id).filter(Boolean);
       let categoryMap = new Map<string, string[]>();
 
       if (storeIds.length > 0) {
@@ -134,14 +134,14 @@ export default function StoresList() {
           .in("store_id", storeIds)
           .eq("is_active", true);
 
-        categoryMap = (menuCategories || []).reduce((map, category: any) => {
+        categoryMap = (menuCategories || []).reduce((map: Map<string, string[]>, category: any) => {
           const current = map.get(category.store_id) || [];
           map.set(category.store_id, [...current, category.name]);
           return map;
         }, new Map<string, string[]>());
       }
 
-      setStores(loadedStores.map((store) => {
+      setStores(loadedStores.map((store: any) => {
         const settings = Array.isArray(store.store_settings) ? store.store_settings[0] : store.store_settings;
         const menuCategories = categoryMap.get(store.id) || [];
         return {

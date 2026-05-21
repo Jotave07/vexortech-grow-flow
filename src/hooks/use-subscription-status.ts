@@ -69,7 +69,7 @@ export const useSubscriptionStatus = (): SubscriptionStatusResult => {
     setAccessState(nextState);
     setMessage(getSubscriptionAccessMessage(nextState));
     setLoading(false);
-  }, [authLoading, profile?.store_id, user]);
+  }, [authLoading, profile?.is_exempt, profile?.store_id, user]);
 
   useEffect(() => {
     void refresh();

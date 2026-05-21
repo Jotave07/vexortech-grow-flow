@@ -19,7 +19,7 @@ export const uploadStorageFile = async (form: FormData, token?: string) => {
   const upsert = String(form.get("upsert") || "false") === "true";
   const file = form.get("file");
 
-  if (!bucket || !objectPath || !(file instanceof File || file instanceof Blob)) {
+  if (!bucket || !objectPath || !file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
     return { data: null, error: { message: "Upload invalido." } };
   }
 

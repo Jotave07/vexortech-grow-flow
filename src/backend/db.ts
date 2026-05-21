@@ -43,7 +43,7 @@ export const getPool = () => {
   return g.__hypePgPool;
 };
 
-export const query = async <T = any>(text: string, params: unknown[] = []) => {
+export const query = async <T extends pg.QueryResultRow = pg.QueryResultRow>(text: string, params: unknown[] = []) => {
   return getPool().query<T>(text, params);
 };
 

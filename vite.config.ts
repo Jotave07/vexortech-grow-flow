@@ -6,13 +6,20 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  esbuild: {
+    jsxDev: false,
+  },
   plugins: [
     tanstackStart({
       spa: {
         enabled: true,
       },
     }),
-    nitro(),
+    nitro({
+      rollupConfig: {
+        external: ["pg", "pg-native"],
+      },
+    }),
     react(),
     tailwindcss(),
     tsconfigPaths(),

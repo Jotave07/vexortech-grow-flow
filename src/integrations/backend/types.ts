@@ -7,8 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  // Internal metadata for the local PostgreSQL backend compatibility layer.
   __InternalBackend: {
     PostgrestVersion: "14.5"
   }

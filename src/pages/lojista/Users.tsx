@@ -26,11 +26,11 @@ const Users = () => {
     // members are profiles linked to this store
     const { data: profiles } = await backend.from("profiles").select("*").eq("store_id", store.id);
     if (!profiles?.length) { setMembers([]); setLoading(false); return; }
-    const userIds = profiles.map((p) => p.user_id);
+    const userIds = profiles.map((p: any) => p.user_id);
     const { data: roles } = await backend.from("user_roles").select("*").in("user_id", userIds);
-    const merged = profiles.map((p) => ({
+    const merged = profiles.map((p: any) => ({
       ...p,
-      roles: (roles ?? []).filter((r) => r.user_id === p.user_id).map((r) => r.role),
+      roles: (roles ?? []).filter((r: any) => r.user_id === p.user_id).map((r: any) => r.role),
     }));
     setMembers(merged);
     setLoading(false);

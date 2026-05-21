@@ -99,7 +99,7 @@ const PublicCheckout = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      toast.info("VocÍ precisa estar logado para finalizar o pedido.");
+      toast.info("Voc√™ precisa estar logado para finalizar o pedido.");
       navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
     }
   }, [user, authLoading, navigate, location.pathname, location.search]);
@@ -248,7 +248,7 @@ const PublicCheckout = () => {
       if (addr.localidade && addr.uf) {
         await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf, coords);
       }
-      if (!silent) toast.success("EndereÁo localizado e frete atualizado.");
+      if (!silent) toast.success("Endere√ßo localizado e frete atualizado.");
     } catch (e: any) {
       toast.error(e.message || "Erro ao buscar CEP");
     } finally {
@@ -271,9 +271,9 @@ const PublicCheckout = () => {
       if (addr.city && addr.state) {
         await updateDeliveryQuote(cleanCep, addr.neighborhood || "", addr.city, addr.state, addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : null);
       }
-      toast.success("LocalizaÁ„o definida e frete atualizado.");
+      toast.success("Localiza√ß√£o definida e frete atualizado.");
     } catch (e: any) {
-      toast.error(e.message || "N„o foi possÌvel usar sua localizaÁ„o.");
+      toast.error(e.message || "N√£o foi poss√≠vel usar sua localiza√ß√£o.");
     } finally {
       setLoadingLocation(false);
     }
@@ -305,12 +305,12 @@ const PublicCheckout = () => {
   const total = Math.max(0, subtotal + actualDeliveryFee - discount);
 
   const validateCartForCheckout = async () => {
-    if (!store?.id) return "Loja n„o carregada. Atualize a p·gina e tente novamente.";
-    if (!items.length) return "Seu carrinho est· vazio.";
+    if (!store?.id) return "Loja n√£o carregada. Atualize a p√°gina e tente novamente.";
+    if (!items.length) return "Seu carrinho est√° vazio.";
 
     for (const item of items) {
       if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-        return `Quantidade inv·lida em "${item.product_name}".`;
+        return `Quantidade inv√°lida em "${item.product_name}".`;
       }
     }
 
@@ -323,7 +323,7 @@ const PublicCheckout = () => {
 
     if (productError) return productError.message;
 
-    const productsById = new Map((productData ?? []).map((product: any) => [product.id, product]));
+    const productsById = new Map<string, any>((productData ?? []).map((product: any) => [product.id, product]));
     const { data: groupsData, error: groupsError } = await backend
       .from("product_options" as any)
       .select("id, product_id, name, is_required, min_choices, max_choices")
@@ -346,12 +346,12 @@ const PublicCheckout = () => {
 
     for (const cartItem of items as CartItem[]) {
       const product = productsById.get(cartItem.product_id);
-      if (!product) return `Produto "${cartItem.product_name}" n„o encontrado no card·pio.`;
-      if (!product.is_active || product.is_available === false) return `Produto "${product.name}" est· indisponÌvel no momento.`;
+      if (!product) return `Produto "${cartItem.product_name}" n√£o encontrado no card√°pio.`;
+      if (!product.is_active || product.is_available === false) return `Produto "${product.name}" est√° indispon√≠vel no momento.`;
 
       const currentUnitPrice = Number(product.promo_price ?? product.price);
       if (toCents(currentUnitPrice) !== toCents(cartItem.unit_price)) {
-        return `O preÁo de "${product.name}" foi alterado. Remova e adicione o produto novamente.`;
+        return `O pre√ßo de "${product.name}" foi alterado. Remova e adicione o produto novamente.`;
       }
 
       const productGroups = groups.filter((group: any) => group.product_id === cartItem.product_id);
@@ -366,7 +366,7 @@ const PublicCheckout = () => {
         const selected = selectedByGroup[group.id] ?? [];
 
         if (min > 0 && activeGroupItems.length === 0) {
-          return `Produto "${product.name}" est· sem opÁıes disponÌveis para "${group.name}".`;
+          return `Produto "${product.name}" est√° sem op√ß√µes dispon√≠veis para "${group.name}".`;
         }
         if (selected.length < min) {
           return `Falta escolher "${group.name}" em "${product.name}".`;
@@ -378,14 +378,14 @@ const PublicCheckout = () => {
 
       for (const selectedOption of cartItem.options) {
         const group = productGroups.find((candidate: any) => candidate.id === selectedOption.option_id);
-        if (!group) return `OpÁ„o inv·lida em "${product.name}". Remova e adicione o produto novamente.`;
+        if (!group) return `Op√ß√£o inv√°lida em "${product.name}". Remova e adicione o produto novamente.`;
 
         const currentOption = optionItems.find((option: any) => option.id === selectedOption.item_id);
         if (!currentOption || currentOption.option_id !== selectedOption.option_id || currentOption.is_active === false) {
-          return `A opÁ„o "${selectedOption.item_name}" n„o est· mais disponÌvel.`;
+          return `A op√ß√£o "${selectedOption.item_name}" n√£o est√° mais dispon√≠vel.`;
         }
         if (toCents(currentOption.extra_price) !== toCents(selectedOption.extra_price)) {
-          return `O preÁo de "${selectedOption.item_name}" foi alterado. Remova e adicione o produto novamente.`;
+          return `O pre√ßo de "${selectedOption.item_name}" foi alterado. Remova e adicione o produto novamente.`;
         }
       }
     }
@@ -402,15 +402,15 @@ const PublicCheckout = () => {
     }
 
     if (!name.trim()) return toast.error("Informe seu nome");
-    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inv·lido");
+    if (onlyDigits(phone).length < 10) return toast.error("WhatsApp inv√°lido");
     if (!getAvailablePaymentMethods(settings).includes(paymentMethod)) {
-      return toast.error("Forma de pagamento indisponÌvel.");
+      return toast.error("Forma de pagamento indispon√≠vel.");
     }
-    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatÛrio para pagamento via PIX");
+    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigat√≥rio para pagamento via PIX");
     
     if (orderType === "entrega") {
-      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega n„o disponÌvel.");
-      if (!street.trim() || !number.trim()) return toast.error("EndereÁo incompleto");
+      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega n√£o dispon√≠vel.");
+      if (!street.trim() || !number.trim()) return toast.error("Endere√ßo incompleto");
     }
     if (paymentMethod === "dinheiro" && changeFor.trim() && parseMoneyInput(changeFor) < total) {
       return toast.error("Troco precisa ser maior ou igual ao total do pedido.");
@@ -419,13 +419,13 @@ const PublicCheckout = () => {
     setSubmitting(true);
     try {
       if (store.owner_user_id === user?.id) {
-        return toast.error("Dono da loja n„o pode comprar de si mesmo.");
+        return toast.error("Dono da loja n√£o pode comprar de si mesmo.");
       }
 
       const cartValidationError = await validateCartForCheckout();
       if (cartValidationError) return toast.error(cartValidationError);
 
-      // Garante um cliente exclusivo para este usu·rio nesta loja, sem misturar histÛricos por telefone.
+      // Garante um cliente exclusivo para este usu√°rio nesta loja, sem misturar hist√≥ricos por telefone.
       let customerId = null;
       if (user) {
         const { data: existingCustomer } = await backend
@@ -559,7 +559,7 @@ const PublicCheckout = () => {
       if (paymentMethod === "pix") {
         const pixResult = await createOrderPaymentFn({ data: { orderId: order.id, storeId: store.id } }).catch(e => ({ error: e.message }));
         if ((pixResult as any).error) {
-          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. VocÍ poder· tentar pagar na tela de acompanhamento.`);
+          toast.error(`Aviso: Pedido criado, mas houve erro no PIX: ${(pixResult as any).error}. Voc√™ poder√° tentar pagar na tela de acompanhamento.`);
         }
         setPixData(pixResult);
         setCreatedOrder(order);
@@ -590,7 +590,7 @@ const PublicCheckout = () => {
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-6 mt-4">
-        {/* IdentificaÁ„o */}
+        {/* Identifica√ß√£o */}
         <Card className="p-6 border border-border shadow-panel bg-white overflow-hidden">
           <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
             <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
@@ -653,7 +653,7 @@ const PublicCheckout = () => {
                 disabled={loadingLocation}
               >
                 {loadingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                Usar minha localizaÁ„o atual
+                Usar minha localiza√ß√£o atual
               </Button>
 
               <div>
@@ -671,7 +671,7 @@ const PublicCheckout = () => {
                   {deliveryQuote.available ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Entrega disponÌvel</span>
+                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Entrega dispon√≠vel</span>
                         <div className="flex items-center gap-1 text-primary font-black text-sm">
                           <Truck className="h-4 w-4" /> {formatBRL(deliveryQuote.fee)}
                         </div>
@@ -690,7 +690,7 @@ const PublicCheckout = () => {
                       <div className="space-y-1">
                         <p className="text-xs font-black uppercase tracking-tight">{deliveryQuote.reason}</p>
                         {deliveryQuote.amount_to_min && (
-                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mÌnimo.</p>
+                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o m√≠nimo.</p>
                         )}
                       </div>
                     </div>
@@ -704,7 +704,7 @@ const PublicCheckout = () => {
                   <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" />
                 </div>
                 <div>
-                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">N∫</Label>
+                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">N¬∫</Label>
                   <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" />
                 </div>
               </div>
@@ -732,7 +732,7 @@ const PublicCheckout = () => {
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
-                    PIX (LIBERA«√O IMEDIATA)
+                    PIX (LIBERA√á√ÉO IMEDIATA)
                   </Label>
                 </div>
               )}
@@ -749,13 +749,13 @@ const PublicCheckout = () => {
                   <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_credito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                     <RadioGroupItem value="cartao_credito_entrega" id="cartao_credito_entrega" />
                     <Label htmlFor="cartao_credito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                      <CreditCard className="h-5 w-5" /> Cart„o de CrÈdito (na entrega)
+                      <CreditCard className="h-5 w-5" /> Cart√£o de Cr√©dito (na entrega)
                     </Label>
                   </div>
                   <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_debito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                     <RadioGroupItem value="cartao_debito_entrega" id="cartao_debito_entrega" />
                     <Label htmlFor="cartao_debito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                      <CreditCard className="h-5 w-5" /> Cart„o de DÈbito (na entrega)
+                      <CreditCard className="h-5 w-5" /> Cart√£o de D√©bito (na entrega)
                     </Label>
                   </div>
                 </>
@@ -770,9 +770,9 @@ const PublicCheckout = () => {
           </div>
         </Card>
 
-        {/* ObservaÁıes */}
+        {/* Observa√ß√µes */}
         <Card className="p-6 border border-border shadow-panel bg-white">
-          <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground mb-2 block">ObservaÁıes do Pedido</Label>
+          <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground mb-2 block">Observa√ß√µes do Pedido</Label>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="border border-border focus:border-primary font-bold min-h-[100px]" placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..." />
         </Card>
 
@@ -842,15 +842,15 @@ const PublicCheckout = () => {
               onClick={() => {
                 if (pixData?.pixCode) {
                   navigator.clipboard.writeText(pixData.pixCode);
-                  toast.success("CÛdigo PIX copiado!");
+                  toast.success("C√≥digo PIX copiado!");
                 }
               }}
             >
-              <Copy className="h-5 w-5" /> Copiar CÛdigo Pix
+              <Copy className="h-5 w-5" /> Copiar C√≥digo Pix
             </Button>
 
             <p className="text-center text-[11px] font-bold text-muted-foreground leading-tight uppercase tracking-tight opacity-80 bg-muted p-4 border border-border">
-              ApÛs o pagamento, o seu pedido ser· confirmado automaticamente.
+              Ap√≥s o pagamento, o seu pedido ser√° confirmado automaticamente.
             </p>
 
             <div className="w-full pt-2">
