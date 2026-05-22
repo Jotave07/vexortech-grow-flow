@@ -7,8 +7,24 @@ const ASAAS_ENVIRONMENT = process.env.ASAAS_ENVIRONMENT || 'production';
 const ASAAS_URL = ASAAS_ENVIRONMENT === 'sandbox' 
   ? 'https://sandbox.asaas.com/api/v3' 
   : 'https://www.asaas.com/api/v3';
+const PAYMENT_GATEWAY_DEBUG = process.env.PAYMENT_GATEWAY_DEBUG === "true";
 
 console.log(`Asaas integration initialized in ${ASAAS_ENVIRONMENT} mode`);
+
+const redactGatewayText = (value: unknown) =>
+  String(value ?? "")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "<email>")
+    .replace(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g, "<document>")
+    .replace(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/g, "<document>")
+    .replace(/\d{10,15}/g, "<number>");
+
+const summarizeGatewayError = (data: any) => {
+  const errors = Array.isArray(data?.errors)
+    ? data.errors.map((item: any) => redactGatewayText(item?.description || item?.message))
+    : [];
+  if (!errors.length && data?.message) errors.push(redactGatewayText(data.message));
+  return errors.slice(0, 3);
+};
 
 interface AsaasCustomer {
   name: string;
@@ -35,7 +51,7 @@ async function asaasRequest(
   options?: { idempotencyKey?: string },
 ) {
   const url = `${ASAAS_URL}${endpoint}`;
-  console.log(`Asaas Request: ${method} ${url}`);
+  if (PAYMENT_GATEWAY_DEBUG) console.log(`Asaas Request: ${method} ${endpoint}`);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'access_token': apiKey,
@@ -55,12 +71,16 @@ async function asaasRequest(
     try {
       data = await response.json();
     } catch (e) {
-      console.error("Asaas JSON Parse Error:", e);
+      console.error("Asaas JSON Parse Error:", e instanceof Error ? e.message : "parse_error");
       data = { message: "Erro ao processar resposta do gateway" };
     }
     
     if (!response.ok) {
-      console.error(`Asaas Error (${response.status}):`, JSON.stringify(data));
+      console.error("Asaas Error", {
+        status: response.status,
+        endpoint,
+        errors: summarizeGatewayError(data),
+      });
       return { 
         errors: data.errors || [{ description: data.message || 'Erro desconhecido no Asaas' }] 
       };
@@ -68,7 +88,7 @@ async function asaasRequest(
 
     return data;
   } catch (error) {
-    console.error(`Asaas Network/Fetch Error:`, error);
+    console.error("Asaas Network/Fetch Error:", error instanceof Error ? error.message : "network_error");
     return { 
       errors: [{ description: 'Falha na comunicação com o gateway de pagamento.' }] 
     };

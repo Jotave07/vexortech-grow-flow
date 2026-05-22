@@ -13,6 +13,16 @@ import { Loader2, Plus, Pencil, Trash2, Search, MapPin, Truck, Clock, AlertTrian
 import { formatBRL } from "@/lib/format";
 import { DeliveryRegion } from "@/types/delivery";
 import { isValidCep, normalizeCep, formatCep } from "@/utils/zipCode";
+import { fetchAddressByCep } from "@/services/cep/viacepService";
+
+type TestAddress = {
+  cep: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+};
 
 const Zones = () => {
   const { store } = useOutletContext<{ store: any }>();
@@ -44,7 +54,7 @@ const Zones = () => {
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   
-  const [testAddress, setTestAddress] = useState({
+  const [testAddress, setTestAddress] = useState<TestAddress>({
     cep: "",
     street: "",
     number: "",
@@ -54,6 +64,7 @@ const Zones = () => {
   });
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
+  const [lastAutoTestCep, setLastAutoTestCep] = useState("");
 
   const load = useCallback(async () => {
     if (!store?.id) return;
@@ -153,35 +164,77 @@ const Zones = () => {
     load(); 
   };
 
+  const quoteTestAddress = useCallback(async (address: TestAddress) => {
+    const { data, error } = await backend.functions.invoke("quote-delivery", {
+      body: {
+        storeId: store.id,
+        subtotal: 100,
+        address: {
+          cep: normalizeCep(address.cep),
+          street: address.street,
+          number: address.number,
+          neighborhood: address.neighborhood,
+          city: address.city,
+          state: address.state,
+        },
+      },
+    });
+    setTestResult(error ? { available: false, reason: error.message } : data);
+  }, [store.id]);
+
+  const resolveCepForTest = useCallback(async (address: TestAddress) => {
+    const cep = normalizeCep(address.cep);
+    if (!cep || !isValidCep(cep)) return address;
+    const resolved = await fetchAddressByCep(cep);
+    return {
+      ...address,
+      cep: normalizeCep(resolved.cep || cep),
+      street: (resolved.logradouro || address.street).toUpperCase(),
+      neighborhood: (resolved.bairro || address.neighborhood).toUpperCase(),
+      city: (resolved.localidade || address.city).toUpperCase(),
+      state: (resolved.uf || address.state).toUpperCase(),
+    };
+  }, []);
+
   const runTest = async () => {
     if (testAddress.cep && !isValidCep(testAddress.cep)) return toast.error("CEP invalido");
-    if (!testAddress.city.trim() || !testAddress.state.trim()) return toast.error("Informe cidade e UF");
+    if (!testAddress.cep && (!testAddress.city.trim() || !testAddress.state.trim())) return toast.error("Informe cidade e UF");
     if (!testAddress.cep && (!testAddress.street.trim() || !testAddress.number.trim())) {
       return toast.error("Informe CEP ou rua e numero");
     }
     setTesting(true);
     try {
-      const { data, error } = await backend.functions.invoke("quote-delivery", {
-        body: {
-          storeId: store.id,
-          subtotal: 100,
-          address: {
-            cep: normalizeCep(testAddress.cep),
-            street: testAddress.street,
-            number: testAddress.number,
-            neighborhood: testAddress.neighborhood,
-            city: testAddress.city,
-            state: testAddress.state,
-          },
-        },
-      });
-      setTestResult(error ? { available: false, reason: error.message } : data);
+      const resolvedAddress = await resolveCepForTest(testAddress);
+      setTestAddress(resolvedAddress);
+      await quoteTestAddress(resolvedAddress);
     } catch (err: any) {
-      toast.error("Erro ao testar frete");
+      toast.error(err.message || "Erro ao testar frete");
     } finally {
       setTesting(false);
     }
   };
+
+  useEffect(() => {
+    const cep = normalizeCep(testAddress.cep);
+    if (!store?.id || cep.length !== 8 || !isValidCep(cep) || cep === lastAutoTestCep) return;
+
+    const timer = window.setTimeout(async () => {
+      setTesting(true);
+      try {
+        const resolvedAddress = await resolveCepForTest(testAddress);
+        setTestAddress(resolvedAddress);
+        setLastAutoTestCep(cep);
+        await quoteTestAddress(resolvedAddress);
+      } catch (err: any) {
+        setLastAutoTestCep(cep);
+        setTestResult({ available: false, reason: err.message || "CEP invalido" });
+      } finally {
+        setTesting(false);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [lastAutoTestCep, quoteTestAddress, resolveCepForTest, store?.id, testAddress]);
 
   return (
     <div className="space-y-6">

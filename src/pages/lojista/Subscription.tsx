@@ -104,39 +104,6 @@ const Subscription = () => {
 
     setSubmittingPlanId(selectedPlanId);
 
-    const updatePayload = {
-      plan_id: selectedPlanId,
-      provider: "asaas",
-      status: "pendente_pagamento" as const,
-      last_payment_status: "pending",
-    };
-
-    const storeUpdate = await (backend
-      .from("stores" as any)
-      .update({ plan_id: selectedPlanId })
-      .eq("id", store.id) as any);
-
-    if (storeUpdate.error) {
-      setSubmittingPlanId(null);
-      toast.error(storeUpdate.error.message);
-      return;
-    }
-
-    const subscriptionMutation = subscription
-      ? (backend.from("subscriptions" as any).update(updatePayload).eq("id", subscription.id) as any)
-      : (backend.from("subscriptions" as any).insert({
-        ...updatePayload,
-        store_id: store.id,
-      }) as any);
-
-    const { error: subscriptionError } = await subscriptionMutation;
-
-    if (subscriptionError) {
-      setSubmittingPlanId(null);
-      toast.error(subscriptionError.message);
-      return;
-    }
-
     try {
       const { data: profileData } = await (backend.from("profiles" as any).select("*").eq("user_id", store.owner_user_id).single() as any);
       

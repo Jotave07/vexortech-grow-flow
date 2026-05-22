@@ -178,39 +178,9 @@ export const quoteDelivery = async (
     return unavailable("Esta loja esta aceitando apenas retirada no momento.");
   }
 
-  const globalRadiusKm = readNumber(settings.delivery_radius_km);
-  if (!globalRadiusKm || globalRadiusKm <= 0) {
-    return unavailable("Esta loja ainda nao configurou o raio maximo de entrega.");
-  }
-
-  const storeCoordinates = readCoordinates(store) || await geocode(addressForGeocode(normalizeAddress({
-    cep: store.zip_code,
-    street: store.address,
-    number: store.address_number,
-    neighborhood: store.neighborhood,
-    city: store.city,
-    state: store.state,
-  })));
-  if (!storeCoordinates) {
-    return unavailable("A loja precisa configurar endereco e coordenadas para calcular o frete.");
-  }
-
   const address = normalizeAddress(input.address);
-  if (!address.city || !address.state || (!address.cep && (!address.street || !address.number))) {
-    return unavailable("Informe um endereco completo para calcular a entrega.");
-  }
-
-  const customerCoordinates = input.customerCoordinates || await geocode(addressForGeocode(address));
-  if (!customerCoordinates) {
-    return unavailable("Nao foi possivel validar este endereco. Confira CEP, rua, numero, cidade e UF.");
-  }
-
-  const { distanceKm } = await distance(storeCoordinates, customerCoordinates);
-  if (distanceKm > globalRadiusKm) {
-    return unavailable("Regiao nao atendida. Endereco fora do raio de entrega da loja.", {
-      distanceKm,
-      normalizedAddress: address,
-    });
+  if (!address.cep && (!address.city || !address.state || !address.street || !address.number)) {
+    return unavailable("Informe um CEP ou endereco completo para calcular a entrega.");
   }
 
   const { rows: zones } = await runQuery(
@@ -220,15 +190,69 @@ export const quoteDelivery = async (
     [input.storeId],
   );
   const region = findBestRegion(zones, address);
+
+  let storeCoordinates = readCoordinates(store);
+  let customerCoordinates = input.customerCoordinates || null;
+  let distanceKm: number | null = null;
+
+  const resolveDistanceKm = async () => {
+    if (!customerCoordinates && (!address.city || !address.state || !address.street || !address.number)) return null;
+    if (!customerCoordinates && address.city && address.state && address.street && address.number) {
+      customerCoordinates = await geocode(addressForGeocode(address));
+    }
+    if (!customerCoordinates) return null;
+    if (!storeCoordinates) {
+      storeCoordinates = await geocode(addressForGeocode(normalizeAddress({
+        cep: store.zip_code,
+        street: store.address,
+        number: store.address_number,
+        neighborhood: store.neighborhood,
+        city: store.city,
+        state: store.state,
+      })));
+    }
+    if (!storeCoordinates || !customerCoordinates) return null;
+    const result = await distance(storeCoordinates, customerCoordinates);
+    return result.distanceKm;
+  };
+
   if (!region) {
+    const globalRadiusKm = readNumber(settings.delivery_radius_km);
+    if (!globalRadiusKm || globalRadiusKm <= 0) {
+      return unavailable("Esta loja ainda nao configurou uma regiao ou raio maximo de entrega.", {
+        normalizedAddress: address,
+      });
+    }
+
+    distanceKm = await resolveDistanceKm();
+    if (distanceKm !== null && distanceKm > globalRadiusKm) {
+      return unavailable("Regiao nao atendida. Endereco fora do raio de entrega da loja.", {
+        distanceKm,
+        normalizedAddress: address,
+      });
+    }
+
     return unavailable("Regiao nao atendida. Esta loja ainda nao entrega nesse endereco.", {
+      ...(distanceKm !== null ? { distanceKm } : {}),
+      normalizedAddress: address,
+    });
+  }
+
+  distanceKm = await resolveDistanceKm();
+
+  const globalRadiusKm = readNumber(settings.delivery_radius_km);
+  if (distanceKm !== null && globalRadiusKm !== null && globalRadiusKm > 0 && distanceKm > globalRadiusKm) {
+    return unavailable("Regiao nao atendida. Endereco fora do raio de entrega da loja.", {
       distanceKm,
+      regionId: region.id,
+      regionName: region.name || region.neighborhood || null,
+      source: "region",
       normalizedAddress: address,
     });
   }
 
   const regionRadiusKm = readNumber(region.max_radius_km);
-  if (regionRadiusKm !== null && regionRadiusKm > 0 && distanceKm > regionRadiusKm) {
+  if (distanceKm !== null && regionRadiusKm !== null && regionRadiusKm > 0 && distanceKm > regionRadiusKm) {
     return unavailable("Regiao nao atendida. Endereco fora do raio desta regiao de entrega.", {
       distanceKm,
       regionId: region.id,
@@ -239,13 +263,13 @@ export const quoteDelivery = async (
   }
 
   const minOrder = readNumber(region.min_order) || 0;
-  const rawFee = (readNumber(region.fee) || 0) + (readNumber(region.fee_per_km) || 0) * distanceKm;
+  const rawFee = (readNumber(region.fee) || 0) + (readNumber(region.fee_per_km) || 0) * (distanceKm || 0);
   const fee = applyFeeBounds(rawFee, region);
 
   if (input.subtotal < minOrder) {
     return unavailable(`Pedido minimo para esta regiao e R$ ${minOrder.toFixed(2)}.`, {
       fee,
-      distanceKm,
+      ...(distanceKm !== null ? { distanceKm } : {}),
       regionId: region.id,
       regionName: region.name || region.neighborhood || null,
       source: "region",
@@ -256,17 +280,18 @@ export const quoteDelivery = async (
   const basePrep = readNumber(region.base_prep_time) ?? readNumber(settings.avg_prep_time_minutes) ?? 30;
   const minutesPerKm = readNumber(region.minutes_per_km) ?? 5;
   const additionalRegionTime = readNumber(region.additional_region_time) ?? 0;
-  const estimatedMin = Math.max(1, Math.round(basePrep + minutesPerKm * distanceKm + additionalRegionTime));
+  const estimatedMin = Math.max(1, Math.round(basePrep + minutesPerKm * (distanceKm || 0) + additionalRegionTime));
 
   return {
     available: true,
     fee,
-    distanceKm,
+    ...(distanceKm !== null ? { distanceKm } : {}),
     estimatedMin,
     estimatedMax: Math.round(estimatedMin * 1.25),
     regionId: region.id,
     regionName: region.name || region.neighborhood || null,
     source: "region",
+    ...(distanceKm === null ? { reason: "Frete validado pela faixa de CEP." } : {}),
     normalizedAddress: address,
   };
 };

@@ -84,6 +84,46 @@ describe("quoteDelivery", () => {
     });
   });
 
+  it("matches CEP range immediately without street, number, or coordinates", async () => {
+    const deps = createDeps({
+      settings: { delivery_radius_km: null },
+      zones: [{
+        id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        name: "Vila Velha",
+        zip_start: "29126-000",
+        zip_end: "29154999",
+        fee: 7,
+        fee_per_km: 0,
+        min_order: 0,
+        base_prep_time: 25,
+        priority: 0,
+      }],
+    });
+
+    const quote = await quoteDelivery({
+      ...input,
+      address: {
+        cep: "29154-312",
+        street: "",
+        number: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+      },
+      customerCoordinates: null,
+    }, deps as any);
+
+    expect(quote).toMatchObject({
+      available: true,
+      fee: 7,
+      estimatedMin: 25,
+      regionName: "Vila Velha",
+      source: "region",
+    });
+    expect(quote.distanceKm).toBeUndefined();
+    expect(deps.distance).not.toHaveBeenCalled();
+  });
+
   it("rejects addresses outside the global delivery radius", async () => {
     const deps = createDeps({ distanceKm: 11 });
 

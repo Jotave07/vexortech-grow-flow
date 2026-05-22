@@ -43,6 +43,26 @@ const timestampColumnByStatus: Record<string, string> = {
   cancelado: "cancelled_at",
 };
 
+let optionalWriteCounter = 0;
+
+const runOptionalWrite = async (
+  client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
+  label: string,
+  text: string,
+  params: unknown[] = [],
+) => {
+  const savepoint = `optional_order_status_${++optionalWriteCounter}`;
+  try {
+    await client.query(`SAVEPOINT ${savepoint}`);
+    await client.query(text, params);
+    await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+  } catch (error: any) {
+    await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`).catch(() => null);
+    await client.query(`RELEASE SAVEPOINT ${savepoint}`).catch(() => null);
+    console.warn(`Optional order status write skipped (${label}):`, error?.message || error);
+  }
+};
+
 export const updateOrderStatusHandler = async (body: unknown, token?: string) => {
   const input = inputSchema.parse(body);
   const actor = await getActor(token);
@@ -90,7 +110,7 @@ export const updateOrderStatusHandler = async (body: unknown, token?: string) =>
     const updatedOrder = updatedRows[0];
 
     if (input.status === "entregue" && updatedOrder.customer_id && order.status !== "entregue") {
-      await client.query(
+      await runOptionalWrite(client, "customer_totals",
         `UPDATE public.customers
          SET total_orders = COALESCE(total_orders, 0) + 1,
              total_spent = COALESCE(total_spent, 0) + $2,
@@ -98,28 +118,28 @@ export const updateOrderStatusHandler = async (body: unknown, token?: string) =>
              updated_at = now()
          WHERE id = $1`,
         [updatedOrder.customer_id, Number(updatedOrder.total || 0)],
-      ).catch(() => null);
+      );
     }
 
     if (input.status === "entregue" && updatedOrder.payment_method !== "pix") {
-      await client.query(
+      await runOptionalWrite(client, "cash_or_card_payment_paid",
         `UPDATE public.payments
          SET status = 'pago', paid_at = COALESCE(paid_at, now()), updated_at = now()
          WHERE order_id = $1`,
         [input.orderId],
-      ).catch(() => null);
+      );
     }
 
     if (input.status === "cancelado") {
       const paymentStatus = order.payment_method === "pix" && order.payment_status === "pago"
         ? "estorno_pendente"
         : "cancelado";
-      await client.query(
+      await runOptionalWrite(client, "cancel_payment",
         `UPDATE public.payments
          SET status = $2, updated_at = now()
          WHERE order_id = $1`,
         [input.orderId, paymentStatus],
-      ).catch(() => null);
+      );
     }
 
     await client.query(

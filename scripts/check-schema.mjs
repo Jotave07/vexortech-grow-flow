@@ -49,6 +49,22 @@ const checks = [
     `,
   },
   {
+    label: "orders.order_number default/not-null",
+    sql: `
+      SELECT column_default LIKE '%orders_order_number_seq%' AND is_nullable = 'NO' AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'order_number'
+    `,
+  },
+  {
+    label: "orders.order_number backfilled",
+    sql: "SELECT count(*) = 0 AS ok FROM public.orders WHERE order_number IS NULL",
+  },
+  {
+    label: "orders_order_number_unique",
+    sql: "SELECT to_regclass('public.orders_order_number_unique') IS NOT NULL AS ok",
+  },
+  {
     label: "orders_public_token_unique",
     sql: "SELECT to_regclass('public.orders_public_token_unique') IS NOT NULL AS ok",
   },

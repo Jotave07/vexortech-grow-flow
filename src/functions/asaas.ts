@@ -1,8 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { asaas } from "@/server/asaas.server";
-import { backendAdmin } from "@/integrations/backend/client.server";
-import { testPixGatewayConnection } from "@/server/payment-gateways";
 import {
   createOrderPaymentForOrder,
   getOrderPaymentInfoForOrder,
@@ -15,8 +12,8 @@ export const testAsaasConnection = createServerFn({ method: "POST" })
     provider: z.string().optional(),
     isPlatform: z.boolean().optional(),
   }))
-  .handler(async ({ data }) => {
-    return testPixGatewayConnection(data.provider, data.apiKey);
+  .handler(async () => {
+    throw new Error("Use a function autenticada test-payment-gateway via backend.functions.invoke.");
   });
 
 export const createSubscriptionCheckout = createServerFn({ method: "POST" })
@@ -30,33 +27,8 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       mobilePhone: z.string().optional(),
     }),
   }))
-  .handler(async ({ data }) => {
-    const asaasCustomer = await asaas.createCustomer(data.customerData);
-    if (asaasCustomer.errors) throw new Error(asaasCustomer.errors[0].description);
-
-    const { data: plan } = await backendAdmin.from("plans").select("*").eq("id", data.planId).single();
-    if (!plan) throw new Error("Plan not found");
-
-    const subscription = await asaas.createSubscription({
-      customer: asaasCustomer.id,
-      billingType: "PIX",
-      value: Number(plan.price_monthly),
-      nextDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      cycle: "MONTHLY",
-      description: `Assinatura Plano ${plan.name} - Hype Delivery`,
-      externalReference: data.storeId,
-    });
-    if (subscription.errors) throw new Error(subscription.errors[0].description);
-
-    await backendAdmin.from("subscriptions" as any).upsert({
-      store_id: data.storeId,
-      plan_id: data.planId,
-      asaas_subscription_id: subscription.id,
-      status: "pendente_pagamento",
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "store_id" });
-
-    return { invoiceUrl: subscription.invoiceUrl, subscriptionId: subscription.id };
+  .handler(async () => {
+    throw new Error("Use a function autenticada create-subscription-checkout via backend.functions.invoke.");
   });
 
 export const createOrderPayment = createServerFn({ method: "POST" })

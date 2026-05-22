@@ -20,8 +20,6 @@ import { validateDeliverySettings } from "@/lib/delivery";
 import { STORE_SEGMENT_OPTIONS, normalizeStoreSegment } from "@/lib/store-segments";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
-import { useServerFn } from "@tanstack/react-start";
-import { testAsaasConnection } from "@/functions/asaas";
 
 type StoreRow = Tables<"stores">;
 type StoreFormRow = StoreRow & { store_type?: string | null };
@@ -88,9 +86,6 @@ const Settings = () => {
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [cepLookup, setCepLookup] = useState<CepLookupState>({ status: "idle" });
   const [geocodingStore, setGeocodingStore] = useState(false);
-  
-  const testAsaasConnectionFn = useServerFn(testAsaasConnection);
-
   const load = useCallback(async () => {
     if (!store?.id) return;
 
@@ -280,7 +275,6 @@ const Settings = () => {
     const baseSettingsPayload = {
       is_open: storeSettings.is_open,
       accept_orders_when_closed: storeSettings.accept_orders_when_closed,
-      min_order_value: Number(storeSettings.min_order_value) || 0,
       avg_prep_time_minutes: Number(storeSettings.avg_prep_time_minutes) || 30,
       allow_delivery: storeSettings.allow_delivery,
       allow_pickup: storeSettings.allow_pickup,
@@ -737,13 +731,15 @@ const Settings = () => {
                         const key = (storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key;
                         if (!key) return toast.error("Insira a chave de API primeiro.");
                         toast.loading("Testando conexao...");
-                        const result = await testAsaasConnectionFn({
-                          data: {
+                        const { data: result, error } = await backend.functions.invoke("test-payment-gateway", {
+                          body: {
+                            storeId: store.id,
                             apiKey: key,
                             provider: (storeSettings as any).payment_gateway_provider || "asaas",
                           },
                         });
                         toast.dismiss();
+                        if (error || !result) return toast.error(error?.message || "Falha ao testar gateway.");
                         if (result.success) toast.success(result.message);
                         else toast.error(result.message);
                       }}

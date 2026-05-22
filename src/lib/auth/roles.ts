@@ -12,6 +12,11 @@ export function normalizeUserRole(role: unknown): UserRole | null {
   return null;
 }
 
+function normalizeStoredRole(role: unknown, storeId?: unknown): UserRole | null {
+  if (role === "admin" || role === "super_admin") return storeId ? null : "super_admin";
+  return normalizeUserRole(role);
+}
+
 export function getPrimaryRoleFromRoles(roles: Array<UserRole | StoredUserRole | string | null | undefined>): UserRole {
   const normalized = new Set(roles.map(normalizeUserRole).filter(Boolean) as UserRole[]);
   return ROLE_PRIORITY.find((role) => normalized.has(role)) ?? "customer";
@@ -30,11 +35,11 @@ export async function getUserRoles(userId: string): Promise<UserRole[]> {
     const [{ data: roleRows, error: rolesError }, { data: profile, error: profileError }] = await Promise.all([
       backend
         .from("user_roles" as any)
-        .select("role")
+        .select("role, store_id")
         .eq("user_id", userId),
       backend
         .from("profiles" as any)
-        .select("role")
+        .select("role, store_id")
         .eq("user_id", userId)
         .maybeSingle(),
     ]);
@@ -43,8 +48,8 @@ export async function getUserRoles(userId: string): Promise<UserRole[]> {
     if (profileError) console.warn("Error fetching profile role:", profileError);
 
     const roles = [
-      ...(roleRows || []).map((row: any) => normalizeUserRole(row.role)),
-      normalizeUserRole((profile as any)?.role),
+      ...(roleRows || []).map((row: any) => normalizeStoredRole(row.role, row.store_id)),
+      normalizeStoredRole((profile as any)?.role, (profile as any)?.store_id),
     ].filter(Boolean) as UserRole[];
 
     const uniqueRoles = Array.from(new Set(roles));

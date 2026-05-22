@@ -120,6 +120,10 @@ const formatOrderAge = (order: any) => {
   return `${hours}h${rest ? ` ${rest}m` : ""}`;
 };
 
+const dateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+const startOfDayIso = (value: string) => new Date(`${value}T00:00:00`).toISOString();
+const endOfDayIso = (value: string) => new Date(`${value}T23:59:59.999`).toISOString();
+
 const getItemTotal = (item: any) => {
   const optionsTotal = (item.order_item_options || []).reduce(
     (sum: number, option: any) => sum + Number(option.extra_price || 0),
@@ -162,6 +166,8 @@ const Orders = () => {
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPeriod, setHistoryPeriod] = useState("7");
+  const [historyStartDate, setHistoryStartDate] = useState(() => dateInputValue(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)));
+  const [historyEndDate, setHistoryEndDate] = useState(() => dateInputValue(new Date()));
   const [historyStatus, setHistoryStatus] = useState("todos");
   const [historySearch, setHistorySearch] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
@@ -192,25 +198,40 @@ const Orders = () => {
   const loadHistory = useCallback(async () => {
     if (!store?.id) return;
     setHistoryLoading(true);
-    const days = Number(historyPeriod);
-    const fromDate = Number.isFinite(days)
-      ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const statuses = historyStatus === "todos" ? historyStatuses : [historyStatus];
+    try {
+      const statuses = historyStatus === "todos" ? historyStatuses : [historyStatus];
+      const today = dateInputValue(new Date());
+      const fromDate = historyPeriod === "custom"
+        ? startOfDayIso(historyStartDate)
+        : historyPeriod === "1"
+          ? startOfDayIso(today)
+          : new Date(Date.now() - Number(historyPeriod) * 24 * 60 * 60 * 1000).toISOString();
+      const toDate = historyPeriod === "custom" ? endOfDayIso(historyEndDate) : null;
 
-    const { data, error } = await backend
+      if (historyPeriod === "custom" && (!historyStartDate || !historyEndDate || fromDate > toDate!)) {
+        toast.error("Informe um intervalo valido para o historico.");
+        return;
+      }
+
+      let query = backend
       .from("orders")
       .select("*")
       .eq("store_id", store.id)
       .in("status", statuses)
-      .gte("created_at", fromDate)
-      .order("created_at", { ascending: false })
-      .limit(250);
+        .gte("created_at", fromDate);
 
-    if (error) toast.error(error.message);
-    setHistoryOrders(sortOrders(data ?? []));
-    setHistoryLoading(false);
-  }, [historyPeriod, historyStatus, store?.id]);
+      if (toDate) query = query.lte("created_at", toDate);
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(250);
+
+      if (error) toast.error(error.message);
+      setHistoryOrders(sortOrders(data ?? []));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyEndDate, historyPeriod, historyStartDate, historyStatus, store?.id]);
 
   useEffect(() => {
     if (historyOpen) void loadHistory();
@@ -218,7 +239,7 @@ const Orders = () => {
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [historyPeriod, historyStatus, historySearch]);
+  }, [historyEndDate, historyPeriod, historyStartDate, historyStatus, historySearch]);
 
   useEffect(() => {
     if (!store?.id) return;
@@ -626,6 +647,7 @@ const Orders = () => {
                 <SelectItem value="1">Hoje</SelectItem>
                 <SelectItem value="7">Ultimos 7 dias</SelectItem>
                 <SelectItem value="30">Ultimos 30 dias</SelectItem>
+                <SelectItem value="custom">Intervalo personalizado</SelectItem>
               </SelectContent>
             </Select>
             <Select value={historyStatus} onValueChange={setHistoryStatus}>
@@ -647,6 +669,23 @@ const Orders = () => {
               Atualizar
             </Button>
           </div>
+
+          {historyPeriod === "custom" && (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input
+                type="date"
+                value={historyStartDate}
+                onChange={(event) => setHistoryStartDate(event.target.value)}
+                aria-label="Data inicial do historico"
+              />
+              <Input
+                type="date"
+                value={historyEndDate}
+                onChange={(event) => setHistoryEndDate(event.target.value)}
+                aria-label="Data final do historico"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             {visibleHistory.map((order) => (

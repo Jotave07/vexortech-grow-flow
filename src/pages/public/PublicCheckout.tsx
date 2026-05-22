@@ -196,13 +196,16 @@ const PublicCheckout = () => {
     cty: string,
     st: string,
     coords: AddressCoordinates | null = customerCoordinates,
+    addressOverride: { street?: string; number?: string } = {},
   ) => {
     if (!store?.id || orderType !== "entrega") return;
+    const quoteStreet = addressOverride.street ?? street;
+    const quoteNumber = addressOverride.number ?? number;
     let resolvedCoordinates = coords;
-    if (!resolvedCoordinates && street && number && cty && st) {
+    if (!resolvedCoordinates && quoteStreet && quoteNumber && cty && st) {
       resolvedCoordinates = await geocodeAddressCoordinates({
-        street,
-        number,
+        street: quoteStreet,
+        number: quoteNumber,
         neighborhood: neigh,
         city: cty,
         state: st,
@@ -218,8 +221,8 @@ const PublicCheckout = () => {
       city: cty,
       state: st,
       subtotal,
-      street,
-      number,
+      street: quoteStreet,
+      number: quoteNumber,
       customerCoordinates: resolvedCoordinates,
       store,
       settings,
@@ -261,7 +264,10 @@ const PublicCheckout = () => {
       setLastResolvedCep(cleanCep);
       
       if (addr.localidade && addr.uf) {
-        await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf, coords);
+        await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf, coords, {
+          street: addr.logradouro || "",
+          number,
+        });
       }
       if (!silent) toast.success("Endereço localizado e frete atualizado.");
     } catch (e: any) {
@@ -269,7 +275,7 @@ const PublicCheckout = () => {
     } finally {
       setLoadingCep(false);
     }
-  }, [updateDeliveryQuote, zipCode]);
+  }, [number, updateDeliveryQuote, zipCode]);
 
   const handleCurrentLocation = async () => {
     setLoadingLocation(true);
@@ -491,6 +497,7 @@ const PublicCheckout = () => {
         id: checkout.orderId,
         store_id: store.id,
         public_token: checkout.publicToken,
+        order_number: checkout.orderNumber,
       };
 
       if (paymentMethod === "pix") {

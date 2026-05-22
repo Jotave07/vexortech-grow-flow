@@ -114,7 +114,6 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
     setSaving(true);
     const { error } = await backend.from("product_options" as any).insert({
       product_id: product.id,
-      store_id: storeId,
       name: newGroup.name.trim(),
       is_required: newGroup.is_required,
       min_choices: limits.min_choices,
@@ -135,7 +134,6 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
           .from("product_options" as any)
           .insert({
             product_id: product.id,
-            store_id: storeId,
             name: group.name,
             is_required: group.is_required,
             min_choices: group.min_choices,
@@ -151,7 +149,6 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
           const { error: itemsError } = await backend.from("product_option_items" as any).insert(
             group.items.map((item, itemIndex) => ({
               option_id: createdGroup.id,
-              store_id: storeId,
               name: item.name,
               extra_price: item.extra_price,
               sort_order: itemIndex,
@@ -203,7 +200,6 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
     if (price < 0) return toast.error("Preço inválido");
     const { error } = await backend.from("product_option_items" as any).insert({
       option_id: groupId,
-      store_id: storeId,
       name: draft.name.trim(),
       extra_price: price,
       sort_order: (items[groupId]?.length ?? 0),

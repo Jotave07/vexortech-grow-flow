@@ -6,6 +6,8 @@ import { createCheckoutOrderHandler } from "@/server/order.functions";
 import { quoteDeliveryHandler } from "@/server/delivery.service";
 import { updateOrderStatusHandler } from "@/server/order-status.service";
 import { syncOrderPaymentStatus } from "@/server/asaas.service";
+import { testPixGatewayConnection } from "@/server/payment-gateways";
+import { createSubscriptionCheckoutHandler } from "@/server/subscription.service";
 
 const errorResult = (message: string): BackendResult => ({ data: null, error: { message } });
 
@@ -22,12 +24,27 @@ export const invokeFunction = async (name: string, body: any, token?: string) =>
     if (name === "admin-delete-store") return adminDeleteStore(body, token);
     if (name === "quote-delivery") return { data: await quoteDeliveryHandler(body), error: null };
     if (name === "create-checkout-order") return createCheckoutOrderHandler(body, token);
+    if (name === "create-subscription-checkout") return { data: await createSubscriptionCheckoutHandler(body, token), error: null };
+    if (name === "test-payment-gateway") return testPaymentGateway(body, token);
     if (name === "update-order-status") return { data: await updateOrderStatusHandler(body, token), error: null };
     if (name === "sync-payment-status") return syncPaymentStatusForPanel(body, token);
     return errorResult(`Function nao implementada: ${name}`);
   } catch (error: any) {
     return errorResult(error?.message || "Erro ao executar function.");
   }
+};
+
+const testPaymentGateway = async (body: any, token?: string) => {
+  const actor = await getActor(token);
+  if (!actor) throw new Error("Nao autenticado.");
+  const storeId = String(body?.storeId || "");
+  if (!storeId) return errorResult("storeId obrigatorio.");
+  if (!actor.admin && !actor.ownedStoreIds.includes(storeId)) throw new Error("Acesso negado.");
+  const apiKey = String(body?.apiKey || "").trim();
+  if (!apiKey) return errorResult("Chave de API obrigatoria.");
+  const provider = String(body?.provider || "asaas");
+  const result = await testPixGatewayConnection(provider, apiKey);
+  return { data: result, error: null };
 };
 
 const syncPaymentStatusForPanel = async (body: any, token?: string) => {
@@ -55,7 +72,7 @@ const adminCreateStore = async (body: any, token?: string) => {
     document: String(body.document || "").replace(/\D/g, ""),
     account_type: "store_owner",
     role: "store_owner",
-  })) as BackendResult<LocalSession>;
+  }, { trustedRole: true })) as BackendResult<LocalSession>;
   if (created.error || !created.data?.user) return created;
 
   const user = created.data.user;

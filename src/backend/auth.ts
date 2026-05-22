@@ -5,6 +5,7 @@ import type { BackendError, BackendResult, LocalSession, LocalUser } from "@/int
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 const RESET_TTL_SECONDS = 60 * 30;
+const PLATFORM_ADMIN_ROLES = new Set(["admin", "super_admin"]);
 
 const base64Url = (input: Buffer | string) =>
   Buffer.from(input).toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
@@ -104,6 +105,32 @@ const errorResult = (message: string, code?: string): BackendResult => ({
   error: { message, code } satisfies BackendError,
 });
 
+const configuredAdminEmails = () =>
+  new Set(
+    String(process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+export const sanitizePublicSignupMetadata = (metadata: Record<string, unknown> = {}): Record<string, unknown> => ({
+  ...metadata,
+  account_type: "customer",
+  role: "customer",
+});
+
+export const resolveActorAdmin = (input: {
+  email?: string | null;
+  profileRole?: string | null;
+  profileStoreId?: string | null;
+  roleRows?: Array<{ role?: string | null; store_id?: string | null }>;
+}) => {
+  if (PLATFORM_ADMIN_ROLES.has(String(input.profileRole || "")) && !input.profileStoreId) return true;
+  if (input.roleRows?.some((row) => PLATFORM_ADMIN_ROLES.has(String(row.role || "")) && !row.store_id)) return true;
+  const email = String(input.email || "").trim().toLowerCase();
+  return Boolean(email && configuredAdminEmails().has(email));
+};
+
 export const getUserByToken = async (token?: string) => {
   const claims = verifyJwt(token);
   if (!claims?.sub) return null;
@@ -127,7 +154,12 @@ export const getActor = async (token?: string) => {
   const roles = new Set<string>();
   if (profileRows[0]?.role) roles.add(profileRows[0].role);
   for (const row of roleRows) if (row.role) roles.add(row.role);
-  const admin = roles.has("super_admin") || roles.has("admin") || user.email === "jvieira@vexortech.com.br";
+  const admin = resolveActorAdmin({
+    email: user.email,
+    profileRole: profileRows[0]?.role,
+    profileStoreId: profileRows[0]?.store_id,
+    roleRows,
+  });
   return {
     user,
     profile: profileRows[0] || null,
@@ -162,20 +194,26 @@ const ensureAuthSchema = async () => {
   `);
 };
 
-export const signUp = async (email: string, password: string, metadata: Record<string, unknown> = {}) => {
+export const signUp = async (
+  email: string,
+  password: string,
+  metadata: Record<string, unknown> = {},
+  options: { trustedRole?: boolean } = {},
+) => {
   await ensureAuthSchema();
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || password.length < 6) return errorResult("E-mail e senha de no minimo 6 caracteres sao obrigatorios.");
 
+  const safeMetadata = options.trustedRole ? metadata : sanitizePublicSignupMetadata(metadata);
   const encrypted = await hashPassword(password);
-  const role = String(metadata.role || metadata.account_type || "customer");
+  const role = String(safeMetadata.role || safeMetadata.account_type || "customer");
 
   try {
     const { rows } = await query(
       `INSERT INTO auth.users (email, encrypted_password, raw_user_meta_data)
        VALUES ($1, $2, $3::jsonb)
        RETURNING id, email, raw_user_meta_data, raw_app_meta_data, created_at, updated_at`,
-      [normalizedEmail, encrypted, JSON.stringify(metadata)],
+      [normalizedEmail, encrypted, JSON.stringify(safeMetadata)],
     );
     const user = userFromRow(rows[0]);
     await query(
@@ -185,8 +223,8 @@ export const signUp = async (email: string, password: string, metadata: Record<s
       [
         user.id,
         normalizedEmail,
-        metadata.full_name ? String(metadata.full_name) : null,
-        metadata.document ? String(metadata.document) : null,
+        safeMetadata.full_name ? String(safeMetadata.full_name) : null,
+        safeMetadata.document ? String(safeMetadata.document) : null,
         role,
       ],
     ).catch(() => null);
@@ -264,7 +302,9 @@ export const resetPasswordForEmail = async (email: string, redirectTo?: string) 
 const sendPasswordResetEmail = async (email: string, resetUrl: string) => {
   const host = process.env.SMTP_HOST?.trim();
   if (!host) {
-    console.warn(`[auth] SMTP_HOST ausente. Link de redefinicao para ${email}: ${resetUrl}`);
+    const message = "[auth] SMTP_HOST ausente. Redefinicao de senha nao enviada.";
+    if (process.env.NODE_ENV === "production") console.error(message);
+    else console.warn(message);
     return;
   }
   const transport = nodemailer.createTransport({

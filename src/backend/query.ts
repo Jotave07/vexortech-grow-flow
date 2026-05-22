@@ -418,6 +418,17 @@ const storeIdTables = new Set([
   "order_status_history",
 ]);
 
+const platformAdminRoles = new Set(["admin", "super_admin"]);
+const assignableNonAdminRoles = new Set(["customer", "store_owner", "store_manager", "store_attendant"]);
+const serverManagedTables = new Set([
+  "payments",
+  "order_items",
+  "order_item_options",
+  "order_status_history",
+  "subscriptions",
+]);
+const protectedStoreColumns = new Set(["owner_user_id", "plan_id", "is_active", "is_suspended"]);
+
 const accessSql = async (table: string, operation: QueryPayload["operation"], ctx: QueryContext, params: unknown[]) => {
   if (ctx.admin) return "TRUE";
   const actor = await getActor(ctx.token);
@@ -511,11 +522,53 @@ const accessSql = async (table: string, operation: QueryPayload["operation"], ct
 
 const normalizeRows = (values: unknown) => (Array.isArray(values) ? values : [values]).filter(Boolean) as Record<string, unknown>[];
 
-const ensureMutationRowsAllowed = async (table: string, values: unknown, ctx: QueryContext) => {
+const changedColumns = (values: unknown) =>
+  Array.from(new Set(normalizeRows(values).flatMap((row) => Object.keys(row))));
+
+const onlyColumns = (values: unknown, allowedColumns: string[]) => {
+  const columns = changedColumns(values);
+  return columns.length > 0 && columns.every((column) => allowedColumns.includes(column));
+};
+
+const assertAssignableRole = (role: unknown) => {
+  if (role === undefined || role === null) return;
+  const value = String(role);
+  if (platformAdminRoles.has(value)) {
+    throw new Error("Papel administrativo so pode ser alterado por admin da plataforma.");
+  }
+  if (!assignableNonAdminRoles.has(value)) {
+    throw new Error("Papel de usuario invalido.");
+  }
+};
+
+export const assertSafePatchForNonAdmin = (table: string, operation: QueryPayload["operation"], values: unknown) => {
+  if (table === "orders") {
+    if (operation === "update" && onlyColumns(values, ["is_seen"])) return;
+    throw new Error("Use funcoes seguras para alterar pedidos.");
+  }
+  if (serverManagedTables.has(table)) {
+    throw new Error("Use funcoes seguras para alterar dados financeiros e operacionais.");
+  }
+
+  const columns = changedColumns(values);
+  if (table === "stores" && operation !== "insert") {
+    const blocked = columns.find((column) => protectedStoreColumns.has(column));
+    if (blocked) throw new Error(`Campo de loja protegido: ${blocked}.`);
+  }
+
+  if (table === "profiles" || table === "user_roles") {
+    for (const row of normalizeRows(values)) assertAssignableRole(row.role);
+  }
+};
+
+const ensureMutationRowsAllowed = async (table: string, operation: QueryPayload["operation"], values: unknown, ctx: QueryContext) => {
   if (ctx.admin) return;
   const actor = await getActor(ctx.token);
   if (!actor) throw new Error("Nao autorizado.");
   if (actor.admin) return;
+  assertSafePatchForNonAdmin(table, operation, values);
+  if (operation !== "insert" && operation !== "upsert") return;
+
   const rows = normalizeRows(values);
   const ownsStore = (storeId: unknown) => !!storeId && actor.ownedStoreIds.includes(String(storeId));
 
@@ -736,13 +789,19 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
 
     let changedRows: any[] = [];
     if (payload.operation === "insert") {
-      await ensureMutationRowsAllowed(table, payload.values, ctx);
+      await ensureMutationRowsAllowed(table, payload.operation, payload.values, ctx);
       changedRows = await insertRows(table, payload.values);
     }
-    if (payload.operation === "update") changedRows = await updateRows(table, payload.values, whereSql, params);
-    if (payload.operation === "delete") changedRows = await deleteRows(table, whereSql, params);
+    if (payload.operation === "update") {
+      await ensureMutationRowsAllowed(table, payload.operation, payload.values, ctx);
+      changedRows = await updateRows(table, payload.values, whereSql, params);
+    }
+    if (payload.operation === "delete") {
+      await ensureMutationRowsAllowed(table, payload.operation, null, ctx);
+      changedRows = await deleteRows(table, whereSql, params);
+    }
     if (payload.operation === "upsert") {
-      await ensureMutationRowsAllowed(table, payload.values, ctx);
+      await ensureMutationRowsAllowed(table, payload.operation, payload.values, ctx);
       changedRows = await upsertRows(table, payload.values, payload.upsertOptions?.onConflict);
     }
 

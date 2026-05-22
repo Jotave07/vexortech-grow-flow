@@ -402,7 +402,7 @@ export const createCheckoutOrderForActor = async (
 
     const customer = await createOrUpdateCustomer(client, input, actor);
     const { rows: existingOrders } = await client.query(
-      `SELECT id, store_id, public_token, payment_method
+      `SELECT id, store_id, public_token, payment_method, order_number
        FROM public.orders
        WHERE idempotency_key = $1 AND store_id = $2 AND customer_id = $3
        LIMIT 1
@@ -436,7 +436,7 @@ export const createCheckoutOrderForActor = async (
          $20, $21, $22, $23, $24, $25, $26, $27,
          $28, $29, $30, $31, $32, $33
        )
-       RETURNING id, store_id, public_token, payment_method`,
+       RETURNING id, store_id, public_token, payment_method, order_number`,
       [
         input.storeId,
         customer.id,
@@ -513,6 +513,7 @@ export const createCheckoutOrderForActor = async (
   return {
     orderId: order.id,
     publicToken: order.public_token,
+    orderNumber: order.order_number,
     payment,
   };
 };
