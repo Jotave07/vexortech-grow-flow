@@ -35,13 +35,12 @@ const optionLimits = (group: any) => {
 
 type PaymentMethod = "pix" | "dinheiro" | "cartao_credito_entrega" | "cartao_debito_entrega";
 
-const hasPixGatewayConfigured = (settings: any) => {
+const hasStorePixKey = (settings: any) => {
   if (!settings) return false;
-  if (typeof settings.pix_gateway_configured === "boolean") return settings.pix_gateway_configured;
-  return Boolean(String(settings.payment_gateway_api_key || settings.asaas_api_key || "").trim());
+  return Boolean(String(settings.pix_key || "").trim());
 };
 
-const isPixCheckoutEnabled = (settings: any) => Boolean(settings?.accept_pix && hasPixGatewayConfigured(settings));
+const isPixCheckoutEnabled = (settings: any) => Boolean(settings?.accept_pix && hasStorePixKey(settings));
 
 const createBrowserIdempotencyKey = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -430,11 +429,16 @@ const PublicCheckout = () => {
     if (!getAvailablePaymentMethods(settings).includes(paymentMethod)) {
       return toast.error("Forma de pagamento indisponível.");
     }
-    if (onlyDigits(document).length < 11 && paymentMethod === "pix") return toast.error("CPF/CNPJ obrigatório para pagamento via PIX");
     
+    let quoteForCheckout = deliveryQuote;
     if (orderType === "entrega") {
-      if (!deliveryQuote?.available) return toast.error(deliveryQuote?.reason || "Entrega não disponível.");
+      if (onlyDigits(zipCode).length !== 8) return toast.error("Informe um CEP válido.");
       if (!street.trim() || !number.trim()) return toast.error("Endereço incompleto");
+      quoteForCheckout = await updateDeliveryQuote(onlyDigits(zipCode), neighborhood, city, state, customerCoordinates, {
+        street,
+        number,
+      }) ?? null;
+      if (!quoteForCheckout?.available) return toast.error(quoteForCheckout?.reason || "Entrega não disponível.");
     }
     if (paymentMethod === "dinheiro" && changeFor.trim() && parseMoneyInput(changeFor) < total) {
       return toast.error("Troco precisa ser maior ou igual ao total do pedido.");
@@ -473,7 +477,7 @@ const PublicCheckout = () => {
           neighborhood,
           city,
           state,
-          regionId: deliveryQuote?.region?.id || null,
+          regionId: quoteForCheckout?.region?.id || null,
           reference: reference.trim() || null,
           customerCoordinates,
         },
@@ -683,12 +687,12 @@ const PublicCheckout = () => {
           </div>
           <div className="space-y-4">
             <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-3">
-              {settings?.accept_pix && !hasPixGatewayConfigured(settings) && (
+              {settings?.accept_pix && !hasStorePixKey(settings) && (
                 <div className="relative flex items-start gap-3 border border-red-100 bg-red-50 p-4 text-red-700">
                   <AlertTriangle className="h-5 w-5 shrink-0" />
                   <div className="space-y-1">
                     <p className="text-xs font-black uppercase tracking-tight">PIX nao habilitado</p>
-                    <p className="text-[11px] font-bold uppercase tracking-tight">A loja ainda nao configurou um gateway para receber PIX online.</p>
+                    <p className="text-[11px] font-bold uppercase tracking-tight">A loja ainda nao cadastrou a chave Pix para receber pedidos.</p>
                   </div>
                 </div>
               )}
@@ -697,7 +701,7 @@ const PublicCheckout = () => {
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
-                    PIX (LIBERAÇÃO IMEDIATA)
+                    PIX (APROVACAO DA LOJA)
                   </Label>
                 </div>
               )}
@@ -756,6 +760,7 @@ const PublicCheckout = () => {
       </div>
 
       <Dialog open={showPixModal} onOpenChange={(open) => {
+        if (!open && !isPaid) return;
         if (!open && createdOrder?.public_token) {
           navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
         }
@@ -815,22 +820,16 @@ const PublicCheckout = () => {
             </Button>
 
             <p className="text-center text-[11px] font-bold text-muted-foreground leading-tight uppercase tracking-tight opacity-80 bg-muted p-4 border border-border">
-              Após o pagamento, o seu pedido será confirmado automaticamente.
+              Aguardando confirmacao do pagamento Pix. Apos o pagamento, aguarde a confirmacao da loja.
             </p>
 
             <div className="w-full pt-2">
               <Button 
                 variant="outline"
-                className="w-full h-14 border border-primary text-primary font-black uppercase tracking-tighter text-lg rounded-xl hover:bg-muted transition-all active:scale-95 shadow-panel"
-                onClick={() => {
-                  if (createdOrder?.public_token) {
-                    navigate(`/pedido/${createdOrder.public_token}`, { replace: true });
-                  } else {
-                    toast.error("Erro ao localizar token do pedido. Tente fechar e abrir novamente.");
-                  }
-                }}
+                disabled
+                className="w-full h-14 border border-primary text-primary font-black uppercase tracking-tighter text-sm rounded-xl hover:bg-muted transition-all active:scale-95 shadow-panel"
               >
-                Acompanhar Pedido
+                Aguardando confirmacao da loja
               </Button>
             </div>
           </>

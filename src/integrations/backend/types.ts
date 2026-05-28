@@ -569,8 +569,12 @@ export type Database = {
           number: string | null
           order_number: number
           out_for_delivery_at: string | null
+          paid_at: string | null
+          payment_approved_by: string | null
           payment_method: string | null
           payment_status: string | null
+          pix_payload: string | null
+          pix_qr_code: string | null
           preparation_started_at: string | null
           public_token: string | null
           ready_at: string | null
@@ -583,6 +587,7 @@ export type Database = {
           subtotal: number | null
           total: number
           updated_at: string | null
+          waiting_payment_since: string | null
           zip_code: string | null
         }
         Insert: {
@@ -624,8 +629,12 @@ export type Database = {
           number?: string | null
           order_number?: number
           out_for_delivery_at?: string | null
+          paid_at?: string | null
+          payment_approved_by?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          pix_payload?: string | null
+          pix_qr_code?: string | null
           preparation_started_at?: string | null
           public_token?: string | null
           ready_at?: string | null
@@ -638,6 +647,7 @@ export type Database = {
           subtotal?: number | null
           total: number
           updated_at?: string | null
+          waiting_payment_since?: string | null
           zip_code?: string | null
         }
         Update: {
@@ -679,8 +689,12 @@ export type Database = {
           number?: string | null
           order_number?: number
           out_for_delivery_at?: string | null
+          paid_at?: string | null
+          payment_approved_by?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          pix_payload?: string | null
+          pix_qr_code?: string | null
           preparation_started_at?: string | null
           public_token?: string | null
           ready_at?: string | null
@@ -693,6 +707,7 @@ export type Database = {
           subtotal?: number | null
           total?: number
           updated_at?: string | null
+          waiting_payment_since?: string | null
           zip_code?: string | null
         }
         Relationships: [
@@ -729,34 +744,46 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          approved_by: string | null
           asaas_id: string | null
           created_at: string | null
           external_id: string | null
           id: string
+          idempotency_key: string | null
+          last_error: string | null
           order_id: string | null
           paid_at: string | null
+          provider: string | null
           status: string
           store_id: string
         }
         Insert: {
           amount: number
+          approved_by?: string | null
           asaas_id?: string | null
           created_at?: string | null
           external_id?: string | null
           id?: string
+          idempotency_key?: string | null
+          last_error?: string | null
           order_id?: string | null
           paid_at?: string | null
+          provider?: string | null
           status: string
           store_id: string
         }
         Update: {
           amount?: number
+          approved_by?: string | null
           asaas_id?: string | null
           created_at?: string | null
           external_id?: string | null
           id?: string
+          idempotency_key?: string | null
+          last_error?: string | null
           order_id?: string | null
           paid_at?: string | null
+          provider?: string | null
           status?: string
           store_id?: string
         }
@@ -1118,6 +1145,7 @@ export type Database = {
           payment_gateway_api_key: string | null
           payment_gateway_config: Json | null
           payment_gateway_provider: string | null
+          payment_instructions: string | null
           payment_methods: Json | null
           pix_key: string | null
           pix_key_type: string | null
@@ -1155,6 +1183,7 @@ export type Database = {
           payment_gateway_api_key?: string | null
           payment_gateway_config?: Json | null
           payment_gateway_provider?: string | null
+          payment_instructions?: string | null
           payment_methods?: Json | null
           pix_key?: string | null
           pix_key_type?: string | null
@@ -1192,6 +1221,7 @@ export type Database = {
           payment_gateway_api_key?: string | null
           payment_gateway_config?: Json | null
           payment_gateway_provider?: string | null
+          payment_instructions?: string | null
           payment_methods?: Json | null
           pix_key?: string | null
           pix_key_type?: string | null
@@ -1223,6 +1253,7 @@ export type Database = {
           email: string | null
           font_family: string | null
           id: string
+          is_verified: boolean | null
           is_active: boolean | null
           is_suspended: boolean | null
           latitude: number | null
@@ -1241,7 +1272,10 @@ export type Database = {
           slug: string
           state: string | null
           status: string | null
+          store_type: string | null
           updated_at: string | null
+          verification_notes: string | null
+          verification_status: string | null
           whatsapp: string | null
           whatsapp_number: string | null
           zip_code: string | null
@@ -1259,6 +1293,7 @@ export type Database = {
           email?: string | null
           font_family?: string | null
           id?: string
+          is_verified?: boolean | null
           is_active?: boolean | null
           is_suspended?: boolean | null
           latitude?: number | null
@@ -1277,7 +1312,10 @@ export type Database = {
           slug: string
           state?: string | null
           status?: string | null
+          store_type?: string | null
           updated_at?: string | null
+          verification_notes?: string | null
+          verification_status?: string | null
           whatsapp?: string | null
           whatsapp_number?: string | null
           zip_code?: string | null
@@ -1295,6 +1333,7 @@ export type Database = {
           email?: string | null
           font_family?: string | null
           id?: string
+          is_verified?: boolean | null
           is_active?: boolean | null
           is_suspended?: boolean | null
           latitude?: number | null
@@ -1313,7 +1352,10 @@ export type Database = {
           slug?: string
           state?: string | null
           status?: string | null
+          store_type?: string | null
           updated_at?: string | null
+          verification_notes?: string | null
+          verification_status?: string | null
           whatsapp?: string | null
           whatsapp_number?: string | null
           zip_code?: string | null
@@ -1337,12 +1379,18 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          asaas_customer_id: string | null
           asaas_subscription_id: string | null
+          billing_type: string | null
+          canceled_at: string | null
+          cancellation_effective_at: string | null
           created_at: string | null
           current_period_end: string | null
           current_period_start: string | null
+          external_reference: string | null
           id: string
           last_payment_status: string | null
+          next_due_date: string | null
           plan_id: string | null
           provider: string | null
           status: string | null
@@ -1351,12 +1399,18 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
+          billing_type?: string | null
+          canceled_at?: string | null
+          cancellation_effective_at?: string | null
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
+          external_reference?: string | null
           id?: string
           last_payment_status?: string | null
+          next_due_date?: string | null
           plan_id?: string | null
           provider?: string | null
           status?: string | null
@@ -1365,12 +1419,18 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
+          billing_type?: string | null
+          canceled_at?: string | null
+          cancellation_effective_at?: string | null
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
+          external_reference?: string | null
           id?: string
           last_payment_status?: string | null
+          next_due_date?: string | null
           plan_id?: string | null
           provider?: string | null
           status?: string | null

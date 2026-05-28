@@ -18,7 +18,40 @@ export const executeRpc = async (name: string, args: Record<string, unknown> = {
     }
 
     if (name === "get_public_order") {
-      const { rows } = await query(`SELECT * FROM public.get_public_order($1::text)`, [args._token]);
+      const { rows } = await query(
+        `SELECT
+           o.id,
+           o.store_id,
+           o.order_number,
+           o.public_token,
+           o.status,
+           o.payment_status,
+           o.payment_method,
+           o.delivery_type,
+           o.subtotal,
+           o.delivery_fee,
+           o.discount_amount,
+           o.total,
+           o.change_for,
+           o.notes,
+           o.created_at,
+           o.delivery_address,
+           o.delivery_reference,
+           o.zip_code,
+           o.neighborhood,
+           o.city,
+           o.state,
+           COALESCE(s.public_name, s.name) AS store_name,
+           s.logo_url AS store_logo_url,
+           COALESCE(s.whatsapp, s.whatsapp_number, s.phone) AS store_whatsapp
+         FROM public.orders o
+         JOIN public.stores s ON s.id = o.store_id
+         WHERE $1::text IS NOT NULL
+           AND btrim($1::text) <> ''
+           AND o.public_token = $1::text
+         LIMIT 1`,
+        [args._token],
+      );
       return { data: rows, error: null };
     }
 

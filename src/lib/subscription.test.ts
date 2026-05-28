@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSubscriptionAccessState } from "./subscription";
+import { getPlanLimits, getSubscriptionAccessState, normalizePlan } from "./subscription";
 
 const activePlan = {
   id: "plan_1",
@@ -40,5 +40,43 @@ describe("subscription access state", () => {
         plan: activePlan,
       }),
     ).toBe("past_due");
+  });
+
+  it("keeps unknown paid plans within coherent default limits", () => {
+    const plan = normalizePlan({
+      id: "plan_custom",
+      slug: "plano-loja",
+      name: "Plano Loja",
+      price_monthly: 79,
+      allows_coupons: true,
+    });
+
+    expect(plan?.limits.products).toBe(120);
+    expect(plan?.limits.monthlyOrders).toBe(600);
+    expect(plan?.capabilities.coupons).toBe(true);
+  });
+
+  it("respects an explicit unlimited product limit from the plan catalog", () => {
+    const plan = normalizePlan({
+      id: "plan_unlimited",
+      slug: "premium",
+      name: "Premium",
+      price_monthly: 199,
+      max_products: null,
+    });
+
+    expect(plan?.limits.products).toBeNull();
+  });
+
+  it("does not recalculate limits from presets after a plan is already normalized", () => {
+    const plan = normalizePlan({
+      id: "plan_custom_limit",
+      slug: "basico",
+      name: "Basico personalizado",
+      price_monthly: 5,
+      max_products: null,
+    });
+
+    expect(getPlanLimits(plan).products).toBeNull();
   });
 });

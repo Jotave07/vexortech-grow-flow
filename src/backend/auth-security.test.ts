@@ -66,5 +66,8 @@ describe("backend authorization hardening", () => {
     expect(() => assertSafePatchForNonAdmin("stores", "update", { is_suspended: false })).toThrow(
       "Campo de loja protegido",
     );
+    expect(() => assertSafePatchForNonAdmin("stores", "update", { is_verified: true })).toThrow(
+      "Campo de loja protegido",
+    );
   });
 });

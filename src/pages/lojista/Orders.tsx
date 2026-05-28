@@ -26,7 +26,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatBRL, STATUS_LABELS, STATUS_COLORS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { formatBRL, STATUS_LABELS, STATUS_COLORS, PAYMENT_METHOD_LABELS, buildWhatsAppLink, formatDeliveryAddressLines } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,7 +44,7 @@ const OPERATIONAL_COLUMNS: OrderColumn[] = [
   {
     key: "aguardando_pagamento",
     label: "Aguardando PIX",
-    helper: "Só entra na cozinha quando o PIX confirmar.",
+    helper: "So entra na cozinha depois da aprovacao manual.",
     statuses: ["aguardando_pagamento"],
   },
   {
@@ -388,52 +388,31 @@ const Orders = () => {
   };
 
   const cancelOrder = async (orderId: string) => {
-    if (!confirm("Cancelar este pedido? Se o PIX ja estiver pago, o sistema tentara tratar o estorno no servidor.")) return;
+    if (!confirm("Cancelar este pedido?")) return;
 
     await updateStatus(orderId, "cancelado", "Cancelado pela loja");
   };
 
-  const syncSelectedPayment = async () => {
-    if (!selected) return;
+  const approvePixPayment = async (order: any) => {
+    if (!order) return;
+    if (!confirm("Confirmar que o pagamento Pix deste pedido foi recebido?")) return;
     setSyncing(true);
+    setUpdatingId(order.id);
     try {
-      const { data: res, error } = await backend.functions.invoke("sync-payment-status", {
-        body: { orderId: selected.id, storeId: store.id },
+      const { data: res, error } = await backend.functions.invoke("approve-manual-pix", {
+        body: { orderId: order.id, storeId: store.id },
       });
       if (error) throw error;
-      if (res.status === "paid") {
-        toast.success("Pagamento confirmado!");
-        await load();
-      } else {
-        toast.info("Pagamento ainda não identificado.");
+      toast.success(res?.alreadyPaid ? "Pagamento ja estava aprovado." : "Pagamento Pix aprovado.");
+      await load();
+      if (selected?.id === order.id) {
+        setSelected({ ...selected, ...(res?.order ?? {}), payment_status: "pago", status: res?.order?.status ?? "novo" });
       }
     } catch (error) {
-      toast.error("Erro ao verificar pagamento");
+      toast.error("Erro ao aprovar pagamento Pix");
     } finally {
       setSyncing(false);
-    }
-  };
-
-  const syncPendingPixPayments = async () => {
-    const pendingPixOrders = orders.filter((order) => order.status === "aguardando_pagamento" && order.payment_method === "pix");
-    if (!pendingPixOrders.length) {
-      toast.info("Nenhum PIX pendente para sincronizar.");
-      return;
-    }
-
-    setSyncing(true);
-    try {
-      await Promise.allSettled(
-        pendingPixOrders.map((order) => backend.functions.invoke("sync-payment-status", {
-          body: { orderId: order.id, storeId: store.id },
-        })),
-      );
-      await load();
-      toast.success("Pagamentos PIX sincronizados.");
-    } catch (error) {
-      toast.error("Erro ao sincronizar pagamentos PIX.");
-    } finally {
-      setSyncing(false);
+      setUpdatingId(null);
     }
   };
 
@@ -495,12 +474,6 @@ const Orders = () => {
               Sync {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </div>
           )}
-          {summary.waitingPayment > 0 && (
-            <Button variant="outline" size="sm" onClick={syncPendingPixPayments} disabled={syncing} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
-              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
-              Sincronizar PIX
-            </Button>
-          )}
           <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
             Historico
           </Button>
@@ -512,7 +485,7 @@ const Orders = () => {
 
       <div className="grid gap-3 md:grid-cols-5">
         <SummaryCard icon={Activity} label="Ativos" value={String(summary.active)} helper="Na fila agora" />
-        <SummaryCard icon={Wallet} label="PIX pendente" value={String(summary.waitingPayment)} helper="Aguardando gateway" />
+        <SummaryCard icon={Wallet} label="PIX pendente" value={String(summary.waitingPayment)} helper="Aguardando loja" />
         <SummaryCard icon={TimerReset} label="Atenção" value={String(summary.urgent)} helper="Mais de 25 min" tone={summary.urgent > 0 ? "warning" : "default"} />
         <SummaryCard icon={Truck} label="Rota/pronto" value={String(summary.route)} helper="Saída ou retirada" />
         <SummaryCard icon={CheckCircle2} label="Vendas" value={formatBRL(summary.completedRevenue)} helper="Pagas/concluídas" />
@@ -591,6 +564,17 @@ const Orders = () => {
                             </Badge>
                           </div>
 
+                          {order.delivery_type === "entrega" && (
+                            <div className="mb-3 flex gap-2 rounded-lg border border-border bg-muted/20 p-2 text-[10px] font-bold leading-snug text-muted-foreground">
+                              <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                              <div className="min-w-0">
+                                {formatDeliveryAddressLines(order).map((line) => (
+                                  <div key={line} className="break-words">{line}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-end justify-between gap-3">
                             <div>
                               <div className="text-[10px] font-bold uppercase text-muted-foreground">Total</div>
@@ -615,6 +599,20 @@ const Orders = () => {
                               }}
                             >
                               {updatingId === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : action.label}
+                            </Button>
+                          )}
+                          {order.status === "aguardando_pagamento" && order.payment_method === "pix" && (
+                            <Button
+                              size="sm"
+                              variant="hero"
+                              className="mt-4 h-9 w-full text-[10px] font-black uppercase tracking-widest"
+                              disabled={updatingId === order.id || syncing}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void approvePixPayment(order);
+                              }}
+                            >
+                              {updatingId === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirmar pagamento Pix"}
                             </Button>
                           )}
                         </Card>
@@ -694,6 +692,13 @@ const Orders = () => {
                 <div>
                   <div className="font-bold uppercase">{order.customer_name}</div>
                   <div className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString("pt-BR")}</div>
+                  {order.delivery_type === "entrega" && (
+                    <div className="mt-1 text-[10px] font-medium leading-snug text-muted-foreground">
+                      {formatDeliveryAddressLines(order).map((line) => (
+                        <div key={line}>{line}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Badge variant="outline" className={cn("w-fit rounded-full text-[10px] font-black uppercase", STATUS_COLORS[order.status] || "")}>
                   {STATUS_LABELS[order.status] || order.status}
@@ -743,12 +748,13 @@ const Orders = () => {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Phone className="h-3.5 w-3.5" /> {selected.customer_phone}
                     </div>
-                    {selected.delivery_address && (
+                    {selected.delivery_type === "entrega" && (
                       <div className="flex items-start gap-2 text-xs text-muted-foreground">
                         <MapPin className="mt-0.5 h-3.5 w-3.5" />
                         <div>
-                          <div>{selected.delivery_address}</div>
-                          {selected.zip_code && <div className="text-[10px]">CEP: {selected.zip_code} - {selected.neighborhood}, {selected.city}/{selected.state}</div>}
+                          {formatDeliveryAddressLines(selected).map((line) => (
+                            <div key={line} className="text-[10px] first:text-xs">{line}</div>
+                          ))}
                           {selected.delivery_reference && <div className="text-[10px] italic">Ref: {selected.delivery_reference}</div>}
                         </div>
                       </div>
@@ -811,10 +817,10 @@ const Orders = () => {
                         Receba no ato da entrega/retirada. Ao concluir o pedido, o pagamento será marcado como pago automaticamente.
                       </div>
                     )}
-                    {selected.status === "aguardando_pagamento" && (
-                      <Button variant="hero" size="sm" className="w-full" onClick={syncSelectedPayment} disabled={syncing}>
-                        {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        Verificar PIX
+                    {selected.status === "aguardando_pagamento" && selected.payment_method === "pix" && (
+                      <Button variant="hero" size="sm" className="w-full" onClick={() => approvePixPayment(selected)} disabled={syncing}>
+                        {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        Confirmar pagamento Pix
                       </Button>
                     )}
                   </div>

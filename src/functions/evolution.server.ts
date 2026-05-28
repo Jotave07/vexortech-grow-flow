@@ -7,9 +7,9 @@ const clean = (value?: string | null) => {
 };
 
 const getEvolutionConfig = () => ({
-  baseUrl: clean(process.env.EVOLUTION_API_URL).replace(/\/$/, ""),
+  baseUrl: (clean(process.env.EVOLUTION_API_URL) || "").replace(/\/$/, ""),
   apiKey: clean(process.env.EVOLUTION_API_KEY),
-  instance: clean(process.env.EVOLUTION_INSTANCE) || "hypedelivery",
+  instance: clean(process.env.EVOLUTION_INSTANCE),
   automationPhone: clean(process.env.EVOLUTION_AUTOMATION_PHONE),
   sendCustomerConfirmation:
     process.env.NODE_ENV === "production" ||
@@ -195,9 +195,16 @@ const fetchEvolutionInstance = async (baseUrl: string, apiKey: string, preferred
     const instances = Array.isArray(payload) ? payload : payload?.response || [];
 
     const normalizedPreferredPhone = preferredPhone ? normalizeBrazilianPhone(preferredPhone) : "";
+    const preferredInstanceName = String(preferredInstance || "").toLowerCase();
     const candidates = [preferredInstance, normalizedPreferredPhone, normalizedPreferredPhone ? `store-${normalizedPreferredPhone}` : ""]
       .filter(Boolean)
       .map((value) => String(value).toLowerCase());
+
+    const namedByInstance = preferredInstanceName
+      ? instances.find((item: any) => getInstanceName(item).toLowerCase() === preferredInstanceName)
+      : null;
+    if (namedByInstance && isEvolutionInstanceConnected(namedByInstance)) return getInstanceName(namedByInstance);
+    if (preferredInstance && !normalizedPreferredPhone) return preferredInstance;
 
     const named = instances.find((item: any) => {
       const name = getInstanceName(item).toLowerCase();
@@ -206,6 +213,8 @@ const fetchEvolutionInstance = async (baseUrl: string, apiKey: string, preferred
     });
 
     if (named && isEvolutionInstanceConnected(named)) return getInstanceName(named);
+    if (preferredInstance && namedByInstance) return preferredInstance;
+    if (preferredInstance && !named) return preferredInstance;
     if (normalizedPreferredPhone) return "";
 
     const connected = instances.find(isEvolutionInstanceConnected);

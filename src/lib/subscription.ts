@@ -41,6 +41,12 @@ export type NormalizedPlan = {
   capabilities: PlanCapabilities;
 };
 
+const isNormalizedPlan = (plan: unknown): plan is NormalizedPlan => {
+  if (!plan || typeof plan !== "object") return false;
+  const candidate = plan as Partial<NormalizedPlan>;
+  return Boolean(candidate.id && candidate.slug && candidate.name && candidate.limits && candidate.capabilities);
+};
+
 type PlanPreset = {
   limits: Partial<PlanLimits>;
   capabilities: Partial<PlanCapabilities>;
@@ -85,6 +91,44 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       internalUsers: false,
     },
   },
+  essencial: {
+    limits: {
+      products: 120,
+      monthlyOrders: 600,
+      stores: 1,
+      internalUsers: 2,
+    },
+    capabilities: {
+      coupons: true,
+      advancedReports: false,
+      customBranding: true,
+      customDomain: false,
+      advancedDelivery: true,
+      automations: false,
+      paymentIntegrations: false,
+      multiStore: false,
+      internalUsers: true,
+    },
+  },
+  pro: {
+    limits: {
+      products: 300,
+      monthlyOrders: 2000,
+      stores: 1,
+      internalUsers: 5,
+    },
+    capabilities: {
+      coupons: true,
+      advancedReports: true,
+      customBranding: true,
+      customDomain: false,
+      advancedDelivery: true,
+      automations: true,
+      paymentIntegrations: true,
+      multiStore: false,
+      internalUsers: true,
+    },
+  },
   profissional: {
     limits: {
       products: 300,
@@ -101,6 +145,25 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       automations: true,
       paymentIntegrations: true,
       multiStore: false,
+      internalUsers: true,
+    },
+  },
+  premium: {
+    limits: {
+      products: null,
+      monthlyOrders: null,
+      stores: 3,
+      internalUsers: 15,
+    },
+    capabilities: {
+      coupons: true,
+      advancedReports: true,
+      customBranding: true,
+      customDomain: true,
+      advancedDelivery: true,
+      automations: true,
+      paymentIntegrations: true,
+      multiStore: true,
       internalUsers: true,
     },
   },
@@ -126,8 +189,8 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
 };
 
 const DEFAULT_LIMITS: PlanLimits = {
-  products: null,
-  monthlyOrders: null,
+  products: 75,
+  monthlyOrders: 300,
   stores: 1,
   internalUsers: 1,
 };
@@ -178,16 +241,42 @@ const STATUS_TONES: Record<string, "default" | "secondary" | "destructive"> = {
   bloqueada: "destructive",
 };
 
-export const normalizePlan = (plan: Partial<PlanRecord> | null | undefined): NormalizedPlan | null => {
-  if (!plan?.id || !plan.slug || !plan.name) return null;
+const normalizeSlug = (value?: string | null) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
-  const preset = PLAN_PRESETS[plan.slug] ?? { limits: {}, capabilities: {} };
+const resolvePlanPreset = (plan: Partial<PlanRecord>): PlanPreset => {
+  const slug = normalizeSlug(plan.slug);
+  if (PLAN_PRESETS[slug]) return PLAN_PRESETS[slug];
+  if (slug.includes("white") || slug.includes("premium") || slug.includes("enterprise")) return PLAN_PRESETS.premium;
+  if (slug.includes("prof") || slug.includes("pro") || slug.includes("avanc")) return PLAN_PRESETS.profissional;
+  if (slug.includes("essencial") || slug.includes("intermedi")) return PLAN_PRESETS.essencial;
+  if (slug.includes("inic") || slug.includes("basic") || slug.includes("basico")) return PLAN_PRESETS.basico;
+
+  const price = Number(plan.price_monthly ?? 0);
+  if (price >= 299) return PLAN_PRESETS.premium;
+  if (price >= 119) return PLAN_PRESETS.profissional;
+  if (price >= 59) return PLAN_PRESETS.essencial;
+  return PLAN_PRESETS.basico;
+};
+
+export const normalizePlan = (plan: Partial<PlanRecord> | NormalizedPlan | null | undefined): NormalizedPlan | null => {
+  if (isNormalizedPlan(plan)) return plan;
+  if (!plan?.id || !plan.name) return null;
+
+  const preset = resolvePlanPreset(plan);
   const features = Array.isArray(plan.features) ? plan.features.filter((item): item is string => typeof item === "string") : [];
+  const hasProductsLimit = Object.prototype.hasOwnProperty.call(plan, "max_products");
+  const productsLimit = hasProductsLimit
+    ? (plan.max_products ?? null)
+    : (preset.limits.products ?? DEFAULT_LIMITS.products);
 
   const limits: PlanLimits = {
     ...DEFAULT_LIMITS,
     ...preset.limits,
-    products: plan.max_products ?? preset.limits.products ?? DEFAULT_LIMITS.products,
+    products: productsLimit,
   };
 
   const capabilities: PlanCapabilities = {
@@ -201,7 +290,7 @@ export const normalizePlan = (plan: Partial<PlanRecord> | null | undefined): Nor
 
   return {
     id: plan.id,
-    slug: plan.slug,
+    slug: plan.slug || normalizeSlug(plan.name),
     name: plan.name,
     description: plan.description ?? null,
     priceMonthly: Number(plan.price_monthly ?? 0),
@@ -211,9 +300,10 @@ export const normalizePlan = (plan: Partial<PlanRecord> | null | undefined): Nor
   };
 };
 
-export const getPlanLimits = (plan: Partial<PlanRecord> | null | undefined) => normalizePlan(plan)?.limits ?? DEFAULT_LIMITS;
+export const getPlanLimits = (plan: Partial<PlanRecord> | NormalizedPlan | null | undefined) =>
+  normalizePlan(plan)?.limits ?? DEFAULT_LIMITS;
 
-export const canUseFeature = (plan: Partial<PlanRecord> | null | undefined, feature: SubscriptionFeature) =>
+export const canUseFeature = (plan: Partial<PlanRecord> | NormalizedPlan | null | undefined, feature: SubscriptionFeature) =>
   normalizePlan(plan)?.capabilities[feature] ?? false;
 
 export const hasReachedLimit = (currentUsage: number, planLimit: number | null | undefined) =>

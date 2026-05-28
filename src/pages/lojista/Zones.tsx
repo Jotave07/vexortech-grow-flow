@@ -14,6 +14,8 @@ import { formatBRL } from "@/lib/format";
 import { DeliveryRegion } from "@/types/delivery";
 import { isValidCep, normalizeCep, formatCep } from "@/utils/zipCode";
 import { fetchAddressByCep } from "@/services/cep/viacepService";
+import { calculateDeliveryQuote } from "@/services/delivery/deliveryQuoteService";
+import type { AddressCoordinates } from "@/services/viacep";
 
 type TestAddress = {
   cep: string;
@@ -22,7 +24,19 @@ type TestAddress = {
   neighborhood: string;
   city: string;
   state: string;
+  customerCoordinates?: AddressCoordinates | null;
 };
+
+const TEST_SUBTOTAL = 100;
+
+const readQuoteDistanceKm = (quote: any) => {
+  const value = quote?.distanceKm ?? quote?.distance_km;
+  const distance = Number(value);
+  return Number.isFinite(distance) ? distance : null;
+};
+
+const formatQuoteDistance = (distanceKm: number | null) =>
+  distanceKm === null ? "calculando pelo CEP" : `${distanceKm.toFixed(1).replace(".", ",")} km`;
 
 const Zones = () => {
   const { store } = useOutletContext<{ store: any }>();
@@ -59,12 +73,13 @@ const Zones = () => {
     street: "",
     number: "",
     neighborhood: "",
-    city: store?.city || "",
-    state: store?.state || "",
+    city: "",
+    state: "",
+    customerCoordinates: null,
   });
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
-  const [lastAutoTestCep, setLastAutoTestCep] = useState("");
+  const [lastAutoTestKey, setLastAutoTestKey] = useState("");
 
   const load = useCallback(async () => {
     if (!store?.id) return;
@@ -165,27 +180,26 @@ const Zones = () => {
   };
 
   const quoteTestAddress = useCallback(async (address: TestAddress) => {
-    const { data, error } = await backend.functions.invoke("quote-delivery", {
-      body: {
-        storeId: store.id,
-        subtotal: 100,
-        address: {
-          cep: normalizeCep(address.cep),
-          street: address.street,
-          number: address.number,
-          neighborhood: address.neighborhood,
-          city: address.city,
-          state: address.state,
-        },
-      },
+    const quote = await calculateDeliveryQuote({
+      storeId: store.id,
+      subtotal: TEST_SUBTOTAL,
+      cep: normalizeCep(address.cep),
+      street: address.street,
+      number: address.number,
+      neighborhood: address.neighborhood,
+      city: address.city,
+      state: address.state,
+      customerCoordinates: address.customerCoordinates || null,
     });
-    setTestResult(error ? { available: false, reason: error.message } : data);
+    setTestResult(quote);
   }, [store.id]);
 
   const resolveCepForTest = useCallback(async (address: TestAddress) => {
     const cep = normalizeCep(address.cep);
     if (!cep || !isValidCep(cep)) return address;
     const resolved = await fetchAddressByCep(cep);
+    const lat = Number(resolved.lat);
+    const lng = Number(resolved.lng);
     return {
       ...address,
       cep: normalizeCep(resolved.cep || cep),
@@ -193,15 +207,12 @@ const Zones = () => {
       neighborhood: (resolved.bairro || address.neighborhood).toUpperCase(),
       city: (resolved.localidade || address.city).toUpperCase(),
       state: (resolved.uf || address.state).toUpperCase(),
+      customerCoordinates: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
     };
   }, []);
 
   const runTest = async () => {
-    if (testAddress.cep && !isValidCep(testAddress.cep)) return toast.error("CEP invalido");
-    if (!testAddress.cep && (!testAddress.city.trim() || !testAddress.state.trim())) return toast.error("Informe cidade e UF");
-    if (!testAddress.cep && (!testAddress.street.trim() || !testAddress.number.trim())) {
-      return toast.error("Informe CEP ou rua e numero");
-    }
+    if (!isValidCep(testAddress.cep)) return toast.error("Informe um CEP valido");
     setTesting(true);
     try {
       const resolvedAddress = await resolveCepForTest(testAddress);
@@ -216,17 +227,18 @@ const Zones = () => {
 
   useEffect(() => {
     const cep = normalizeCep(testAddress.cep);
-    if (!store?.id || cep.length !== 8 || !isValidCep(cep) || cep === lastAutoTestCep) return;
+    const autoTestKey = cep;
+    if (!store?.id || cep.length !== 8 || !isValidCep(cep) || autoTestKey === lastAutoTestKey) return;
 
     const timer = window.setTimeout(async () => {
       setTesting(true);
       try {
         const resolvedAddress = await resolveCepForTest(testAddress);
         setTestAddress(resolvedAddress);
-        setLastAutoTestCep(cep);
+        setLastAutoTestKey(autoTestKey);
         await quoteTestAddress(resolvedAddress);
       } catch (err: any) {
-        setLastAutoTestCep(cep);
+        setLastAutoTestKey(autoTestKey);
         setTestResult({ available: false, reason: err.message || "CEP invalido" });
       } finally {
         setTesting(false);
@@ -234,7 +246,7 @@ const Zones = () => {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [lastAutoTestCep, quoteTestAddress, resolveCepForTest, store?.id, testAddress]);
+  }, [lastAutoTestKey, quoteTestAddress, resolveCepForTest, store?.id, testAddress]);
 
   return (
     <div className="space-y-6">
@@ -305,32 +317,32 @@ const Zones = () => {
               <div className="grid grid-cols-1 gap-3">
                 <div>
                   <Label>CEP</Label>
-                  <Input placeholder="00000-000" value={testAddress.cep} onChange={e => setTestAddress({ ...testAddress, cep: e.target.value })} />
+                  <Input
+                    placeholder="00000-000"
+                    inputMode="numeric"
+                    value={testAddress.cep}
+                    onChange={e => {
+                      setTestAddress({
+                        cep: e.target.value,
+                        street: "",
+                        number: "",
+                        neighborhood: "",
+                        city: "",
+                        state: "",
+                        customerCoordinates: null,
+                      });
+                      setTestResult(null);
+                      setLastAutoTestKey("");
+                    }}
+                  />
                 </div>
-                <div className="grid grid-cols-[1fr_90px] gap-2">
-                  <div>
-                    <Label>Rua</Label>
-                    <Input value={testAddress.street} onChange={e => setTestAddress({ ...testAddress, street: e.target.value.toUpperCase() })} />
+                {(testAddress.street || testAddress.neighborhood || testAddress.city || testAddress.state) && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs font-medium leading-relaxed text-muted-foreground">
+                    {testAddress.street && <div>{testAddress.street}</div>}
+                    {testAddress.neighborhood && <div>Bairro: {testAddress.neighborhood}</div>}
+                    {(testAddress.city || testAddress.state) && <div>{[testAddress.city, testAddress.state].filter(Boolean).join("/")}</div>}
                   </div>
-                  <div>
-                    <Label>Numero</Label>
-                    <Input value={testAddress.number} onChange={e => setTestAddress({ ...testAddress, number: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <Label>Bairro</Label>
-                  <Input value={testAddress.neighborhood} onChange={e => setTestAddress({ ...testAddress, neighborhood: e.target.value.toUpperCase() })} />
-                </div>
-                <div className="grid grid-cols-[1fr_70px] gap-2">
-                  <div>
-                    <Label>Cidade</Label>
-                    <Input value={testAddress.city} onChange={e => setTestAddress({ ...testAddress, city: e.target.value.toUpperCase() })} />
-                  </div>
-                  <div>
-                    <Label>UF</Label>
-                    <Input maxLength={2} value={testAddress.state} onChange={e => setTestAddress({ ...testAddress, state: e.target.value.toUpperCase() })} />
-                  </div>
-                </div>
+                )}
                 <Button size="sm" onClick={runTest} disabled={testing}>
                   {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar frete"}
                 </Button>
@@ -345,7 +357,7 @@ const Zones = () => {
                       </div>
                       <div className="text-sm text-green-700">
                         Região: <strong>{testResult.regionName || testResult.region?.name || testResult.region?.neighborhood}</strong><br/>
-                        Distância: <strong>{testResult.distanceKm ? `${Number(testResult.distanceKm).toFixed(1).replace(".", ",")} km` : "n/d"}</strong><br/>
+                        Distância: <strong>{formatQuoteDistance(readQuoteDistanceKm(testResult))}</strong><br/>
                         Taxa: <strong>{formatBRL(testResult.fee)}</strong><br/>
                         Previsão: <strong>{testResult.estimatedMin || testResult.estimated_min}-{testResult.estimatedMax || testResult.estimated_max} min</strong>
                       </div>

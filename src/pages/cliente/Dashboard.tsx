@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut, Search } from "lucide-react";
-import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone, formatDoc } from "@/lib/format";
+import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut, Search, ShieldCheck } from "lucide-react";
+import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone, formatDoc, formatDeliveryAddressLines } from "@/lib/format";
 import { toast } from "sonner";
+import { getUserProfileVerification } from "@/lib/profile-verification";
 
 const CustomerDashboard = () => {
   const { user, profile, loading: authLoading, refreshProfile, signOut } = useAuth();
@@ -42,6 +43,7 @@ const CustomerDashboard = () => {
     profile?.neighborhood && 
     profile?.city && 
     profile?.state;
+  const profileVerification = getUserProfileVerification(profile, user);
 
   useEffect(() => {
     if (authLoading) return;
@@ -234,7 +236,11 @@ const CustomerDashboard = () => {
                       <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
                         <MapPin className="h-3 w-3" /> Endereço de entrega
                       </div>
-                      <p className="font-medium text-xs leading-relaxed">{order.delivery_address || 'Retirada no local'}</p>
+                      <div className="space-y-0.5 font-medium text-xs leading-relaxed">
+                        {formatDeliveryAddressLines(order).map((line) => (
+                          <p key={line}>{line}</p>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
@@ -259,6 +265,30 @@ const CustomerDashboard = () => {
           </TabsContent>
 
           <TabsContent value="perfil" className="space-y-6">
+            <Card className="p-6 border border-border rounded-xl bg-white shadow-elegant">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/15 p-3">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black uppercase tracking-tight">{profileVerification.label}</h2>
+                    <p className="text-sm text-muted-foreground">{profileVerification.detail}</p>
+                  </div>
+                </div>
+                <Badge className="w-fit rounded-full bg-primary px-3 py-1 text-primary-foreground">
+                  {profileVerification.score}% completo
+                </Badge>
+              </div>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                {profileVerification.checks.map((check) => (
+                  <div key={check.key} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                    <span>{check.label}</span>
+                    <Badge variant={check.ok ? "default" : "secondary"}>{check.ok ? "OK" : "Pendente"}</Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
             <Card className="p-8 border border-border rounded-xl bg-white shadow-elegant">
               <h2 className="text-xl font-black uppercase tracking-tight mb-6 italic border-b border-border pb-2">Informações Pessoais</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

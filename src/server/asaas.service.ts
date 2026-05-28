@@ -1,97 +1,61 @@
 import type pg from "pg";
+import { getActor } from "@/backend/auth";
 import { query, withTransaction } from "@/backend/db";
 import { publishRealtime } from "@/backend/realtime";
 import { sendOrderStatusNotification } from "@/functions/evolution.server";
-import {
-  pixPaymentGateways,
-  resolvePixGatewayConfig,
-  type PixPaymentGateway,
-} from "./payment-gateways";
+import { createPixCopyPastePayload } from "./pix";
 
 type DbClient = Pick<pg.PoolClient, "query">;
 
 type PaymentDeps = {
   withTransaction: typeof withTransaction;
   query: typeof query;
-  gateways: Record<string, PixPaymentGateway>;
   publishRealtime: typeof publishRealtime;
   notifyStatus: typeof sendOrderStatusNotification;
+  getActor: typeof getActor;
 };
 
 const defaultDeps: PaymentDeps = {
   withTransaction,
   query,
-  gateways: pixPaymentGateways,
   publishRealtime,
   notifyStatus: sendOrderStatusNotification,
+  getActor,
 };
 
-const paidStatuses = new Set(["pago"]);
-const reusableStatuses = new Set(["payment_creating", "criando", "pendente", "pago"]);
+const paidStatuses = new Set(["pago", "paid"]);
+const blockedOrderStatuses = new Set(["cancelado", "cancelled", "finalizado", "delivered", "entregue"]);
 
-const todayIsoDate = () => new Date().toISOString().split("T")[0];
-
-const errorDescription = (value: any, fallback = "Falha ao processar pagamento.") =>
-  String(value?.errors?.[0]?.description || value?.message || fallback);
-
-const updatePaymentFailure = async (
-  orderId: string,
-  message: string,
-  deps: PaymentDeps,
-) => {
-  await deps.query(
-    `UPDATE public.payments
-     SET status = 'falhou', last_error = $2, updated_at = now()
-     WHERE order_id = $1`,
-    [orderId, message.slice(0, 1000)],
-  ).catch(() => null);
-};
-
-const fetchQrCode = async (
-  gatewayConfig: NonNullable<ReturnType<typeof resolvePixGatewayConfig>>,
-  paymentId: string,
-) => {
-  const qrCode = await gatewayConfig.gateway.getPixQrCode(gatewayConfig, paymentId);
-  if (qrCode?.errors) {
-    return {
-      paymentId,
-      pixCode: null,
-      qrCodeUrl: null,
-      invoiceUrl: null,
-      status: "pendente",
-      error: errorDescription(qrCode, "Pagamento criado, mas o QR Code ainda nao esta disponivel."),
-    };
-  }
-
-  return {
-    paymentId,
-    pixCode: qrCode?.payload || null,
-    qrCodeUrl: qrCode?.encodedImage || null,
-    invoiceUrl: null,
-    status: "pendente",
-    error: null,
-  };
-};
-
-const reserveLocalPayment = async (
+const reserveManualPixPayment = async (
   client: DbClient,
   input: { orderId: string; storeId: string; attemptKey?: string; publicToken?: string },
 ) => {
-  await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`payment:${input.orderId}`]);
+  await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`manual-pix:${input.orderId}`]);
 
   const { rows: orders } = await client.query(
-    `SELECT o.*, ss.asaas_api_key, ss.payment_gateway_provider, ss.payment_gateway_api_key, ss.payment_gateway_config
+    `SELECT o.*, ss.pix_key, ss.pix_key_type, ss.payment_instructions, st.name AS store_name, st.city AS store_city
      FROM public.orders o
      JOIN public.store_settings ss ON ss.store_id = o.store_id
+     JOIN public.stores st ON st.id = o.store_id
      WHERE o.id = $1
        AND o.store_id = $2
        AND ($3::text IS NULL OR o.public_token = $3::text)
      FOR UPDATE OF o`,
     [input.orderId, input.storeId, input.publicToken || null],
   );
+
   const order = orders[0];
   if (!order) throw new Error("Pedido nao encontrado.");
   if (order.payment_method !== "pix") throw new Error("Pedido nao usa pagamento PIX.");
+  if (!String(order.pix_key || "").trim()) throw new Error("Loja nao cadastrou a chave Pix para receber pedidos.");
+
+  const pixPayload = order.pix_payload || createPixCopyPastePayload({
+    pixKey: order.pix_key,
+    amount: Number(order.total || 0),
+    merchantName: order.store_name || "Hype Delivery",
+    merchantCity: order.store_city || "BRASIL",
+    txid: String(order.order_number || order.id).replace(/\W/g, "").slice(0, 25) || "PEDIDO",
+  });
 
   const { rows: paymentRows } = await client.query(
     `SELECT *
@@ -100,215 +64,206 @@ const reserveLocalPayment = async (
      FOR UPDATE`,
     [input.orderId],
   );
+
   const existingPayment = paymentRows[0];
-  const externalId = existingPayment?.external_id || existingPayment?.asaas_id;
+  const idempotencyKey = input.attemptKey || `order:${input.orderId}:manual-pix`;
 
-  if (externalId && reusableStatuses.has(String(existingPayment.status))) {
-    return { order, payment: existingPayment, externalId, shouldCreate: false };
-  }
-
-  const idempotencyKey = input.attemptKey || `order:${input.orderId}:pix`;
-  const params = [
-    input.orderId,
-    input.storeId,
-    Number(order.total || 0),
-    idempotencyKey,
-  ];
-
+  let payment = existingPayment;
   if (existingPayment) {
     const { rows } = await client.query(
       `UPDATE public.payments
-       SET amount = $3, status = 'payment_creating', idempotency_key = $4, last_error = NULL, updated_at = now()
+       SET amount = $3,
+           provider = 'manual_pix',
+           status = CASE WHEN status IN ('pago', 'paid') THEN status ELSE 'pendente' END,
+           idempotency_key = $4,
+           last_error = NULL,
+           updated_at = now()
        WHERE id = $5
        RETURNING *`,
-      [...params, existingPayment.id],
+      [input.orderId, input.storeId, Number(order.total || 0), idempotencyKey, existingPayment.id],
     );
-    return { order, payment: rows[0], externalId: null, shouldCreate: true };
+    payment = rows[0];
+  } else {
+    const { rows } = await client.query(
+      `INSERT INTO public.payments (order_id, store_id, amount, provider, status, idempotency_key)
+       VALUES ($1, $2, $3, 'manual_pix', 'pendente', $4)
+       RETURNING *`,
+      [input.orderId, input.storeId, Number(order.total || 0), idempotencyKey],
+    );
+    payment = rows[0];
   }
 
-  const { rows } = await client.query(
-    `INSERT INTO public.payments (order_id, store_id, amount, status, idempotency_key)
-     VALUES ($1, $2, $3, 'payment_creating', $4)
+  const { rows: updatedOrders } = await client.query(
+    `UPDATE public.orders
+     SET payment_status = CASE WHEN payment_status IN ('pago', 'paid') THEN payment_status ELSE 'pendente' END,
+         status = CASE WHEN payment_status IN ('pago', 'paid') THEN status ELSE 'aguardando_pagamento' END,
+         pix_payload = $3,
+         pix_qr_code = NULL,
+         waiting_payment_since = COALESCE(waiting_payment_since, now()),
+         updated_at = now()
+     WHERE id = $1 AND store_id = $2
      RETURNING *`,
-    params,
+    [input.orderId, input.storeId, pixPayload],
   );
-  return { order, payment: rows[0], externalId: null, shouldCreate: true };
+
+  return { order: updatedOrders[0] || order, payment, pixPayload };
 };
 
 export const createOrderPaymentForOrder = async (
   input: { orderId: string; storeId: string; attemptKey?: string; publicToken?: string },
   deps: PaymentDeps = defaultDeps,
 ) => {
-  const reservation = await deps.withTransaction((client) => reserveLocalPayment(client, input));
-  const gatewayConfig = resolvePixGatewayConfig(reservation.order, deps.gateways);
+  const reservation = await deps.withTransaction((client) => reserveManualPixPayment(client, input));
 
-  if (!gatewayConfig) {
-    const message = "Loja nao configurou um gateway de pagamento para PIX.";
-    await updatePaymentFailure(input.orderId, message, deps);
-    throw new Error(message);
-  }
-
-  if (reservation.externalId) {
-    return fetchQrCode(gatewayConfig, reservation.externalId);
-  }
-
-  const remoteExisting = await gatewayConfig.gateway.findPaymentByExternalReference(gatewayConfig, input.orderId);
-  const remotePayment = !remoteExisting?.errors ? remoteExisting?.data?.[0] : null;
-  if (remotePayment?.id) {
-    await deps.query(
-      `UPDATE public.payments
-       SET external_id = $2, asaas_id = $2, provider = $3, status = $4, last_error = NULL, updated_at = now()
-       WHERE order_id = $1`,
-      [input.orderId, remotePayment.id, gatewayConfig.provider, gatewayConfig.gateway.mapPaymentStatus(remotePayment.status)],
-    );
-    return fetchQrCode(gatewayConfig, remotePayment.id);
-  }
-
-  const customer = await gatewayConfig.gateway.createCustomer(
-    gatewayConfig,
-    {
-      name: reservation.order.customer_name || "Cliente",
-      email: reservation.order.customer_email || "cliente@sememail.com.br",
-      cpfCnpj: reservation.order.customer_document || "",
-      mobilePhone: reservation.order.customer_phone || undefined,
-    },
-  );
-
-  if (customer?.errors || !customer?.id) {
-    const message = `Erro do gateway (cliente): ${errorDescription(customer)}`;
-    await updatePaymentFailure(input.orderId, message, deps);
-    throw new Error(message);
-  }
-
-  const idempotencyKey = input.attemptKey || `order:${input.orderId}:pix`;
-  const payment = await gatewayConfig.gateway.createPixPayment(
-    gatewayConfig,
-    {
-      customer: customer.id,
-      value: Number(reservation.order.total),
-      dueDate: todayIsoDate(),
-      description: `Pedido #${reservation.order.order_number} - ${reservation.order.customer_name}`,
-      externalReference: reservation.order.id,
-    },
-    { idempotencyKey },
-  );
-
-  if (payment?.errors || !payment?.id) {
-    const message = `Erro do gateway da loja: ${errorDescription(payment)}`;
-    await updatePaymentFailure(input.orderId, message, deps);
-    throw new Error(message);
-  }
-
-  await deps.query(
-    `UPDATE public.payments
-     SET external_id = $2, asaas_id = $2, provider = $3, status = 'pendente', last_error = NULL, updated_at = now()
-     WHERE order_id = $1`,
-    [input.orderId, payment.id, gatewayConfig.provider],
-  );
+  deps.publishRealtime({ schema: "public", table: "orders", eventType: "UPDATE", new: reservation.order, old: null });
+  deps.publishRealtime({ schema: "public", table: "payments", eventType: "UPDATE", new: reservation.payment, old: null });
 
   return {
-    ...(await fetchQrCode(gatewayConfig, payment.id)),
-    invoiceUrl: payment.invoiceUrl || null,
+    paymentId: reservation.payment.id,
+    pixCode: reservation.pixPayload,
+    qrCodeUrl: reservation.order.pix_qr_code || null,
+    invoiceUrl: null,
+    status: paidStatuses.has(String(reservation.payment.status)) ? "paid" : "pending",
+    manual: true,
+    instructions: reservation.order.payment_instructions || "Apos o pagamento, aguarde a confirmacao da loja.",
   };
 };
 
 export const getOrderPaymentInfoForOrder = async (
   input: { orderId: string; storeId: string; publicToken?: string },
   deps: PaymentDeps = defaultDeps,
-) => {
-  return createOrderPaymentForOrder(input, deps);
-};
+) => createOrderPaymentForOrder(input, deps);
 
 export const syncOrderPaymentStatus = async (
   input: { orderId: string; storeId: string; publicToken?: string },
   deps: PaymentDeps = defaultDeps,
 ) => {
-  const { rows: contextRows } = await deps.query(
-    `SELECT p.*, ss.asaas_api_key, ss.payment_gateway_provider, ss.payment_gateway_api_key,
-            ss.payment_gateway_config, o.total AS order_total
-     FROM public.payments p
-     JOIN public.store_settings ss ON ss.store_id = p.store_id
-     JOIN public.orders o ON o.id = p.order_id
-     WHERE p.order_id = $1 AND p.store_id = $2
+  const { rows } = await deps.query(
+    `SELECT o.id, o.status, o.payment_status, o.paid_at, p.status AS payment_row_status
+     FROM public.orders o
+     LEFT JOIN public.payments p ON p.order_id = o.id
+     WHERE o.id = $1
+       AND o.store_id = $2
        AND ($3::text IS NULL OR o.public_token = $3::text)
      LIMIT 1`,
     [input.orderId, input.storeId, input.publicToken || null],
   );
-  const payment = contextRows[0];
-  const gatewayConfig = resolvePixGatewayConfig(payment, deps.gateways);
-  if (!gatewayConfig) return { status: "pending", message: "Gateway de pagamento nao configurado" };
-  const externalId = payment.external_id || payment.asaas_id;
-  if (!externalId) return { status: "pending", message: "Pagamento nao encontrado" };
-  if (paidStatuses.has(String(payment.status))) return { status: "paid" };
-
-  const gatewayPayment = await gatewayConfig.gateway.getPayment(gatewayConfig, externalId);
-  if (gatewayPayment?.errors) {
-    return { status: "pending", message: errorDescription(gatewayPayment), gatewayStatus: null };
+  const row = rows[0];
+  if (!row) return { status: "pending", message: "Pedido nao encontrado." };
+  if (paidStatuses.has(String(row.payment_status)) || paidStatuses.has(String(row.payment_row_status))) {
+    return { status: "paid", orderStatus: row.status, paidAt: row.paid_at };
   }
+  return {
+    status: "pending",
+    orderStatus: row.status,
+    manual: true,
+    message: "Aguardando confirmacao manual da loja.",
+  };
+};
 
-  const mappedStatus = gatewayConfig.gateway.mapPaymentStatus(gatewayPayment.status);
-  if (mappedStatus === "pago") {
-    const expected = Number(payment.order_total || payment.amount || 0);
-    const received = Number(gatewayPayment.value);
-    if (!Number.isFinite(received) || Math.abs(received - expected) > 0.01) {
-      await deps.query(
-        `UPDATE public.payments
-         SET last_error = $2, updated_at = now()
-         WHERE id = $1`,
-        [payment.id, `Valor divergente no sync do gateway. Esperado ${expected}, recebido ${gatewayPayment.value ?? "ausente"}`],
-      );
-      return { status: "pending", message: "Valor do pagamento divergente", gatewayStatus: gatewayPayment.status };
-    }
-  }
-  if (mappedStatus !== "pago") {
-    await deps.query(
-      `UPDATE public.payments SET status = $2, updated_at = now() WHERE id = $1`,
-      [payment.id, mappedStatus],
-    ).catch(() => null);
-    return { status: "pending", gatewayStatus: gatewayPayment.status };
-  }
+export const approveManualPixPayment = async (
+  input: { orderId: string; storeId: string },
+  token?: string,
+  deps: PaymentDeps = defaultDeps,
+) => {
+  const actor = await deps.getActor(token);
+  if (!actor) throw new Error("Nao autenticado.");
+  if (!actor.admin && !actor.ownedStoreIds.includes(input.storeId)) throw new Error("Acesso negado.");
 
-  await deps.withTransaction(async (client) => {
-    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`payment-paid:${input.orderId}`]);
+  const result = await deps.withTransaction(async (client) => {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`manual-pix-paid:${input.orderId}`]);
 
-    const { rows: lockedPayments } = await client.query(
-      `SELECT * FROM public.payments WHERE id = $1 FOR UPDATE`,
-      [payment.id],
-    );
-    const locked = lockedPayments[0];
-    if (!locked) throw new Error("Pagamento nao encontrado.");
-    const wasPaid = locked.status === "pago";
-
-    await client.query(
-      `UPDATE public.payments
-       SET status = 'pago', paid_at = COALESCE(paid_at, now()), updated_at = now()
-       WHERE id = $1`,
-      [payment.id],
-    );
     const { rows: orders } = await client.query(
-      `UPDATE public.orders
-       SET status = 'novo', payment_status = 'pago', updated_at = now()
+      `SELECT *
+       FROM public.orders
        WHERE id = $1 AND store_id = $2
-       RETURNING *`,
+       FOR UPDATE`,
+      [input.orderId, input.storeId],
+    );
+    const order = orders[0];
+    if (!order) throw new Error("Pedido nao encontrado.");
+    if (order.payment_method !== "pix") throw new Error("Pedido nao usa pagamento PIX.");
+    if (blockedOrderStatuses.has(String(order.status))) throw new Error("Nao e possivel aprovar pagamento de pedido cancelado ou encerrado.");
+    if (paidStatuses.has(String(order.payment_status))) {
+      return { order, alreadyPaid: true };
+    }
+
+    const { rows: payments } = await client.query(
+      `SELECT *
+       FROM public.payments
+       WHERE order_id = $1 AND store_id = $2
+       FOR UPDATE`,
       [input.orderId, input.storeId],
     );
 
-    if (orders[0] && !wasPaid) {
+    const payment = payments[0];
+    if (payment && paidStatuses.has(String(payment.status))) {
+      const { rows: updatedOrders } = await client.query(
+        `UPDATE public.orders
+         SET payment_status = 'pago',
+             paid_at = COALESCE(paid_at, now()),
+             payment_approved_by = COALESCE(payment_approved_by, $3::uuid),
+             status = CASE WHEN status = 'aguardando_pagamento' THEN 'novo' ELSE status END,
+             updated_at = now()
+         WHERE id = $1 AND store_id = $2
+         RETURNING *`,
+        [input.orderId, input.storeId, actor.user.id],
+      );
+      return { order: updatedOrders[0], alreadyPaid: true };
+    }
+
+    if (payment) {
       await client.query(
-        `INSERT INTO public.order_status_history (order_id, store_id, status, notes)
-         SELECT $1, $2, 'novo', 'Pagamento PIX confirmado automaticamente'
-         WHERE NOT EXISTS (
-           SELECT 1 FROM public.order_status_history
-           WHERE order_id = $1 AND status = 'novo' AND notes = 'Pagamento PIX confirmado automaticamente'
-         )`,
-        [input.orderId, input.storeId],
+        `UPDATE public.payments
+         SET status = 'pago',
+             paid_at = COALESCE(paid_at, now()),
+             approved_by = $2::uuid,
+             updated_at = now()
+         WHERE id = $1`,
+        [payment.id, actor.user.id],
+      );
+    } else {
+      await client.query(
+        `INSERT INTO public.payments (order_id, store_id, amount, provider, status, paid_at, approved_by)
+         VALUES ($1, $2, COALESCE((SELECT total FROM public.orders WHERE id = $1), 0), 'manual_pix', 'pago', now(), $3::uuid)`,
+        [input.orderId, input.storeId, actor.user.id],
       );
     }
+
+    const { rows: updatedOrders } = await client.query(
+      `UPDATE public.orders
+       SET payment_status = 'pago',
+           paid_at = COALESCE(paid_at, now()),
+           payment_approved_by = $3::uuid,
+           status = CASE WHEN status = 'aguardando_pagamento' THEN 'novo' ELSE status END,
+           updated_at = now()
+       WHERE id = $1 AND store_id = $2
+       RETURNING *`,
+      [input.orderId, input.storeId, actor.user.id],
+    );
+
+    await client.query(
+      `INSERT INTO public.order_status_history (order_id, store_id, status, notes)
+       SELECT $1, $2, 'novo', 'Pagamento PIX aprovado manualmente pela loja'
+       WHERE NOT EXISTS (
+         SELECT 1 FROM public.order_status_history
+         WHERE order_id = $1 AND status = 'novo' AND notes = 'Pagamento PIX aprovado manualmente pela loja'
+       )`,
+      [input.orderId, input.storeId],
+    );
+
+    return { order: updatedOrders[0], alreadyPaid: false };
   });
 
-  await deps.notifyStatus(input.orderId, "novo", "Pagamento PIX confirmado automaticamente").catch((error) => {
-    console.warn("Evolution status notification skipped:", error);
-  });
+  if (result.order) {
+    deps.publishRealtime({ schema: "public", table: "orders", eventType: "UPDATE", new: result.order, old: null });
+  }
 
-  return { status: "paid" };
+  if (!result.alreadyPaid) {
+    await deps.notifyStatus(input.orderId, "novo", "Pagamento PIX aprovado manualmente").catch((error) => {
+      console.warn("Evolution status notification skipped:", error);
+    });
+  }
+
+  return { success: true, status: "paid", order: result.order, alreadyPaid: result.alreadyPaid };
 };

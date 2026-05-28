@@ -9,7 +9,7 @@ import { LocalQueryBuilder } from "./query-builder";
 
 const SESSION_KEY = "hype_delivery.session";
 const API_PATH = "/api/backend";
-const REQUEST_TIMEOUT_MS = 25_000;
+const REQUEST_TIMEOUT_MS = 70_000;
 
 const authListeners = new Set<AuthStateCallback>();
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { query } from "@/backend/db";
-import { geocodeAddressCoordinates, type AddressCoordinates } from "@/services/viacep";
+import { fetchAddressByCep, geocodeAddressCoordinates, isValidCep, type AddressCoordinates, type AddressWithCoordinates } from "@/services/viacep";
 import { getBestDeliveryDistanceKm } from "@/services/distance";
 
 export type DeliveryQuoteInput = {
@@ -43,6 +43,7 @@ type DeliveryQuoteDeps = {
   query?: QueryExecutor;
   geocode?: typeof geocodeAddressCoordinates;
   distance?: typeof getBestDeliveryDistanceKm;
+  cepLookup?: typeof fetchAddressByCep;
 };
 
 const quoteRequestSchema = z.object({
@@ -101,6 +102,21 @@ const normalizeAddress = (address: DeliveryQuoteInput["address"]) => ({
   state: upper(address.state).slice(0, 2),
 });
 
+const shouldResolveCep = (address: ReturnType<typeof normalizeAddress>) =>
+  isValidCep(address.cep) && (!address.city || !address.state || !address.neighborhood || !address.street);
+
+const mergeCepAddress = (
+  address: ReturnType<typeof normalizeAddress>,
+  cepAddress: AddressWithCoordinates,
+) => ({
+  ...address,
+  cep: onlyDigits(cepAddress.cep) || address.cep,
+  street: address.street || clean(cepAddress.street),
+  neighborhood: address.neighborhood || upper(cepAddress.neighborhood),
+  city: address.city || upper(cepAddress.city),
+  state: address.state || upper(cepAddress.state).slice(0, 2),
+});
+
 const addressForGeocode = (address: ReturnType<typeof normalizeAddress>) => ({
   street: address.street,
   number: address.number,
@@ -146,6 +162,12 @@ const applyFeeBounds = (fee: number, zone: any) => {
   return money(result);
 };
 
+const applyStoreFreeDelivery = (fee: number, subtotal: number, settings: any) => {
+  const freeDeliveryAbove = readNumber(settings?.free_delivery_above);
+  if (freeDeliveryAbove !== null && freeDeliveryAbove > 0 && subtotal >= freeDeliveryAbove) return 0;
+  return fee;
+};
+
 export const quoteDelivery = async (
   input: DeliveryQuoteInput,
   deps: DeliveryQuoteDeps = {},
@@ -153,6 +175,7 @@ export const quoteDelivery = async (
   const runQuery = deps.query || query;
   const geocode = deps.geocode || geocodeAddressCoordinates;
   const distance = deps.distance || getBestDeliveryDistanceKm;
+  const cepLookup = deps.cepLookup || fetchAddressByCep;
 
   const { rows: stores } = await runQuery(
     `SELECT *
@@ -178,7 +201,8 @@ export const quoteDelivery = async (
     return unavailable("Esta loja esta aceitando apenas retirada no momento.");
   }
 
-  const address = normalizeAddress(input.address);
+  let address = normalizeAddress(input.address);
+  let cepCoordinates: AddressCoordinates | null = null;
   if (!address.cep && (!address.city || !address.state || !address.street || !address.number)) {
     return unavailable("Informe um CEP ou endereco completo para calcular a entrega.");
   }
@@ -189,15 +213,37 @@ export const quoteDelivery = async (
      WHERE store_id = $1 AND COALESCE(is_active, true) IS TRUE`,
     [input.storeId],
   );
-  const region = findBestRegion(zones, address);
+  const resolveCepIntoAddress = async () => {
+    try {
+      const resolvedAddress = await cepLookup(address.cep);
+      address = mergeCepAddress(address, resolvedAddress);
+      const lat = readNumber(resolvedAddress.lat);
+      const lng = readNumber(resolvedAddress.lng);
+      if (lat !== null && lng !== null) {
+        cepCoordinates = { lat, lng };
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  let region = findBestRegion(zones, address);
+  if (!region && shouldResolveCep(address)) {
+    if (await resolveCepIntoAddress()) {
+      region = findBestRegion(zones, address);
+    }
+  }
+  if (region && shouldResolveCep(address)) await resolveCepIntoAddress();
 
   let storeCoordinates = readCoordinates(store);
-  let customerCoordinates = input.customerCoordinates || null;
+  let customerCoordinates = input.customerCoordinates || cepCoordinates;
   let distanceKm: number | null = null;
 
   const resolveDistanceKm = async () => {
-    if (!customerCoordinates && (!address.city || !address.state || !address.street || !address.number)) return null;
-    if (!customerCoordinates && address.city && address.state && address.street && address.number) {
+    const hasGeocodableAddress = Boolean(address.city && address.state && (address.street || address.neighborhood || address.cep));
+    if (!customerCoordinates && !hasGeocodableAddress) return null;
+    if (!customerCoordinates && hasGeocodableAddress) {
       customerCoordinates = await geocode(addressForGeocode(address));
     }
     if (!customerCoordinates) return null;
@@ -264,7 +310,7 @@ export const quoteDelivery = async (
 
   const minOrder = readNumber(region.min_order) || 0;
   const rawFee = (readNumber(region.fee) || 0) + (readNumber(region.fee_per_km) || 0) * (distanceKm || 0);
-  const fee = applyFeeBounds(rawFee, region);
+  const fee = applyStoreFreeDelivery(applyFeeBounds(rawFee, region), input.subtotal, settings);
 
   if (input.subtotal < minOrder) {
     return unavailable(`Pedido minimo para esta regiao e R$ ${minOrder.toFixed(2)}.`, {

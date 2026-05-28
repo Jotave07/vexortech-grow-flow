@@ -32,6 +32,39 @@ export const formatCEP = (cep: string | null | undefined) => {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
 
+const cleanAddressPart = (value: unknown) => String(value ?? "").trim();
+
+const normalizedForCompare = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+export const formatDeliveryAddressLines = (order: {
+  delivery_address?: string | null;
+  delivery_type?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+}) => {
+  const address = cleanAddressPart(order?.delivery_address);
+  const neighborhood = cleanAddressPart(order?.neighborhood);
+  const city = cleanAddressPart(order?.city);
+  const state = cleanAddressPart(order?.state).toUpperCase();
+  const cityState = [city, state].filter(Boolean).join("/");
+  const cep = formatCEP(cleanAddressPart(order?.zip_code));
+  const foldedAddress = normalizedForCompare(address);
+  const details = [
+    neighborhood && !foldedAddress.includes(normalizedForCompare(neighborhood)) ? `Bairro: ${neighborhood}` : "",
+    cityState && !foldedAddress.includes(normalizedForCompare(cityState)) ? cityState : "",
+    cep ? `CEP: ${cep}` : "",
+  ].filter(Boolean);
+
+  if (!address && !details.length) return ["Retirada no local"];
+  return [address, details.join(" - ")].filter(Boolean);
+};
+
 export const formatDoc = (doc: string | null | undefined) => {
   if (!doc) return "";
   const digits = doc.replace(/\D/g, "");

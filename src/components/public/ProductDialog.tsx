@@ -142,12 +142,20 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto p-0">
-        {product.image_url && <img src={product.image_url} alt={product.name} className="h-56 w-full object-cover" />}
         <div className="space-y-5 p-5 sm:p-6">
+          <div className="mx-auto h-36 w-36 overflow-hidden rounded-full border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-44 sm:w-44">
+            {product.image_url ? (
+              <img src={product.image_url} alt={product.name} className="h-full w-full rounded-full object-contain" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-primary">
+                <Sparkles className="h-9 w-9" />
+              </div>
+            )}
+          </div>
           <DialogHeader>
-            <DialogTitle className="pr-8 text-2xl font-bold tracking-tight text-stone-950">{product.name}</DialogTitle>
+            <DialogTitle className="pr-8 text-center text-2xl font-bold tracking-tight text-stone-950">{product.name}</DialogTitle>
           </DialogHeader>
-          {product.description && <p className="text-sm leading-relaxed text-muted-foreground">{product.description}</p>}
+          {product.description && <p className="text-center text-sm leading-relaxed text-muted-foreground">{product.description}</p>}
           <div className="grid gap-3 border border-[#e6e8de] bg-[#f6f7f2] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Valor base</div>

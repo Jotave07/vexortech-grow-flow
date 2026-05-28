@@ -4,7 +4,7 @@ import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, MapPin, ShoppingBag, User, ChevronDown, Filter, Utensils, ShoppingBasket, Wine, Pill, Tag, Star, LocateFixed, Clock } from "lucide-react";
+import { Loader2, Search, MapPin, ShoppingBag, User, ChevronDown, Filter, Utensils, ShoppingBasket, Wine, Pill, Tag, Star, LocateFixed, Clock, Heart, ShieldCheck, ChevronRight } from "lucide-react";
 import { Footer } from "@/components/landing/Footer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchAddressByCep, fetchAddressFromCurrentLocation } from "@/services/viacep";
@@ -15,6 +15,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { detectStoreSegment, getSegmentCover } from "@/lib/store-segments";
 import { isStoreOpen } from "@/lib/opening-hours";
+import { getStoreProfileVerification } from "@/lib/profile-verification";
+import { normalizeHexColor } from "@/lib/store-theme";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +28,34 @@ import {
 
 const normalizeCategoryName = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+const numberValue = (value: unknown) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getDeliveryFeeLabel = (store: any) => {
+  const settings = store.store_settings;
+  const fee = numberValue(settings?.delivery_base_fee ?? settings?.delivery_fee ?? store.delivery_fee);
+  return fee > 0 ? formatBRL(fee) : "Gratis";
+};
+
+const getMinOrderLabel = (store: any) => {
+  const value = numberValue(store.store_settings?.min_order_value ?? store.min_order_amount);
+  return value > 0 ? `Min. ${formatBRL(value)}` : "Sem minimo";
+};
+
+const getPrepRangeLabel = (store: any) => {
+  const minutes = numberValue(store.store_settings?.avg_prep_time_minutes) || 30;
+  const min = Math.max(10, minutes - 10);
+  const max = minutes + 10;
+  return `${min}-${max} min`;
+};
+
+const getStoreRating = (store: any) => ({
+  rating: numberValue(store.rating) || 4.8,
+  count: numberValue(store.reviews_count),
+});
 
 export default function StoresList() {
   const [stores, setStores] = useState<any[]>([]);
@@ -126,30 +156,51 @@ export default function StoresList() {
       const loadedStores = data || [];
       const storeIds = loadedStores.map((store: any) => store.id).filter(Boolean);
       let categoryMap = new Map<string, string[]>();
+      let ratingMap = new Map<string, { sum: number; reviewsCount: number }>();
 
       if (storeIds.length > 0) {
-        const { data: menuCategories } = await backend
-          .from("categories")
-          .select("store_id, name")
-          .in("store_id", storeIds)
-          .eq("is_active", true);
+        const [{ data: menuCategories }, { data: reviews }] = await Promise.all([
+          backend
+            .from("categories")
+            .select("store_id, name")
+            .in("store_id", storeIds)
+            .eq("is_active", true),
+          backend
+            .from("store_reviews")
+            .select("store_id, rating")
+            .in("store_id", storeIds),
+        ]);
 
         categoryMap = (menuCategories || []).reduce((map: Map<string, string[]>, category: any) => {
           const current = map.get(category.store_id) || [];
           map.set(category.store_id, [...current, category.name]);
           return map;
         }, new Map<string, string[]>());
+
+        ratingMap = (reviews || []).reduce((map: Map<string, { sum: number; reviewsCount: number }>, review: any) => {
+          const current = map.get(review.store_id) || { sum: 0, reviewsCount: 0 };
+          map.set(review.store_id, {
+            sum: current.sum + Number(review.rating || 0),
+            reviewsCount: current.reviewsCount + 1,
+          });
+          return map;
+        }, new Map<string, { sum: number; reviewsCount: number }>());
       }
 
       setStores(loadedStores.map((store: any) => {
         const settings = Array.isArray(store.store_settings) ? store.store_settings[0] : store.store_settings;
         const menuCategories = categoryMap.get(store.id) || [];
+        const rating = ratingMap.get(store.id);
+        const verification = getStoreProfileVerification(store, settings);
         return {
           ...store,
           store_settings: settings,
           menu_categories: menuCategories,
           delivery_kind: detectStoreSegment(store, menuCategories),
           store_is_open: settings ? isStoreOpen(settings.business_hours, settings.is_open) : false,
+          rating: rating?.reviewsCount ? Number((rating.sum / rating.reviewsCount).toFixed(1)) : 4.8,
+          reviews_count: rating?.reviewsCount ?? 0,
+          profile_verification: verification,
         };
       }));
       setLoading(false);
@@ -374,9 +425,9 @@ export default function StoresList() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mx-auto max-w-5xl space-y-4">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="animate-pulse bg-white rounded-2xl h-[260px] border border-[#e6e8de]" />
+              <div key={i} className="h-28 animate-pulse rounded-2xl border border-[#e6e8de] bg-white md:h-32" />
             ))}
           </div>
         ) : filteredStores.length === 0 ? (
@@ -386,7 +437,95 @@ export default function StoresList() {
             <p className="text-gray-500 font-medium">Tente ajustar sua busca ou mudar sua localização.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <>
+            <div className="mx-auto max-w-5xl space-y-3 md:space-y-4">
+              {filteredStores.map(store => {
+                const rating = getStoreRating(store);
+                const verification = store.profile_verification || getStoreProfileVerification(store, store.store_settings);
+                const accent = normalizeHexColor(store.primary_color, "#b6ff00");
+                const logo = store.logo_url || store.cover_url || getSegmentCover(store.delivery_kind);
+
+                return (
+                  <Link key={store.id} to={`/loja/${store.slug}`} className="group block">
+                    <article className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-4 rounded-2xl border border-[#e6e8de] bg-white p-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-lg sm:grid-cols-[7rem_minmax(0,1fr)_2.5rem] sm:p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <div
+                          className="h-20 w-20 overflow-hidden rounded-full border bg-white shadow-sm sm:h-24 sm:w-24"
+                          style={{ borderColor: accent }}
+                        >
+                          {logo ? (
+                            <img src={logo} alt={store.public_name || store.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-[#f6f7f2] text-primary">
+                              <ShoppingBag className="h-7 w-7" />
+                            </div>
+                          )}
+                        </div>
+                        <div className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${store.store_is_open ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
+                          {store.store_is_open ? 'Aberto' : 'Fechado'}
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 py-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                          <h2 className="min-w-0 text-base font-bold leading-tight text-stone-950 transition-colors group-hover:text-primary sm:text-lg">
+                            {store.public_name || store.name}
+                          </h2>
+                          {verification.status === "verified" || verification.status === "complete" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-stone-800">
+                              <ShieldCheck className="h-3 w-3 text-primary" />
+                              {verification.label}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {store.description && (
+                          <p className="mb-2 line-clamp-2 text-sm leading-relaxed text-stone-500">
+                            {store.description}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-stone-600">
+                          <span className="inline-flex items-center gap-1 text-stone-800">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                            {rating.rating.toFixed(1)}
+                          </span>
+                          <span className="text-stone-300">•</span>
+                          <span>{rating.count ? `(${rating.count})` : "Novo"}</span>
+                          <span className="text-stone-300">•</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-stone-500" />
+                            {getPrepRangeLabel(store)}
+                          </span>
+                          <span className="text-stone-300">•</span>
+                          <span className={getDeliveryFeeLabel(store) === "Gratis" ? "font-bold text-emerald-700" : ""}>
+                            Entrega {getDeliveryFeeLabel(store)}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700">{store.delivery_kind}</span>
+                          <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold text-stone-600">{getMinOrderLabel(store)}</span>
+                          {store.store_settings?.delivery_radius_km ? (
+                            <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                              Raio {store.store_settings.delivery_radius_km} km
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="hidden items-center justify-center sm:flex">
+                        <div className="flex h-full flex-col items-center justify-between py-1 text-stone-300">
+                          <Heart className="h-5 w-5" />
+                          <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                        </div>
+                      </div>
+                    </article>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="hidden">
             {filteredStores.map(store => (
               <Link key={store.id} to={`/loja/${store.slug}`} className="group block">
                 <Card className="overflow-hidden border border-[#e6e8de] shadow-sm group-hover:shadow-lg group-hover:-translate-y-1 transition-all duration-300 rounded-2xl bg-white h-full flex flex-col">
@@ -449,7 +588,8 @@ export default function StoresList() {
                 </Card>
               </Link>
             ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
 

@@ -84,7 +84,7 @@ const PaymentSuccess = () => {
             </p>
             {polls >= MAX_POLLS && (
               <p className="text-xs text-muted-foreground">
-                Ainda não recebemos a confirmação automática. Você pode acompanhar abaixo — o status será atualizado assim que o pagamento for detectado.
+                Ainda aguardamos a confirmação da loja. Você pode acompanhar abaixo; o status será atualizado quando o pagamento for aprovado.
               </p>
             )}
           </>

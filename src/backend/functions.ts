@@ -5,11 +5,19 @@ import { publishRealtime } from "./realtime";
 import { createCheckoutOrderHandler } from "@/server/order.functions";
 import { quoteDeliveryHandler } from "@/server/delivery.service";
 import { updateOrderStatusHandler } from "@/server/order-status.service";
-import { syncOrderPaymentStatus } from "@/server/asaas.service";
-import { testPixGatewayConnection } from "@/server/payment-gateways";
-import { createSubscriptionCheckoutHandler } from "@/server/subscription.service";
+import { approveManualPixPayment, syncOrderPaymentStatus } from "@/server/asaas.service";
+import {
+  cancelSubscriptionHandler,
+  createSubscriptionCheckoutHandler,
+  syncSubscriptionStatusHandler,
+  updateSubscriptionPlanHandler,
+} from "@/server/subscription.service";
 
 const errorResult = (message: string): BackendResult => ({ data: null, error: { message } });
+
+type FunctionContext = {
+  remoteIp?: string | null;
+};
 
 const requireAdmin = async (token?: string) => {
   const actor = await getActor(token);
@@ -18,15 +26,19 @@ const requireAdmin = async (token?: string) => {
   return actor;
 };
 
-export const invokeFunction = async (name: string, body: any, token?: string) => {
+export const invokeFunction = async (name: string, body: any, token?: string, context: FunctionContext = {}) => {
   try {
     if (name === "admin-create-store") return adminCreateStore(body, token);
     if (name === "admin-delete-store") return adminDeleteStore(body, token);
     if (name === "quote-delivery") return { data: await quoteDeliveryHandler(body), error: null };
     if (name === "create-checkout-order") return createCheckoutOrderHandler(body, token);
-    if (name === "create-subscription-checkout") return { data: await createSubscriptionCheckoutHandler(body, token), error: null };
+    if (name === "create-subscription-checkout") return { data: await createSubscriptionCheckoutHandler(body, token, undefined, context), error: null };
+    if (name === "cancel-subscription") return { data: await cancelSubscriptionHandler(body, token), error: null };
+    if (name === "sync-subscription-status") return { data: await syncSubscriptionStatusHandler(body, token), error: null };
+    if (name === "update-subscription-plan") return { data: await updateSubscriptionPlanHandler(body, token, undefined, context), error: null };
     if (name === "test-payment-gateway") return testPaymentGateway(body, token);
     if (name === "update-order-status") return { data: await updateOrderStatusHandler(body, token), error: null };
+    if (name === "approve-manual-pix") return { data: await approveManualPixPayment(body, token), error: null };
     if (name === "sync-payment-status") return syncPaymentStatusForPanel(body, token);
     return errorResult(`Function nao implementada: ${name}`);
   } catch (error: any) {
@@ -40,11 +52,14 @@ const testPaymentGateway = async (body: any, token?: string) => {
   const storeId = String(body?.storeId || "");
   if (!storeId) return errorResult("storeId obrigatorio.");
   if (!actor.admin && !actor.ownedStoreIds.includes(storeId)) throw new Error("Acesso negado.");
-  const apiKey = String(body?.apiKey || "").trim();
-  if (!apiKey) return errorResult("Chave de API obrigatoria.");
-  const provider = String(body?.provider || "asaas");
-  const result = await testPixGatewayConnection(provider, apiKey);
-  return { data: result, error: null };
+  return {
+    data: {
+      ok: false,
+      disabled: true,
+      message: "Pix de pedidos agora usa a chave Pix da loja e confirmacao manual, sem API externa.",
+    },
+    error: null,
+  };
 };
 
 const syncPaymentStatusForPanel = async (body: any, token?: string) => {

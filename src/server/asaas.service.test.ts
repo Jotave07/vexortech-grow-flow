@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createOrderPaymentForOrder } from "./asaas.service";
+import { approveManualPixPayment, createOrderPaymentForOrder } from "./asaas.service";
 
 const order = {
   id: "order-1",
@@ -7,100 +7,88 @@ const order = {
   total: 42.5,
   order_number: 77,
   customer_name: "MARIA",
-  customer_email: "maria@example.com",
-  customer_document: "12345678901",
-  customer_phone: "11999999999",
   payment_method: "pix",
-  asaas_api_key: "asaas-key",
-  payment_gateway_provider: "asaas",
-  payment_gateway_api_key: "asaas-key",
-  payment_gateway_config: {},
+  payment_status: "pendente",
+  status: "aguardando_pagamento",
+  pix_key: "pix@loja.com.br",
+  pix_payload: null,
+  pix_qr_code: null,
+  store_name: "Loja Teste",
+  store_city: "Sao Paulo",
 };
 
-const createDeps = (options: {
-  existingPayment?: any;
-  remotePayment?: any;
-  customerResult?: any;
-  paymentResult?: any;
-} = {}) => {
+const createDeps = (options: { existingPayment?: any; orderOverride?: any } = {}) => {
+  const currentOrder = { ...order, ...(options.orderOverride || {}) };
   const client = {
     query: vi.fn(async (sql: string) => {
-      if (sql.includes("FROM public.orders o")) return { rows: [order] };
+      if (sql.includes("FROM public.orders o")) return { rows: [currentOrder] };
+      if (sql.includes("FROM public.orders") && sql.includes("FOR UPDATE")) return { rows: [currentOrder] };
       if (sql.includes("FROM public.payments") && sql.includes("FOR UPDATE")) {
         return { rows: options.existingPayment ? [options.existingPayment] : [] };
       }
-      if (sql.includes("INSERT INTO public.payments")) return { rows: [{ id: "local-payment", status: "payment_creating" }] };
-      if (sql.includes("UPDATE public.payments")) return { rows: [{ id: "local-payment" }] };
+      if (sql.includes("INSERT INTO public.payments")) return { rows: [{ id: "local-payment", status: "pendente" }] };
+      if (sql.includes("SET amount")) return { rows: [{ id: "local-payment", status: "pendente" }] };
+      if (sql.includes("UPDATE public.payments")) return { rows: [{ id: "local-payment", status: "pago" }] };
+      if (sql.includes("pix_payload")) return { rows: [currentOrder] };
+      if (sql.includes("UPDATE public.orders")) return { rows: [{ ...currentOrder, payment_status: "pago", status: "novo" }] };
       return { rows: [] };
     }),
-  };
-
-  const gateway = {
-    provider: "asaas",
-    createCustomer: vi.fn(async () => options.customerResult ?? { id: "asaas-customer" }),
-    createPixPayment: vi.fn(async () => options.paymentResult ?? { id: "asaas-payment", invoiceUrl: "https://invoice" }),
-    findPaymentByExternalReference: vi.fn(async () => ({ data: options.remotePayment ? [options.remotePayment] : [] })),
-    getPixQrCode: vi.fn(async () => ({ payload: "pix-code", encodedImage: "qr-image" })),
-    getPayment: vi.fn(),
-    refundPayment: vi.fn(),
-    mapPaymentStatus: vi.fn(() => "pendente"),
   };
 
   const deps = {
     withTransaction: vi.fn(async (fn: any) => fn(client)),
     query: vi.fn(async () => ({ rows: [] })),
-    gateways: { asaas: gateway },
     publishRealtime: vi.fn(),
     notifyStatus: vi.fn(async () => null),
+    getActor: vi.fn(async () => ({
+      user: { id: "11111111-1111-4111-8111-111111111111" },
+      admin: false,
+      ownedStoreIds: [order.store_id],
+    })),
   };
 
-  return { deps, gateway, client };
+  return { deps, client };
 };
 
-describe("Asaas order payment service", () => {
-  it("creates one Asaas charge and persists the local payment", async () => {
-    const { deps, gateway } = createDeps();
+describe("manual Pix order payment service", () => {
+  it("creates a local manual Pix payment with a copy-paste payload", async () => {
+    const { deps, client } = createDeps();
 
     const result = await createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, deps as any);
 
-    expect(result).toMatchObject({ paymentId: "asaas-payment", pixCode: "pix-code" });
-    expect(gateway.createCustomer).toHaveBeenCalledTimes(1);
-    expect(gateway.createPixPayment).toHaveBeenCalledTimes(1);
-    expect(deps.query).toHaveBeenCalledWith(
-      expect.stringContaining("SET external_id"),
-      [order.id, "asaas-payment", "asaas"],
-    );
+    expect(result.paymentId).toBe("local-payment");
+    expect(result.status).toBe("pending");
+    expect(result.manual).toBe(true);
+    expect(result.pixCode).toContain("BR.GOV.BCB.PIX");
+    expect(client.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.payments"), expect.any(Array));
   });
 
-  it("reuses an existing pending local payment instead of creating a duplicate charge", async () => {
-    const { deps, gateway } = createDeps({
-      existingPayment: { id: "local-payment", status: "pendente", external_id: "asaas-existing", asaas_id: null },
+  it("reuses an existing pending manual Pix payment", async () => {
+    const { deps } = createDeps({
+      existingPayment: { id: "local-payment", status: "pendente" },
     });
 
     const result = await createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, deps as any);
 
-    expect(result).toMatchObject({ paymentId: "asaas-existing", pixCode: "pix-code" });
-    expect(gateway.createCustomer).not.toHaveBeenCalled();
-    expect(gateway.createPixPayment).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ paymentId: "local-payment", status: "pending", manual: true });
   });
 
-  it("keeps failed attempts recoverable and avoids a duplicate when Asaas already has the external reference", async () => {
-    const first = createDeps({
-      customerResult: { errors: [{ description: "CPF invalido" }] },
-    });
+  it("requires a store Pix key", async () => {
+    const { deps } = createDeps({ orderOverride: { pix_key: "" } });
+
     await expect(
-      createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, first.deps as any),
-    ).rejects.toThrow("CPF invalido");
-    expect(first.gateway.createPixPayment).not.toHaveBeenCalled();
-    expect(first.deps.query).toHaveBeenCalledWith(expect.stringContaining("status = 'falhou'"), expect.any(Array));
+      createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, deps as any),
+    ).rejects.toThrow("chave Pix");
+  });
 
-    const retry = createDeps({
-      existingPayment: { id: "local-payment", status: "falhou", external_id: null, asaas_id: null },
-      remotePayment: { id: "asaas-recovered", status: "PENDING" },
+  it("approves pending Pix manually and is idempotent for paid orders", async () => {
+    const { deps } = createDeps({
+      existingPayment: { id: "local-payment", status: "pendente" },
     });
-    const result = await createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, retry.deps as any);
 
-    expect(result).toMatchObject({ paymentId: "asaas-recovered" });
-    expect(retry.gateway.createPixPayment).not.toHaveBeenCalled();
+    const result = await approveManualPixPayment({ orderId: order.id, storeId: order.store_id }, "token", deps as any);
+
+    expect(result).toMatchObject({ success: true, status: "paid" });
+    expect(deps.notifyStatus).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
-import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut } from "lucide-react";
+import { Loader2, MapPin, Clock, ShoppingBag, Search, User, LogOut, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { toast } from "sonner";
 import { detectStoreSegment, getSegmentCover } from "@/lib/store-segments";
+import { getStoreProfileVerification } from "@/lib/profile-verification";
+import { getStoreThemeStyle } from "@/lib/store-theme";
 
 const PublicStore = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -103,13 +105,15 @@ const PublicStore = () => {
   const publicStoreName = store.public_name || store.name;
   const storeSegment = detectStoreSegment(store, categories.map((category) => category.name));
   const coverUrl = store.cover_url || getSegmentCover(storeSegment);
+  const themeStyle = getStoreThemeStyle(store);
+  const verification = getStoreProfileVerification(store, settings);
 
   return (
-    <div className="min-h-screen bg-[#f6f7f2] pb-32">
+    <div className="min-h-screen bg-[#f6f7f2] pb-32" style={themeStyle}>
       <header className="sticky top-0 z-40 bg-[#ffffff]/95 backdrop-blur-xl border-b border-[#e6e8de] py-3">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {store.logo_url && <img src={store.logo_url} alt="" className="h-9 w-9 rounded-xl object-cover" />}
+            {store.logo_url && <img src={store.logo_url} alt="" className="h-9 w-9 rounded-full object-cover" />}
             <span className="font-black uppercase tracking-tighter text-sm italic cursor-pointer" onClick={() => navigate("/")}>{publicStoreName}</span>
           </div>
           <div className="flex items-center gap-3">
@@ -163,7 +167,7 @@ const PublicStore = () => {
               </div>
 
               <div className="grid gap-4 p-4 sm:grid-cols-[5rem_minmax(0,1fr)] sm:p-5">
-                <div className="-mt-12 h-24 w-24 overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg sm:h-20 sm:w-20">
+                <div className="-mt-12 h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg sm:h-20 sm:w-20">
                   {store.logo_url ? (
                     <img src={store.logo_url} alt="" className="h-full w-full object-cover" />
                   ) : (
@@ -173,7 +177,15 @@ const PublicStore = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-2xl font-bold tracking-tight text-stone-950 md:text-3xl">{publicStoreName}</h1>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-bold tracking-tight text-stone-950 md:text-3xl">{publicStoreName}</h1>
+                    {(verification.status === "verified" || verification.status === "complete") && (
+                      <Badge className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-stone-900 hover:bg-primary/15">
+                        <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
+                        {verification.label}
+                      </Badge>
+                    )}
+                  </div>
                   {store.description && (
                     <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                       {store.description}
@@ -283,37 +295,50 @@ const PublicStore = () => {
                   </div>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {section.items.map((product: any) => (
                     <button
                       key={product.id}
                       type="button"
                       onClick={() => acceptOrders && product.is_available && setSelectedProduct(product)}
                       disabled={!acceptOrders || !product.is_available}
-                      className="text-left disabled:cursor-not-allowed disabled:opacity-55"
+                      className="h-full text-left disabled:cursor-not-allowed disabled:opacity-55"
                     >
-                      <Card className="group h-full overflow-hidden rounded-3xl border-[#e6e8de] bg-white p-0 shadow-sm transition-smooth hover:-translate-y-1 hover:border-primary/45 hover:shadow-lg">
-                        <div className="grid h-full min-h-[13rem] grid-cols-[1fr_7rem]">
-                          <div className="flex flex-col justify-between p-4">
-                            <div>
-                              <div className="mb-2 flex items-start justify-between gap-3">
-                                <h3 className="text-lg font-semibold leading-tight text-black">{product.name}</h3>
-                                {!product.is_available && (
-                                  <Badge variant="destructive" className="shrink-0">
-                                    Esgotado
-                                  </Badge>
-                                )}
+                      <Card className="group h-full overflow-hidden rounded-3xl border-[#e6e8de] bg-white p-4 shadow-sm transition-smooth hover:-translate-y-1 hover:border-primary/45 hover:shadow-lg">
+                        <div className="flex h-full flex-col">
+                          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-full border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-32 sm:w-32">
+                            {product.image_url ? (
+                              <img src={product.image_url} alt={product.name} className="h-full w-full rounded-full object-contain transition-smooth group-hover:scale-[1.03]" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-primary">
+                                <ShoppingBag className="h-8 w-8" />
                               </div>
-                              {product.description && (
-                                <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-                                  {product.description}
-                                </p>
+                            )}
+                            {!product.is_available && (
+                              <Badge variant="destructive" className="absolute inset-x-3 bottom-1 justify-center rounded-full px-2 py-0.5 text-[10px]">
+                                Esgotado
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="mt-4 flex flex-1 flex-col text-center">
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                              <h3 className="text-lg font-semibold leading-tight text-black">{product.name}</h3>
+                              {product.promo_price && (
+                                <Badge className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-stone-900 hover:bg-primary/15">
+                                  Oferta
+                                </Badge>
                               )}
                             </div>
+                            {product.description && (
+                              <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                                {product.description}
+                              </p>
+                            )}
 
-                            <div className="mt-5 border-t border-[#e6e8de] pt-4">
+                            <div className="mt-auto pt-4">
                               <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Valor</div>
-                              <div className="flex items-end gap-2">
+                              <div className="flex flex-wrap items-end justify-center gap-2">
                                 <span className="text-2xl font-bold text-black">
                                   {formatBRL(product.promo_price ?? product.price)}
                                 </span>
@@ -323,17 +348,10 @@ const PublicStore = () => {
                                   </span>
                                 )}
                               </div>
-                            </div>
-                          </div>
-
-                          <div className="border-l border-[#e6e8de] bg-[#f6f7f2]">
-                            {product.image_url ? (
-                              <img src={product.image_url} alt="" className="h-full w-full object-cover transition-smooth group-hover:scale-[1.03]" />
-                            ) : (
-                              <div className="flex h-full items-end justify-start bg-[linear-gradient(135deg,rgba(182,255,0,0.22),transparent_46%),linear-gradient(180deg,#111111,#080808)] p-3 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                                {product.name}
+                              <div className="mt-3 rounded-full border border-[#e6e8de] bg-[#f6f7f2] px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-stone-700">
+                                {acceptOrders && product.is_available ? "Personalizar item" : "Indisponivel"}
                               </div>
-                            )}
+                            </div>
                           </div>
                         </div>
                       </Card>

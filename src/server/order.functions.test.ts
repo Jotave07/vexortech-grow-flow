@@ -24,8 +24,7 @@ const settings = {
   accept_pix: true,
   accept_cash: true,
   accept_card_on_delivery: true,
-  payment_gateway_provider: "asaas",
-  payment_gateway_api_key: "gateway-key",
+  pix_key: "pix@loja.com.br",
   accept_orders_when_closed: true,
   is_open: true,
   business_hours: {},
@@ -111,7 +110,7 @@ const createCheckoutDeps = (options: { existingOrder?: any; createPayment?: any 
   const deps = {
     getActor: vi.fn(),
     withTransaction: vi.fn(async (fn: any) => fn(client)),
-    createPayment: options.createPayment || vi.fn(async () => ({ paymentId: "asaas-payment", pixCode: "pix-code" })),
+    createPayment: options.createPayment || vi.fn(async () => ({ paymentId: "manual-pix-payment", pixCode: "pix-code", manual: true })),
     notifyOrderCreated: vi.fn(async () => null),
     quoteDelivery: vi.fn(async () => ({
       available: true,
@@ -137,7 +136,7 @@ describe("createCheckoutOrderForActor", () => {
     expect(result).toMatchObject({
       orderId: "88888888-8888-4888-8888-888888888888",
       publicToken: "public-token",
-      payment: { paymentId: "asaas-payment", pixCode: "pix-code" },
+      payment: { paymentId: "manual-pix-payment", pixCode: "pix-code", manual: true },
     });
     expect(inserted).toMatchObject({ orders: 1, items: 1, options: 1, history: 1 });
     expect(deps.createPayment).toHaveBeenCalledTimes(1);
@@ -166,7 +165,7 @@ describe("createCheckoutOrderForActor", () => {
   it("keeps the order recoverable when PIX creation fails", async () => {
     const { deps, inserted } = createCheckoutDeps({
       createPayment: vi.fn(async () => {
-        throw new Error("gateway fora");
+        throw new Error("chave Pix ausente");
       }),
     });
 
@@ -174,7 +173,7 @@ describe("createCheckoutOrderForActor", () => {
 
     expect(result).toMatchObject({
       publicToken: "public-token",
-      payment: { status: "falhou", error: "gateway fora" },
+      payment: { status: "falhou", error: "chave Pix ausente" },
     });
     expect(inserted.orders).toBe(1);
   });

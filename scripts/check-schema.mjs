@@ -142,6 +142,28 @@ const checks = [
     `,
     params: [["notes", "subtotal", "options_total"]],
   },
+  {
+    label: "store profile columns",
+    sql: `
+      SELECT count(*) = 4 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'stores'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["store_type", "is_verified", "verification_status", "verification_notes"]],
+  },
+  {
+    label: "plan catalog safety columns",
+    sql: `
+      SELECT count(*) = 5 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'plans'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["slug", "features", "max_products", "sort_order", "allows_custom_branding"]],
+  },
 ];
 
 loadDotEnv();

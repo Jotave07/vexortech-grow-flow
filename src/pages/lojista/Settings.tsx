@@ -20,6 +20,8 @@ import { validateDeliverySettings } from "@/lib/delivery";
 import { STORE_SEGMENT_OPTIONS, normalizeStoreSegment } from "@/lib/store-segments";
 import { formatBRL, formatPhone, formatDoc, formatCEP } from "@/lib/format";
 import { getPlanLimits, getStatusMeta, normalizePlan } from "@/lib/subscription";
+import { getStoreProfileVerification } from "@/lib/profile-verification";
+import { getStoreThemeStyle } from "@/lib/store-theme";
 
 type StoreRow = Tables<"stores">;
 type StoreFormRow = StoreRow & { store_type?: string | null };
@@ -243,6 +245,11 @@ const Settings = () => {
       return;
     }
 
+    if (storeSettings.accept_pix && !nullableText(storeSettings.pix_key)) {
+      toast.error("Informe a chave Pix da loja para aceitar Pix no checkout.");
+      return;
+    }
+
     setSaving(true);
     try {
     const baseStorePayload = {
@@ -270,8 +277,6 @@ const Settings = () => {
       latitude: toNullableNumber(storeForm.latitude),
       longitude: toNullableNumber(storeForm.longitude),
     };
-    const paymentGatewayProvider = String((storeSettings as any).payment_gateway_provider || "asaas").trim().toLowerCase() || "asaas";
-    const paymentGatewayApiKey = nullableText((storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key);
     const baseSettingsPayload = {
       is_open: storeSettings.is_open,
       accept_orders_when_closed: storeSettings.accept_orders_when_closed,
@@ -283,14 +288,15 @@ const Settings = () => {
       accept_card_on_delivery: storeSettings.accept_card_on_delivery,
       pix_key: nullableText(storeSettings.pix_key),
       pix_key_type: nullableText(storeSettings.pix_key_type),
-      asaas_api_key: paymentGatewayProvider === "asaas" ? paymentGatewayApiKey : null,
-      asaas_wallet_id: (storeSettings as any).asaas_wallet_id || null,
+      payment_instructions: nullableText((storeSettings as any).payment_instructions),
+      asaas_api_key: null,
+      asaas_wallet_id: null,
       business_hours: businessHours as unknown as Json,
     };
     const extendedSettingsPayload = {
-      payment_gateway_provider: paymentGatewayProvider,
-      payment_gateway_api_key: paymentGatewayApiKey,
-      payment_gateway_config: ((storeSettings as any).payment_gateway_config ?? {}) as unknown as Json,
+      payment_gateway_provider: null,
+      payment_gateway_api_key: null,
+      payment_gateway_config: {} as unknown as Json,
       delivery_radius_km: toNullableNumber(storeSettings.delivery_radius_km),
     };
 
@@ -334,6 +340,7 @@ const Settings = () => {
   );
   const subscriptionStatus = getStatusMeta(subscription);
   const planLimits = getPlanLimits(activePlan);
+  const storeVerification = getStoreProfileVerification(storeForm ?? {}, storeSettings);
 
   if (loading) {
     return <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin inline text-primary" /></div>;
@@ -453,6 +460,35 @@ const Settings = () => {
                 <Label htmlFor="store-document">CNPJ ou CPF</Label>
                 <Input id="store-document" value={formatDoc(storeForm.document) ?? ""} onChange={(e) => setStoreForm({ ...storeForm, document: e.target.value })} />
               </Field>
+            </div>
+          </Card>
+
+          <Card className="p-6 space-y-5">
+            <SectionHeader
+              icon={ShieldCheck}
+              title="Confianca do perfil"
+              description="Selo calculado com dados fiscais, contato, endereco, visual e formas de pagamento."
+            />
+
+            <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+              <div className="rounded-lg border border-border bg-background/70 p-4">
+                <div className="text-sm text-muted-foreground">Pontuacao do perfil</div>
+                <div className="mt-2 text-3xl font-bold text-foreground">{storeVerification.score}%</div>
+                <Badge className="mt-3 rounded-full bg-primary/15 text-foreground hover:bg-primary/15">
+                  <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
+                  {storeVerification.label}
+                </Badge>
+                <p className="mt-3 text-sm text-muted-foreground">{storeVerification.detail}</p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {storeVerification.checks.map((check) => (
+                  <div key={check.key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-3 py-2 text-sm">
+                    <span>{check.label}</span>
+                    <Badge variant={check.ok ? "default" : "secondary"}>{check.ok ? "OK" : "Pendente"}</Badge>
+                  </div>
+                ))}
+              </div>
             </div>
           </Card>
 
@@ -670,95 +706,58 @@ const Settings = () => {
           <Card className="p-6 space-y-6">
             <SectionHeader
               icon={Wallet}
-              title="Pagamentos e Gateway"
-              description="Configure como sua loja recebe pagamentos. O PIX online exige um gateway conectado."
+              title="Pagamentos"
+              description="Configure como sua loja recebe pagamentos dos pedidos."
             />
 
             <div className="space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                <Activity className="h-4 w-4" /> Gateway do PIX Online
+                <Wallet className="h-4 w-4" /> Pix da loja
               </h3>
               
               <div className="grid gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-widest">Provedor do gateway</Label>
-                    <Select
-                      value={(storeSettings as any).payment_gateway_provider || "asaas"}
-                      onValueChange={(value) => setStoreSettings({
-                        ...storeSettings,
-                        payment_gateway_provider: value,
-                      } as any)}
-                    >
-                      <SelectTrigger className="h-12 rounded-xl border border-border bg-white font-bold">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="asaas">Asaas</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="payment-gateway-api-key" className="text-xs font-black uppercase tracking-widest">Chave de API do gateway</Label>
-                    {((storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key) && (
-                      <Badge variant="default" className="bg-green-500 text-white border-0 flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" /> Configurado
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        id="payment-gateway-api-key"
-                        type="password"
-                        placeholder={((storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key) ? "API key configurada" : "Insira a API key do gateway"}
-                        value={(storeSettings as any).payment_gateway_api_key ?? (storeSettings as any).asaas_api_key ?? ""}
-                        onChange={(e) => setStoreSettings({
-                          ...storeSettings,
-                          payment_gateway_api_key: e.target.value,
-                          asaas_api_key: ((storeSettings as any).payment_gateway_provider || "asaas") === "asaas" ? e.target.value : (storeSettings as any).asaas_api_key,
-                        } as any)}
-                        className="h-12 rounded-xl border border-border pr-10 font-bold"
-                      />
-                      <Wallet className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      className="h-12 rounded-xl border border-border text-xs font-black uppercase"
-                      onClick={async () => {
-                        const key = (storeSettings as any).payment_gateway_api_key || (storeSettings as any).asaas_api_key;
-                        if (!key) return toast.error("Insira a chave de API primeiro.");
-                        toast.loading("Testando conexao...");
-                        const { data: result, error } = await backend.functions.invoke("test-payment-gateway", {
-                          body: {
-                            storeId: store.id,
-                            apiKey: key,
-                            provider: (storeSettings as any).payment_gateway_provider || "asaas",
-                          },
-                        });
-                        toast.dismiss();
-                        if (error || !result) return toast.error(error?.message || "Falha ao testar gateway.");
-                        if (result.success) toast.success(result.message);
-                        else toast.error(result.message);
-                      }}
-                    >
-                      Testar
-                    </Button>
-                  </div>
-                  
-                  <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest leading-relaxed">
-                    SUA SEGURANCA: A chave e enviada apenas para o servidor e nunca fica visivel para clientes.
-                    Mantenha PIX ativo abaixo para usar esta integracao no checkout.
-                  </p>
+                <div className="space-y-2">
+                  <Label htmlFor="store-pix-key" className="text-xs font-black uppercase tracking-widest">
+                    Chave Pix ou Pix copia e cola
+                  </Label>
+                  <Textarea
+                    id="store-pix-key"
+                    placeholder="Informe a chave Pix recebedora da loja ou um Pix copia e cola"
+                    value={storeSettings.pix_key ?? ""}
+                    onChange={(event) => setStoreSettings({
+                      ...storeSettings,
+                      pix_key: event.target.value,
+                      pix_key_type: event.target.value.trim().startsWith("000201") ? "copy_paste" : "key",
+                    } as any)}
+                    className="min-h-[96px] rounded-xl border border-border bg-white font-mono text-sm"
+                  />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="payment-instructions" className="text-xs font-black uppercase tracking-widest">
+                    Instrucoes para o cliente
+                  </Label>
+                  <Textarea
+                    id="payment-instructions"
+                    placeholder="Ex.: Depois de pagar, envie o comprovante pelo WhatsApp e aguarde a confirmacao."
+                    value={String((storeSettings as any).payment_instructions ?? "")}
+                    onChange={(event) => setStoreSettings({
+                      ...storeSettings,
+                      payment_instructions: event.target.value,
+                    } as any)}
+                    className="min-h-[76px] rounded-xl border border-border bg-white text-sm"
+                  />
+                </div>
+
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest leading-relaxed">
+                  Essa chave e usada apenas para mostrar o Pix ao cliente. A confirmacao do pagamento e manual no painel de pedidos.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <SwitchRow
-                  label="Aceitar PIX Online"
-                  description="Gera QR Code automatico pelo gateway configurado."
+                  label="Aceitar PIX"
+                  description="Mostra a chave Pix da loja no checkout e aguarda aprovacao manual."
                   checked={!!storeSettings.accept_pix}
                   onCheckedChange={(val) => setStoreSettings({ ...storeSettings, accept_pix: val })}
                 />
@@ -776,14 +775,14 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-dashed border-border bg-muted/30 p-4">
+              <div className="hidden">
                 <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                  <Activity className="h-4 w-4" /> Webhook para Confirmação Automática
+                  <Activity className="h-4 w-4" /> Confirmacao manual do Pix
                 </h4>
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input 
-                      value={`${window.location.origin}/api/webhooks/${(storeSettings as any).payment_gateway_provider || "asaas"}`}
+                      value="Confirmacao manual pelo painel de pedidos"
                       readOnly 
                       className="rounded-xl border border-border bg-white font-mono text-[10px]" 
                     />
@@ -792,7 +791,7 @@ const Settings = () => {
                       size="icon" 
                       className="shrink-0 rounded-xl border border-border"
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/${(storeSettings as any).payment_gateway_provider || "asaas"}`);
+                        navigator.clipboard.writeText("Confirmacao manual pelo painel de pedidos");
                         toast.success("Link copiado!");
                       }}
                     >
@@ -800,7 +799,7 @@ const Settings = () => {
                     </Button>
                   </div>
                   <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
-                    Configure esta URL no painel do gateway para ativar a confirmacao automatica de pedidos.
+                    Confira o recebimento do Pix e aprove manualmente no pedido.
                   </p>
                 </div>
               </div>
@@ -813,16 +812,19 @@ const Settings = () => {
             <SectionHeader
               icon={TimerReset}
               title="Assinatura da loja"
-              description="Status atual, limites conhecidos e atalho rápido para a gestão completa do plano."
+              description="Consulta privada do plano atual. Alteracoes de assinatura ficam isoladas na gestao segura."
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
               <div className="space-y-4">
-                <div className="rounded-lg border border-border bg-background/70 p-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="rounded-lg border border-border bg-background/70 p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                      <div className="text-sm text-muted-foreground">Plano atual</div>
+                      <div className="text-sm text-muted-foreground">Assinatura atual</div>
                       <div className="text-xl font-semibold">{activePlan?.name ?? "Sem plano definido"}</div>
+                      {activePlan?.description && (
+                        <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{activePlan.description}</div>
+                      )}
                       <div className="mt-1 text-sm text-muted-foreground">{subscriptionStatus.detail}</div>
                     </div>
                     <Badge variant={subscriptionStatus.tone}>{subscriptionStatus.label}</Badge>
@@ -830,22 +832,40 @@ const Settings = () => {
                 </div>
 
                 {activePlan && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <MiniStat label="Produtos" value={planLimits.products ? String(planLimits.products) : "Ilimitado"} />
-                    <MiniStat label="Pedidos por mês" value={planLimits.monthlyOrders ? String(planLimits.monthlyOrders) : "Ilimitado"} />
-                    <MiniStat label="Lojas/unidades" value={planLimits.stores ? String(planLimits.stores) : "Ilimitado"} />
-                    <MiniStat label="Usuarios internos" value={planLimits.internalUsers ? String(planLimits.internalUsers) : "Ilimitado"} />
-                  </div>
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <MiniStat label="Produtos" value={formatLimitValue(planLimits.products)} />
+                      <MiniStat label="Pedidos por mes" value={formatLimitValue(planLimits.monthlyOrders)} />
+                      <MiniStat label="Lojas/unidades" value={formatLimitValue(planLimits.stores)} />
+                      <MiniStat label="Usuarios internos" value={formatLimitValue(planLimits.internalUsers)} />
+                    </div>
+
+                    {activePlan.marketingFeatures.length > 0 && (
+                      <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                        <div className="text-sm font-medium">Recursos cadastrados no plano</div>
+                        <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                          {activePlan.marketingFeatures.slice(0, 6).map((feature) => (
+                            <div key={feature} className="rounded-md bg-background/70 px-3 py-2">{feature}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
               <div className="rounded-lg border border-border bg-secondary/35 p-4 flex flex-col justify-between gap-4">
-                <div>
-                  <div className="text-sm text-muted-foreground">Mensalidade</div>
-                  <div className="text-2xl font-bold">{formatBRL(activePlan?.priceMonthly ?? 0)}</div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Mensalidade</div>
+                    <div className="text-2xl font-bold">{formatBRL(activePlan?.priceMonthly ?? 0)}</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-background/70 p-3 text-xs text-muted-foreground">
+                    Dados de cartao nao aparecem aqui. Para evitar alteracoes acidentais, troca de plano e pagamento ficam na tela segura de assinatura.
+                  </div>
                 </div>
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/lojista/assinatura">Abrir gestão completa da assinatura</Link>
+                  <Link to="/lojista/assinatura">Abrir gestao segura</Link>
                 </Button>
               </div>
             </div>
@@ -886,6 +906,29 @@ const Settings = () => {
                 <Label>Cor secundaria</Label>
                 <Input type="color" value={storeForm.secondary_color ?? "#101828"} onChange={(e) => setStoreForm({ ...storeForm, secondary_color: e.target.value })} className="h-11 w-full" />
               </Field>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-secondary/35 p-4">
+              <div className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Previa da loja</div>
+              <div style={getStoreThemeStyle(storeForm)} className="overflow-hidden rounded-2xl border border-border bg-white">
+                <div className="h-20 bg-[linear-gradient(135deg,var(--primary),var(--accent))]" />
+                <div className="grid gap-3 p-4 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center">
+                  <div className="-mt-10 h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-white shadow-sm">
+                    {storeForm.logo_url ? (
+                      <img src={storeForm.logo_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-secondary text-primary">
+                        <Store className="h-6 w-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold">{storeForm.public_name || storeForm.name || "Nome da loja"}</div>
+                    <div className="text-sm text-muted-foreground">{storeForm.description || "Descricao curta da loja para clientes."}</div>
+                  </div>
+                  <Button type="button" className="w-full sm:w-auto">Ver cardapio</Button>
+                </div>
+              </div>
             </div>
           </Card>
         </TabsContent>
@@ -972,6 +1015,9 @@ const MiniStat = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
+const formatLimitValue = (value: number | null | undefined) =>
+  value === null || value === undefined ? "Ilimitado" : String(value);
+
 const parseBusinessHours = (value: Json | undefined): BusinessHours => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return DEFAULT_BUSINESS_HOURS;
 
@@ -1021,6 +1067,7 @@ const buildStoreSettings = (settings: any): any => ({
   accept_card_online: settings?.accept_card_online ?? true,
   pix_key: settings?.pix_key ?? null,
   pix_key_type: settings?.pix_key_type ?? null,
+  payment_instructions: settings?.payment_instructions ?? null,
   business_hours: settings?.business_hours ?? DEFAULT_BUSINESS_HOURS,
   delivery_radius_km: settings?.delivery_radius_km ?? 0,
   delivery_base_fee: settings?.delivery_base_fee ?? 0,
@@ -1030,8 +1077,8 @@ const buildStoreSettings = (settings: any): any => ({
   excluded_neighborhoods: settings?.excluded_neighborhoods ?? [],
   asaas_api_key: settings?.asaas_api_key ?? null,
   asaas_wallet_id: settings?.asaas_wallet_id ?? null,
-  payment_gateway_provider: settings?.payment_gateway_provider ?? "asaas",
-  payment_gateway_api_key: settings?.payment_gateway_api_key ?? settings?.asaas_api_key ?? null,
+  payment_gateway_provider: settings?.payment_gateway_provider ?? null,
+  payment_gateway_api_key: settings?.payment_gateway_api_key ?? null,
   payment_gateway_config: settings?.payment_gateway_config ?? {},
 });
 

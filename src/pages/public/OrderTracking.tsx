@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check, Bike, ChefHat, PackageCheck, Wallet } from "lucide-react";
-import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink } from "@/lib/format";
+import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink, formatDeliveryAddressLines } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
@@ -232,7 +232,7 @@ const OrderTracking = () => {
                 <QrCode className="h-8 w-8" />
               </div>
               <h2 className="font-black uppercase tracking-tight text-xl italic text-foreground">Pague com PIX</h2>
-              <p className="text-[10px] text-foreground font-bold uppercase tracking-widest">Aguardando confirmação automática</p>
+              <p className="text-[10px] text-foreground font-bold uppercase tracking-widest">Aguardando confirmacao da loja</p>
             </div>
             
             {!pixInfo ? (
@@ -250,8 +250,8 @@ const OrderTracking = () => {
               </div>
             ) : pixInfo.error ? (
               <div className="flex flex-col items-center gap-4 py-8 bg-white border-2 border-red-200 p-4">
-                <p className="text-sm font-bold text-red-600 uppercase">Erro no Gateway: {pixInfo.error}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Tente atualizar a página ou entre em contato com a loja.</p>
+                <p className="text-sm font-bold text-red-600 uppercase">Erro ao carregar Pix: {pixInfo.error}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Tente atualizar a pagina ou entre em contato com a loja.</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -289,7 +289,7 @@ const OrderTracking = () => {
             )}
             
             <div className="p-3 bg-white border-2 border-dashed border-border rounded-xl text-[10px] text-foreground font-bold uppercase leading-tight">
-              O seu pedido será confirmado em instantes após o pagamento
+              Apos pagar, aguarde a loja confirmar o recebimento.
             </div>
           </Card>
         )}
@@ -394,6 +394,20 @@ const OrderTracking = () => {
             </div>
           </div>
         </Card>
+
+        {order.delivery_type === "entrega" && (
+          <Card className="p-5 border border-border rounded-xl space-y-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              <h3 className="font-black uppercase tracking-tighter italic text-sm">Endereço de Entrega</h3>
+            </div>
+            <div className="text-xs font-bold leading-relaxed text-muted-foreground">
+              {formatDeliveryAddressLines(order).map((line) => (
+                <div key={line}>{line}</div>
+              ))}
+            </div>
+          </Card>
+        )}
 
 
         <Card className="p-6 border border-border rounded-xl space-y-4">

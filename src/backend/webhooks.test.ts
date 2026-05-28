@@ -76,6 +76,20 @@ describe("Asaas webhook", () => {
     expect(publishRealtimeMock).toHaveBeenCalled();
   });
 
+  it("acknowledges subscription-only events without interrupting the webhook queue", async () => {
+    const { handleAsaasWebhook } = await import("./webhooks");
+
+    const response = await handleAsaasWebhook(makeRequest({
+      event: "SUBSCRIPTION_UPDATED",
+      subscription: { id: "sub_1", status: "ACTIVE" },
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true, ignored: true, subscription: true });
+    expect(withTransactionMock).not.toHaveBeenCalled();
+  });
+
   it("is idempotent when receiving the same paid event twice", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     const client = {

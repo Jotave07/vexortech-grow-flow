@@ -6,7 +6,6 @@ import { withTransaction } from "@/backend/db";
 import { isStoreOpen } from "@/lib/opening-hours";
 import { createOrderPaymentForOrder } from "./asaas.service";
 import { notifyOrderCreatedHandler } from "@/functions/evolution.server";
-import { hasPixGatewayConfig } from "./payment-gateways";
 import { quoteDelivery } from "./delivery.service";
 
 type DbClient = Pick<pg.PoolClient, "query">;
@@ -95,7 +94,7 @@ const optionLimits = (group: any) => {
 };
 
 const isPaymentMethodAccepted = (settings: any, method: CheckoutInput["paymentMethod"]) => {
-  if (method === "pix") return Boolean(settings.accept_pix) && hasPixGatewayConfig(settings);
+  if (method === "pix") return Boolean(settings.accept_pix) && Boolean(String(settings.pix_key || "").trim());
   if (method === "dinheiro") return Boolean(settings.accept_cash);
   return Boolean(settings.accept_card_on_delivery);
 };
@@ -346,9 +345,6 @@ export const createCheckoutOrderForActor = async (
     }
     if (input.delivery.type === "retirada" && !settings.allow_pickup) {
       throw new Error("Retirada indisponivel para esta loja.");
-    }
-    if (input.paymentMethod === "pix" && onlyDigits(input.customer.document).length < 11) {
-      throw new Error("CPF/CNPJ obrigatorio para pagamento via PIX.");
     }
     if (onlyDigits(input.customer.phone).length < 10) throw new Error("WhatsApp invalido.");
 

@@ -14,6 +14,29 @@ describe("backend query SQL generation", () => {
     expect(params).toEqual([["11111111-1111-4111-8111-111111111111"]]);
   });
 
+  it("casts scalar filters so nullish browser state cannot leave PostgreSQL guessing", () => {
+    const params: unknown[] = [];
+    const sql = appendFilterSql("stores", {
+      op: "eq",
+      column: "id",
+      value: "11111111-1111-4111-8111-111111111111",
+    }, params);
+
+    expect(sql).toBe("\"id\" = $1::uuid");
+    expect(params).toEqual(["11111111-1111-4111-8111-111111111111"]);
+  });
+
+  it("casts non-null .is filters", () => {
+    const params: unknown[] = [];
+    const sql = appendFilterSql("orders", {
+      op: "is",
+      column: "status",
+      value: "novo",
+    }, params);
+
+    expect(sql).toBe("\"status\" IS NOT DISTINCT FROM $1::text");
+  });
+
   it("casts text arrays for .in filters", () => {
     const params: unknown[] = [];
     const sql = appendFilterSql("orders", {

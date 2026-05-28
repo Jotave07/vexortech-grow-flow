@@ -69,19 +69,48 @@ const insertPaymentEvent = async (
 };
 
 const updateSubscriptionIfPresent = async (event: string, payment: any) => {
-  if (!paidEvents.has(event)) return;
   if (!payment.subscription && !payment.externalReference) return;
+  const status = paidEvents.has(event)
+    ? "ativa"
+    : failedEvents.has(event)
+      ? "inadimplente"
+      : cancelledEvents.has(event)
+        ? "cancelada"
+        : null;
+  if (!status) return false;
+
+  const paidAt = payment.paymentDate || payment.confirmedDate || payment.clientPaymentDate || null;
+  const dueDate = payment.dueDate || payment.originalDueDate || null;
   const { rows } = await query(
     `UPDATE public.subscriptions
-     SET status = 'ativa', last_payment_status = $1, updated_at = now()
-     WHERE asaas_subscription_id = $2 OR store_id::text = $3
+     SET status = $1,
+         last_payment_status = $2,
+         current_period_start = CASE
+           WHEN $1 = 'ativa' THEN COALESCE($4::timestamptz, now())
+           ELSE current_period_start
+         END,
+         current_period_end = CASE
+           WHEN $1 = 'ativa' THEN COALESCE(($5::date + INTERVAL '30 days')::timestamptz, current_period_end, now() + INTERVAL '30 days')
+           ELSE current_period_end
+         END,
+         next_due_date = COALESCE($5::date, next_due_date),
+         canceled_at = CASE WHEN $1 = 'cancelada' THEN COALESCE(canceled_at, now()) ELSE canceled_at END,
+         cancellation_effective_at = CASE
+           WHEN $1 = 'cancelada' THEN COALESCE(cancellation_effective_at, current_period_end, next_due_date::timestamptz, now())
+           ELSE cancellation_effective_at
+         END,
+         updated_at = now()
+     WHERE asaas_subscription_id = $3
+        OR external_reference = $6
+        OR store_id::text = regexp_replace(COALESCE($6, ''), '^platform-subscription:', '')
      RETURNING *`,
-    [event, payment.subscription || null, payment.externalReference || null],
+    [status, event, payment.subscription || null, paidAt, dueDate, payment.externalReference || null],
   ).catch(() => ({ rows: [] as any[] }));
 
   for (const subscription of rows) {
     publishRealtime({ schema: "public", table: "subscriptions", eventType: "UPDATE", new: subscription, old: subscription });
   }
+  return rows.length > 0;
 };
 
 export const handleAsaasWebhook = async (request: Request) => {
@@ -108,14 +137,20 @@ export const handleAsaasWebhook = async (request: Request) => {
 
   const event = String(body?.event || "");
   const payment = body?.payment;
-  if (!event || !payment?.id || !payment?.externalReference) {
+  if (event.startsWith("SUBSCRIPTION_") && body?.subscription?.id) {
+    return Response.json({ success: true, ignored: true, subscription: true });
+  }
+  if (!event || !payment?.id || (!payment?.externalReference && !payment?.subscription)) {
     return safeJsonError("Invalid payload", 400);
   }
 
   const mappedStatus = paymentStatusForEvent(event);
   if (!mappedStatus) return Response.json({ success: true, ignored: true });
 
-  await updateSubscriptionIfPresent(event, payment);
+  const updatedSubscription = await updateSubscriptionIfPresent(event, payment);
+  if (updatedSubscription && String(payment.externalReference || "").startsWith("platform-subscription:")) {
+    return Response.json({ success: true, subscription: true });
+  }
 
   const result = await withTransaction(async (client) => {
     const { rows: payments } = await client.query(

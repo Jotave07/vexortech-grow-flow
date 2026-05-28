@@ -15,6 +15,11 @@ const jsonResponse = (body: unknown, status = 200) =>
     },
   });
 
+const getRemoteIp = (request: Request) => {
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || null;
+};
+
 export const Route = createFileRoute("/api/backend")({
   server: {
     handlers: {
@@ -50,7 +55,9 @@ export const Route = createFileRoute("/api/backend")({
           return jsonResponse(result);
         }
         if (kind === "function") {
-          const result = await invokeFunction(String(body.name || ""), body.body || {}, token);
+          const result = await invokeFunction(String(body.name || ""), body.body || {}, token, {
+            remoteIp: getRemoteIp(request),
+          });
           return jsonResponse(result);
         }
 

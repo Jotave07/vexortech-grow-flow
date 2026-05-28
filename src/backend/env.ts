@@ -55,6 +55,10 @@ export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } =
     throw new Error("EVOLUTION_API_KEY obrigatorio em producao.");
   }
 
+  if (!clean(process.env.EVOLUTION_INSTANCE)) {
+    throw new Error("EVOLUTION_INSTANCE obrigatorio em producao.");
+  }
+
   if (!clean(process.env.EVOLUTION_AUTOMATION_PHONE)) {
     throw new Error("EVOLUTION_AUTOMATION_PHONE obrigatorio em producao.");
   }

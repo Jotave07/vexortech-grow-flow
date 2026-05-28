@@ -43,7 +43,7 @@ export type Relation = {
   nested?: Record<string, Relation>;
 };
 
-export type PgScalarType = "uuid" | "text" | "numeric" | "integer" | "boolean" | "timestamptz";
+export type PgScalarType = "uuid" | "text" | "numeric" | "integer" | "boolean" | "timestamptz" | "jsonb";
 
 export const columnTypes: Record<string, Record<string, PgScalarType>> = {
   stores: {
@@ -52,6 +52,24 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     slug: "text",
     name: "text",
     public_name: "text",
+    description: "text",
+    store_type: "text",
+    is_verified: "boolean",
+    verification_status: "text",
+    verification_notes: "text",
+    logo_url: "text",
+    cover_url: "text",
+    document: "text",
+    email: "text",
+    address: "text",
+    address_number: "text",
+    address_complement: "text",
+    neighborhood: "text",
+    zip_code: "text",
+    latitude: "numeric",
+    longitude: "numeric",
+    primary_color: "text",
+    secondary_color: "text",
     city: "text",
     state: "text",
     phone: "text",
@@ -67,8 +85,10 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     asaas_api_key: "text",
     payment_gateway_provider: "text",
     payment_gateway_api_key: "text",
+    payment_gateway_config: "jsonb",
     pix_key: "text",
     pix_key_type: "text",
+    asaas_wallet_id: "text",
     allow_delivery: "boolean",
     allow_pickup: "boolean",
     accept_pix: "boolean",
@@ -83,6 +103,8 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     min_order_amount: "numeric",
     free_delivery_above: "numeric",
     avg_prep_time_minutes: "integer",
+    business_hours: "jsonb",
+    whatsapp_number: "text",
   },
   products: {
     id: "uuid",
@@ -149,10 +171,21 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     customer_phone: "text",
     customer_document: "text",
     customer_email: "text",
+    delivery_address: "text",
+    delivery_reference: "text",
+    zip_code: "text",
+    neighborhood: "text",
+    city: "text",
+    state: "text",
+    street: "text",
+    number: "text",
+    complement: "text",
+    notes: "text",
     subtotal: "numeric",
     delivery_fee: "numeric",
     discount_amount: "numeric",
     total: "numeric",
+    change_for: "numeric",
     distance_km: "numeric",
     estimated_min: "integer",
     estimated_max: "integer",
@@ -199,6 +232,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
   delivery_zones: {
     id: "uuid",
     store_id: "uuid",
+    name: "text",
     city: "text",
     state: "text",
     neighborhood: "text",
@@ -301,6 +335,16 @@ export const arrayCastFor = (table: string, column: string) => {
   return pgArrayCast(getColumnPgType(table, column));
 };
 
+const optionalColumnCastFor = (table: string, column: string) => {
+  const normalizedTable = table.replace(/^public\./, "");
+  const normalizedColumn = column.trim();
+  const type = columnTypes[normalizedTable]?.[normalizedColumn];
+  return type ? `::${type}` : "";
+};
+
+const typedParamSql = (table: string, column: string, index: number) =>
+  `$${index}${optionalColumnCastFor(table, column)}`;
+
 const relations: Record<string, Record<string, Relation>> = {
   stores: {
     store_settings: { table: "store_settings", local: "id", foreign: "store_id", localType: "uuid", foreignType: "uuid", many: true },
@@ -356,22 +400,22 @@ export const appendFilterSql = (table: string, filter: QueryFilter, params: unkn
   switch (filter.op) {
     case "eq":
       params.push(filter.value);
-      return `${column} = $${params.length}`;
+      return `${column} = ${typedParamSql(table, filter.column, params.length)}`;
     case "neq":
       params.push(filter.value);
-      return `${column} <> $${params.length}`;
+      return `${column} <> ${typedParamSql(table, filter.column, params.length)}`;
     case "gt":
       params.push(filter.value);
-      return `${column} > $${params.length}`;
+      return `${column} > ${typedParamSql(table, filter.column, params.length)}`;
     case "gte":
       params.push(filter.value);
-      return `${column} >= $${params.length}`;
+      return `${column} >= ${typedParamSql(table, filter.column, params.length)}`;
     case "lt":
       params.push(filter.value);
-      return `${column} < $${params.length}`;
+      return `${column} < ${typedParamSql(table, filter.column, params.length)}`;
     case "lte":
       params.push(filter.value);
-      return `${column} <= $${params.length}`;
+      return `${column} <= ${typedParamSql(table, filter.column, params.length)}`;
     case "in":
       if (!filter.values.length) return "FALSE";
       {
@@ -382,7 +426,7 @@ export const appendFilterSql = (table: string, filter: QueryFilter, params: unkn
     case "is":
       if (filter.value === null) return `${column} IS NULL`;
       params.push(filter.value);
-      return `${column} IS NOT DISTINCT FROM $${params.length}`;
+      return `${column} IS NOT DISTINCT FROM ${typedParamSql(table, filter.column, params.length)}`;
     default:
       return "TRUE";
   }
@@ -427,7 +471,15 @@ const serverManagedTables = new Set([
   "order_status_history",
   "subscriptions",
 ]);
-const protectedStoreColumns = new Set(["owner_user_id", "plan_id", "is_active", "is_suspended"]);
+const protectedStoreColumns = new Set([
+  "owner_user_id",
+  "plan_id",
+  "is_active",
+  "is_suspended",
+  "is_verified",
+  "verification_status",
+  "verification_notes",
+]);
 
 const accessSql = async (table: string, operation: QueryPayload["operation"], ctx: QueryContext, params: unknown[]) => {
   if (ctx.admin) return "TRUE";
@@ -627,7 +679,7 @@ const insertRows = async (table: string, values: unknown) => {
   const valueSql = rows.map((row) => {
     const placeholders = columns.map((column) => {
       params.push(row[column] ?? null);
-      return `$${params.length}`;
+      return typedParamSql(table, column, params.length);
     });
     return `(${placeholders.join(", ")})`;
   });
@@ -643,7 +695,7 @@ const updateRows = async (table: string, values: any, whereSql: string, params: 
   if (!entries.length) return [];
   const setSql = entries.map(([column, value]) => {
     params.push(value);
-    return `${quoteIdent(ensureName(column))} = $${params.length}`;
+    return `${quoteIdent(ensureName(column))} = ${typedParamSql(table, column, params.length)}`;
   });
   const sql = `UPDATE public.${quoteIdent(table)} SET ${setSql.join(", ")} WHERE ${whereSql} RETURNING *`;
   const result = await query(sql, params);
@@ -667,7 +719,7 @@ const upsertRows = async (table: string, values: unknown, onConflict?: string) =
   const valueSql = rows.map((row) => {
     const placeholders = columns.map((column) => {
       params.push(row[column] ?? null);
-      return `$${params.length}`;
+      return typedParamSql(table, column, params.length);
     });
     return `(${placeholders.join(", ")})`;
   });
@@ -743,14 +795,14 @@ const sanitizeStoreSettingsRows = async (table: string, rows: any[], ctx: QueryC
 
   return rows.map((row) => {
     if (actor?.ownedStoreIds.includes(String(row.store_id))) return row;
-    const gatewayConfigured = hasTextValue(row.payment_gateway_api_key) || hasTextValue(row.asaas_api_key);
+    const pixConfigured = hasTextValue(row.pix_key);
     return {
       ...row,
       asaas_api_key: null,
       asaas_wallet_id: null,
       payment_gateway_api_key: null,
       payment_gateway_config: null,
-      pix_gateway_configured: gatewayConfigured,
+      pix_gateway_configured: pixConfigured,
     };
   });
 };

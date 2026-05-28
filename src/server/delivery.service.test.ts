@@ -47,6 +47,15 @@ const createDeps = (overrides: {
     if (sql.includes("FROM public.delivery_zones")) return { rows: overrides.zones ?? [] };
     return { rows: [] };
   }),
+  cepLookup: vi.fn(async () => ({
+    cep: "01001-000",
+    street: "Praca da Se",
+    neighborhood: "SE",
+    city: "SAO PAULO",
+    state: "SP",
+    lat: -23.55,
+    lng: -46.63,
+  })),
   geocode: vi.fn(async () => ({ lat: -23.56, lng: -46.64 })),
   distance: vi.fn(async () => ({ distanceKm: overrides.distanceKm ?? 2, mode: "route" as const })),
 });
@@ -84,7 +93,7 @@ describe("quoteDelivery", () => {
     });
   });
 
-  it("matches CEP range immediately without street, number, or coordinates", async () => {
+  it("matches CEP range and resolves distance when only CEP is provided", async () => {
     const deps = createDeps({
       settings: { delivery_radius_km: null },
       zones: [{
@@ -116,12 +125,68 @@ describe("quoteDelivery", () => {
     expect(quote).toMatchObject({
       available: true,
       fee: 7,
-      estimatedMin: 25,
+      distanceKm: 2,
+      estimatedMin: 35,
       regionName: "Vila Velha",
       source: "region",
     });
-    expect(quote.distanceKm).toBeUndefined();
-    expect(deps.distance).not.toHaveBeenCalled();
+    expect(deps.distance).toHaveBeenCalled();
+    expect(deps.cepLookup).toHaveBeenCalledWith("29154312");
+  });
+
+  it("resolves CEP server-side when the tester sends only CEP and the region is city based", async () => {
+    const deps = createDeps({
+      zones: [{
+        id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        name: "Se",
+        city: "SAO PAULO",
+        state: "SP",
+        neighborhood: "SE",
+        fee: 9,
+        min_order: 0,
+        base_prep_time: 30,
+      }],
+    });
+
+    const quote = await quoteDelivery({
+      ...input,
+      address: {
+        cep: "01001000",
+        street: "",
+        number: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+      },
+      customerCoordinates: null,
+    }, deps as any);
+
+    expect(quote).toMatchObject({
+      available: true,
+      fee: 9,
+      regionName: "Se",
+    });
+    expect(deps.cepLookup).toHaveBeenCalledWith("01001000");
+  });
+
+  it("applies store-level free delivery in the same backend quote used by checkout and tests", async () => {
+    const deps = createDeps({
+      settings: { free_delivery_above: 80 },
+      zones: [{
+        id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+        name: "Centro",
+        city: "SAO PAULO",
+        state: "SP",
+        neighborhood: "CENTRO",
+        fee: 12,
+        min_order: 0,
+      }],
+    });
+
+    const quote = await quoteDelivery(input, deps as any);
+
+    expect(quote.available).toBe(true);
+    expect(quote.fee).toBe(0);
   });
 
   it("rejects addresses outside the global delivery radius", async () => {
