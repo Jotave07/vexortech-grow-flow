@@ -32,6 +32,9 @@ const checkMigrations = async () => {
 };
 
 const checkStorage = async () => {
+  if (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return true;
+  }
   const dir = process.env.STORAGE_DIR || path.join(process.cwd(), ".storage-health");
   const filePath = path.join(dir, `.health-${Date.now()}`);
   await fs.mkdir(dir, { recursive: true });

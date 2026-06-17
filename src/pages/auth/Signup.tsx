@@ -9,6 +9,7 @@ import { Loader2, UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDoc } from "@/lib/format";
 import { AuthShell } from "./AuthShell";
+import { SocialAuthButtons } from "./SocialAuthButtons";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -17,6 +18,10 @@ const Signup = () => {
   const redirect = new URLSearchParams(location.search).get("redirect");
   const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
+  const oauthRedirect =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${redirect?.startsWith("/") ? redirect : "/"}`
+      : undefined;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +47,13 @@ const Signup = () => {
     if (error) {
       setLoading(false);
       toast.error(error.message);
+      return;
+    }
+
+    if (signUpData.user && !signUpData.session) {
+      setLoading(false);
+      toast.success("Conta criada. Verifique seu e-mail para ativar o acesso.");
+      navigate(redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar", { replace: true });
       return;
     }
 
@@ -99,6 +111,9 @@ const Signup = () => {
           Criar minha conta
         </Button>
       </form>
+      <div className="mt-5">
+        <SocialAuthButtons context="customer" redirectTo={oauthRedirect} />
+      </div>
       <div className="mt-6 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
           Já tem conta? <Link to={redirect ? `/entrar?redirect=${encodeURIComponent(redirect)}` : "/entrar"} className="text-primary font-bold hover:underline">Entrar</Link>

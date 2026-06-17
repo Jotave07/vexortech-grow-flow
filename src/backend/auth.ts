@@ -2,6 +2,11 @@ import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import { query } from "./db";
 import type { BackendError, BackendResult, LocalSession, LocalUser } from "@/integrations/backend/compat-types";
+import {
+  createSupabaseAuthUser,
+  fetchSupabaseUserByToken,
+  hasSupabaseAdminConfig,
+} from "./supabase";
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 const RESET_TTL_SECONDS = 60 * 30;
@@ -86,6 +91,16 @@ const userFromRow = (row: any): LocalUser => ({
   updated_at: row.updated_at,
 });
 
+const userFromSupabaseAuthUser = (user: any): LocalUser => ({
+  id: user.id,
+  email: user.email,
+  role: "authenticated",
+  app_metadata: user.app_metadata || {},
+  user_metadata: user.user_metadata || {},
+  created_at: user.created_at,
+  updated_at: user.updated_at,
+});
+
 const createSession = (user: LocalUser, ttlSeconds = TOKEN_TTL_SECONDS): LocalSession => {
   const access_token = signJwt(
     {
@@ -132,15 +147,29 @@ export const resolveActorAdmin = (input: {
 };
 
 export const getUserByToken = async (token?: string) => {
-  const claims = verifyJwt(token);
-  if (!claims?.sub) return null;
-  const { rows } = await query(
-    `SELECT id, email, raw_user_meta_data, raw_app_meta_data, created_at, updated_at
-     FROM auth.users
-     WHERE id = $1`,
-    [claims.sub],
-  );
-  return rows[0] ? userFromRow(rows[0]) : null;
+  const claims = (() => {
+    try {
+      return verifyJwt(token);
+    } catch {
+      return null;
+    }
+  })();
+  if (claims?.sub) {
+    try {
+      const { rows } = await query(
+        `SELECT id, email, raw_user_meta_data, raw_app_meta_data, created_at, updated_at
+         FROM auth.users
+         WHERE id = $1`,
+        [claims.sub],
+      );
+      if (rows[0]) return userFromRow(rows[0]);
+    } catch {
+      // Supabase-hosted projects manage auth.users; fall through to Auth API validation.
+    }
+  }
+
+  const supabaseUser = await fetchSupabaseUserByToken(token);
+  return supabaseUser ? userFromSupabaseAuthUser(supabaseUser) : null;
 };
 
 export const getActor = async (token?: string) => {
@@ -200,13 +229,31 @@ export const signUp = async (
   metadata: Record<string, unknown> = {},
   options: { trustedRole?: boolean } = {},
 ) => {
-  await ensureAuthSchema();
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || password.length < 6) return errorResult("E-mail e senha de no minimo 6 caracteres sao obrigatorios.");
 
   const safeMetadata = options.trustedRole ? metadata : sanitizePublicSignupMetadata(metadata);
-  const encrypted = await hashPassword(password);
   const role = String(safeMetadata.role || safeMetadata.account_type || "customer");
+
+  if (hasSupabaseAdminConfig()) {
+    try {
+      const supabaseUser = await createSupabaseAuthUser(normalizedEmail, password, safeMetadata);
+      const user = userFromSupabaseAuthUser(supabaseUser);
+      await ensureApplicationUserRows(user, safeMetadata, role);
+      return {
+        data: { access_token: "", token_type: "bearer", expires_at: 0, expires_in: 0, user } satisfies LocalSession,
+        error: null,
+      };
+    } catch (error: any) {
+      if (String(error?.message || "").toLowerCase().includes("already")) {
+        return errorResult("Este e-mail ja esta cadastrado.", "email_exists");
+      }
+      return errorResult(error?.message || "Erro ao criar usuario no Supabase.");
+    }
+  }
+
+  await ensureAuthSchema();
+  const encrypted = await hashPassword(password);
 
   try {
     const { rows } = await query(
@@ -216,29 +263,46 @@ export const signUp = async (
       [normalizedEmail, encrypted, JSON.stringify(safeMetadata)],
     );
     const user = userFromRow(rows[0]);
-    await query(
-      `INSERT INTO public.profiles (user_id, email, full_name, document, role)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT DO NOTHING`,
-      [
-        user.id,
-        normalizedEmail,
-        safeMetadata.full_name ? String(safeMetadata.full_name) : null,
-        safeMetadata.document ? String(safeMetadata.document) : null,
-        role,
-      ],
-    ).catch(() => null);
-    await query(
-      `INSERT INTO public.user_roles (user_id, role)
-       VALUES ($1, $2)
-       ON CONFLICT DO NOTHING`,
-      [user.id, role],
-    ).catch(() => null);
+    await ensureApplicationUserRows(user, safeMetadata, role);
     return { data: createSession(user), error: null };
   } catch (error: any) {
     if (String(error?.code) === "23505") return errorResult("Este e-mail ja esta cadastrado.", "email_exists");
     return errorResult(error?.message || "Erro ao criar usuario.");
   }
+};
+
+const ensureApplicationUserRows = async (
+  user: LocalUser,
+  metadata: Record<string, unknown>,
+  role: string,
+) => {
+  const safeRole = ["customer", "store_owner"].includes(role) ? role : "customer";
+  await query(
+    `INSERT INTO public.profiles (user_id, email, full_name, document, role)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (user_id) DO UPDATE SET
+       email = COALESCE(public.profiles.email, EXCLUDED.email),
+       full_name = COALESCE(NULLIF(public.profiles.full_name, ''), EXCLUDED.full_name),
+       document = COALESCE(NULLIF(public.profiles.document, ''), EXCLUDED.document),
+       role = CASE
+         WHEN public.profiles.role IN ('super_admin', 'admin', 'store_owner') THEN public.profiles.role
+         ELSE EXCLUDED.role
+       END,
+       updated_at = now()`,
+    [
+      user.id,
+      user.email || null,
+      metadata.full_name ? String(metadata.full_name) : null,
+      metadata.document ? String(metadata.document) : null,
+      safeRole,
+    ],
+  ).catch(() => null);
+  await query(
+    `INSERT INTO public.user_roles (user_id, role)
+     VALUES ($1, $2)
+     ON CONFLICT DO NOTHING`,
+    [user.id, safeRole],
+  ).catch(() => null);
 };
 
 export const signInWithPassword = async (email: string, password: string) => {

@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getActor } from "./auth";
 import { parseBearerToken } from "./db";
+import {
+  getSupabasePublicObjectUrl,
+  hasSupabaseAdminConfig,
+  uploadObjectToSupabaseStorage,
+} from "./supabase";
 
 const rootDir = () => path.resolve(process.env.STORAGE_DIR || path.join(process.cwd(), ".data", "storage"));
 const publicBuckets = new Set(["store-assets", "logos", "banners", "products"]);
@@ -35,19 +40,6 @@ export const uploadStorageFile = async (form: FormData, token?: string) => {
     return { data: null, error: { message: "Upload invalido." } };
   }
 
-  const target = path.resolve(rootDir(), bucket, objectPath);
-  if (!target.startsWith(path.resolve(rootDir()))) throw new Error("Caminho fora do armazenamento.");
-  await fs.mkdir(path.dirname(target), { recursive: true });
-
-  if (!upsert) {
-    try {
-      await fs.access(target);
-      return { data: null, error: { message: "Arquivo ja existe." } };
-    } catch {
-      // File does not exist; continue.
-    }
-  }
-
   const bytes = Buffer.from(await file.arrayBuffer());
   if (bytes.length > maxUploadBytes) return { data: null, error: { message: "Arquivo excede o limite permitido." } };
   const ext = path.extname(objectPath).toLowerCase();
@@ -62,6 +54,30 @@ export const uploadStorageFile = async (form: FormData, token?: string) => {
   const [pathStoreId] = objectPath.split("/");
   if (pathStoreId && !actor.admin && !actor.ownedStoreIds.includes(pathStoreId)) {
     return { data: null, error: { message: "Arquivo fora do escopo da loja." } };
+  }
+
+  if (hasSupabaseAdminConfig()) {
+    await uploadObjectToSupabaseStorage({
+      bucket,
+      path: objectPath,
+      bytes,
+      contentType: expectedType,
+      upsert,
+    });
+    return { data: { path: objectPath, fullPath: `${bucket}/${objectPath}` }, error: null };
+  }
+
+  const target = path.resolve(rootDir(), bucket, objectPath);
+  if (!target.startsWith(path.resolve(rootDir()))) throw new Error("Caminho fora do armazenamento.");
+  await fs.mkdir(path.dirname(target), { recursive: true });
+
+  if (!upsert) {
+    try {
+      await fs.access(target);
+      return { data: null, error: { message: "Arquivo ja existe." } };
+    } catch {
+      // File does not exist; continue.
+    }
   }
 
   await fs.writeFile(target, bytes);
@@ -79,6 +95,11 @@ export const serveStorageFile = async (bucket: string, objectPath: string, reque
       return new Response("Unauthorized", { status: 401 });
     }
   }
+  if (hasSupabaseAdminConfig() && publicBuckets.has(safeBucket)) {
+    const publicUrl = getSupabasePublicObjectUrl(safeBucket, safeObjectPath);
+    return Response.redirect(publicUrl, 302);
+  }
+
   const target = path.resolve(rootDir(), safeBucket, safeObjectPath);
   if (!target.startsWith(path.resolve(rootDir()))) return new Response("Not found", { status: 404 });
 

@@ -67,6 +67,7 @@ const Zones = () => {
 
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
+  const [resolvingRegionCep, setResolvingRegionCep] = useState(false);
   
   const [testAddress, setTestAddress] = useState<TestAddress>({
     cep: "",
@@ -222,6 +223,34 @@ const Zones = () => {
       toast.error(err.message || "Erro ao testar frete");
     } finally {
       setTesting(false);
+    }
+  };
+
+  const fillRegionFromCep = async () => {
+    const cep = normalizeCep(form.zip_start);
+    if (!isValidCep(cep)) return toast.error("Informe um CEP inicial valido.");
+
+    setResolvingRegionCep(true);
+    try {
+      const address = await fetchAddressByCep(cep);
+      const neighborhood = (address.bairro || form.neighborhood || "").toUpperCase();
+      const city = (address.localidade || form.city || "").toUpperCase();
+      const state = (address.uf || form.state || "").toUpperCase().slice(0, 2);
+
+      setForm((current) => ({
+        ...current,
+        name: current.name || neighborhood || city || `CEP ${formatCep(cep)}`,
+        neighborhood,
+        city,
+        state,
+        zip_start: cep,
+        zip_end: normalizeCep(current.zip_end) || cep,
+      }));
+      toast.success("Regiao preenchida pelo CEP.");
+    } catch (error: any) {
+      toast.error(error?.message || "Nao foi possivel consultar o CEP.");
+    } finally {
+      setResolvingRegionCep(false);
     }
   };
 
@@ -429,6 +458,17 @@ const Zones = () => {
                     <Input value={form.zip_end} onChange={(e) => setForm({ ...form, zip_end: e.target.value })} placeholder="00000-000" />
                   </div>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={fillRegionFromCep}
+                  disabled={resolvingRegionCep}
+                >
+                  {resolvingRegionCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Preencher bairro, cidade e UF pelo CEP
+                </Button>
               </div>
             </TabsContent>
 

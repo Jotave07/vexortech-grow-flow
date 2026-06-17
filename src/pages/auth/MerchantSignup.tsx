@@ -22,6 +22,7 @@ import {
 import { formatDoc } from "@/lib/format";
 import { BrandMark } from "@/components/BrandMark";
 import { buildDeliveryUrl } from "@/lib/domains";
+import { SocialAuthButtons } from "./SocialAuthButtons";
 import {
   Accordion,
   AccordionContent,
@@ -33,6 +34,8 @@ const MerchantSignup = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ full_name: "", document: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const oauthRedirect =
+    typeof window !== "undefined" ? `${window.location.origin}/onboarding` : undefined;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +57,13 @@ const MerchantSignup = () => {
     if (error) {
       setLoading(false);
       toast.error(error.message);
+      return;
+    }
+
+    if (signUpData.user && !signUpData.session) {
+      setLoading(false);
+      toast.success("Conta criada. Verifique seu e-mail para ativar o acesso.");
+      navigate("/lojista/entrar", { replace: true });
       return;
     }
 
@@ -197,6 +207,9 @@ const MerchantSignup = () => {
                       Ao se cadastrar, você concorda com nossos <Link to="/termos" className="underline hover:text-primary">Termos de Uso</Link> e <Link to="/privacidade" className="underline hover:text-primary">Política de Privacidade</Link>.
                     </p>
                   </form>
+                  <div className="mt-5">
+                    <SocialAuthButtons context="merchant_signup" redirectTo={oauthRedirect} />
+                  </div>
                 </Card>
               </div>
             </div>

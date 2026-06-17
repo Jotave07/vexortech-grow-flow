@@ -1,3 +1,5 @@
+import { geocodeAddressWithGoogle, reverseGeocodeWithGoogle } from "@/services/googleMaps";
+
 const VIACEP_BASE_URL = "https://viacep.com.br/ws";
 const BRASILAPI_CEP_BASE_URL = "https://brasilapi.com.br/api/cep/v2";
 const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
@@ -116,10 +118,17 @@ const enrichAddressWithCoordinates = async (normalizedCep: string, address: ViaC
       ...address,
       ...("lat" in brasilApiAddress && "lng" in brasilApiAddress
         ? { lat: brasilApiAddress.lat, lng: brasilApiAddress.lng }
-        : {}),
+      : {}),
     };
   } catch {
-    return address;
+    const googleCoordinates = await geocodeAddressWithGoogle({
+      street: address.street,
+      neighborhood: address.neighborhood,
+      city: address.city,
+      state: address.state,
+      zipCode: normalizedCep,
+    });
+    return googleCoordinates ? { ...address, ...googleCoordinates } : address;
   }
 };
 
@@ -256,6 +265,9 @@ export const geocodeAddress = async (
 };
 
 export const geocodeAddressCoordinates = async (address: GeocodeAddressInput): Promise<AddressCoordinates | null> => {
+  const googleCoordinates = await geocodeAddressWithGoogle(address);
+  if (googleCoordinates) return googleCoordinates;
+
   const queryParts = [
     address.street && address.number ? `${address.street}, ${address.number}` : address.street,
     address.neighborhood,
@@ -301,6 +313,19 @@ export const fetchAddressFromCurrentLocation = async (): Promise<AddressWithCoor
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 12000 },
     );
   });
+
+  const googleAddress = await reverseGeocodeWithGoogle({
+    lat: coordinates.latitude,
+    lng: coordinates.longitude,
+  });
+  if (googleAddress) {
+    return {
+      ...googleAddress,
+      cep: googleAddress.cep ? formatCep(googleAddress.cep) : "",
+      lat: coordinates.latitude,
+      lng: coordinates.longitude,
+    };
+  }
 
   let response: Response;
 

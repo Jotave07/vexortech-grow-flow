@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Loader2, Store } from "lucide-react";
 import { AuthShell } from "./AuthShell";
 import { getPrimaryRole } from "@/lib/auth/roles";
+import { SocialAuthButtons } from "./SocialAuthButtons";
 
 const MerchantLogin = () => {
   const navigate = useNavigate();
@@ -17,6 +18,10 @@ const MerchantLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const oauthRedirect =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${from?.startsWith("/") ? from : "/lojista"}`
+      : undefined;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +80,9 @@ const MerchantLogin = () => {
           Entrar no Painel
         </Button>
       </form>
+      <div className="mt-5">
+        <SocialAuthButtons context="merchant" redirectTo={oauthRedirect} />
+      </div>
       <div className="mt-6 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
           Ainda não tem uma loja? <Link to="/cadastrar-loja" className="text-[var(--hype-green-dark)] font-bold hover:underline">Comece agora</Link>

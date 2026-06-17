@@ -39,7 +39,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (currentUser: User) => {
+    const userId = currentUser.id;
     try {
       const { data, error } = await backend
         .from("profiles" as any)
@@ -49,7 +50,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
       
-      const profileData = data as any;
+      let profileData = data as any;
+
+      if (!profileData) {
+        const fallbackName =
+          currentUser.user_metadata?.full_name ||
+          currentUser.user_metadata?.name ||
+          null;
+        const created = await backend
+          .from("profiles" as any)
+          .insert({
+            user_id: userId,
+            email: currentUser.email?.toLowerCase() ?? null,
+            full_name: fallbackName ? String(fallbackName).toUpperCase() : null,
+            role: "customer",
+          })
+          .select("*")
+          .maybeSingle();
+
+        if (created.error) throw created.error;
+        profileData = created.data;
+        await backend
+          .from("user_roles" as any)
+          .insert({ user_id: userId, role: "customer" })
+          .then(({ error }) => {
+            if (error) console.warn("Could not create fallback role:", error);
+          });
+      }
       
       if (profileData) {
         const roles = await getUserRoles(userId);
@@ -73,7 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        setTimeout(() => loadProfile(sess.user.id), 0);
+        setTimeout(() => loadProfile(sess.user), 0);
       } else {
         setProfile(null);
       }
@@ -83,7 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        loadProfile(s.user.id).finally(() => setLoading(false));
+        loadProfile(s.user).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -100,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshProfile = async () => {
-    if (user) await loadProfile(user.id);
+    if (user) await loadProfile(user);
   };
 
   return (

@@ -39,6 +39,25 @@ const buildConnectionString = () => {
   return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 };
 
+const getSslConfig = (connectionString) => {
+  const sslMode = connectionString.match(/[?&]sslmode=([^&]+)/i)?.[1]?.toLowerCase();
+  const explicitSsl = clean(process.env.DATABASE_SSL) || clean(process.env.POSTGRES_SSL);
+  const shouldUseSsl =
+    (sslMode !== undefined && sslMode !== "disable") ||
+    explicitSsl === "true" ||
+    /supabase\.co/i.test(connectionString);
+
+  if (!shouldUseSsl) return undefined;
+
+  const rejectUnauthorizedEnv =
+    clean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED) ||
+    clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
+
+  return {
+    rejectUnauthorized: rejectUnauthorizedEnv ? rejectUnauthorizedEnv !== "false" : sslMode !== "no-verify",
+  };
+};
+
 const checks = [
   {
     label: "orders.public_token default/not-null",
@@ -164,10 +183,31 @@ const checks = [
     `,
     params: [["slug", "features", "max_products", "sort_order", "allows_custom_branding"]],
   },
+  {
+    label: "supabase auth profile trigger",
+    sql: `
+      SELECT
+        to_regprocedure('public.handle_auth_user_created()') IS NOT NULL
+        AND (
+          to_regclass('auth.users') IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM pg_trigger
+            WHERE tgname = 'on_auth_user_created'
+              AND tgrelid = to_regclass('auth.users')
+          )
+        ) AS ok
+    `,
+  },
+  {
+    label: "user role uniqueness",
+    sql: "SELECT to_regclass('public.user_roles_user_role_store_unique') IS NOT NULL AS ok",
+  },
 ];
 
 loadDotEnv();
-const client = new Client({ connectionString: buildConnectionString() });
+const connectionString = buildConnectionString();
+const client = new Client({ connectionString, ssl: getSslConfig(connectionString) });
 
 try {
   await client.connect();

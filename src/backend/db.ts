@@ -31,12 +31,33 @@ const buildConnectionString = () => {
   return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 };
 
+const getSslConfig = (connectionString: string) => {
+  const sslMode = connectionString.match(/[?&]sslmode=([^&]+)/i)?.[1]?.toLowerCase();
+  const explicitSsl = clean(process.env.DATABASE_SSL) || clean(process.env.POSTGRES_SSL);
+  const shouldUseSsl =
+    (sslMode !== undefined && sslMode !== "disable") ||
+    explicitSsl === "true" ||
+    /supabase\.co/i.test(connectionString);
+
+  if (!shouldUseSsl) return undefined;
+
+  const rejectUnauthorizedEnv =
+    clean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED) ||
+    clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
+
+  return {
+    rejectUnauthorized: rejectUnauthorizedEnv ? rejectUnauthorizedEnv !== "false" : sslMode !== "no-verify",
+  };
+};
+
 export const getPool = () => {
   const g = globalThis as GlobalWithPool;
   if (!g.__hypePgPool) {
     validateRuntimeEnv();
+    const connectionString = buildConnectionString();
     g.__hypePgPool = new Pool({
-      connectionString: buildConnectionString(),
+      connectionString,
+      ssl: getSslConfig(connectionString),
       max: Number(process.env.POSTGRES_POOL_MAX || 10),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,

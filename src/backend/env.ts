@@ -15,11 +15,26 @@ const hasDatabaseConfig = () => {
   );
 };
 
+const hasSupabaseAuthConfig = () =>
+  Boolean(
+    (clean(process.env.SUPABASE_URL) ||
+      clean(process.env.NEXT_PUBLIC_SUPABASE_URL) ||
+      clean(process.env.VITE_SUPABASE_URL)) &&
+      (clean(process.env.SUPABASE_SECRET_KEY) ||
+        clean(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+        clean(process.env.SUPABASE_PUBLISHABLE_KEY) ||
+        clean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ||
+        clean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY)),
+  );
+
 export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } = {}) => {
   if (!isProduction()) return;
 
   const jwtSecret = clean(process.env.JWT_SECRET) || clean(process.env.AUTH_SECRET);
-  if (!jwtSecret || jwtSecret.length < 32 || jwtSecret === "hype-delivery-local-dev-secret") {
+  if (
+    !hasSupabaseAuthConfig() &&
+    (!jwtSecret || jwtSecret.length < 32 || jwtSecret === "hype-delivery-local-dev-secret")
+  ) {
     throw new Error("JWT_SECRET forte e obrigatorio em producao.");
   }
 
@@ -31,7 +46,10 @@ export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } =
     throw new Error("PUBLIC_APP_URL obrigatorio em producao.");
   }
 
-  if (!clean(process.env.STORAGE_DIR)) {
+  if (
+    !clean(process.env.STORAGE_DIR) &&
+    !(clean(process.env.SUPABASE_URL) || clean(process.env.NEXT_PUBLIC_SUPABASE_URL))
+  ) {
     throw new Error("STORAGE_DIR obrigatorio em producao.");
   }
 

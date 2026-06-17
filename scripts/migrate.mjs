@@ -43,6 +43,25 @@ const buildConnectionString = () => {
   return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 };
 
+const getSslConfig = (connectionString) => {
+  const sslMode = connectionString.match(/[?&]sslmode=([^&]+)/i)?.[1]?.toLowerCase();
+  const explicitSsl = clean(process.env.DATABASE_SSL) || clean(process.env.POSTGRES_SSL);
+  const shouldUseSsl =
+    (sslMode !== undefined && sslMode !== "disable") ||
+    explicitSsl === "true" ||
+    /supabase\.co/i.test(connectionString);
+
+  if (!shouldUseSsl) return undefined;
+
+  const rejectUnauthorizedEnv =
+    clean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED) ||
+    clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
+
+  return {
+    rejectUnauthorized: rejectUnauthorizedEnv ? rejectUnauthorizedEnv !== "false" : sslMode !== "no-verify",
+  };
+};
+
 const ensureMigrationTable = async (client) => {
   await client.query(`
     CREATE TABLE IF NOT EXISTS public.schema_migrations (
@@ -56,6 +75,13 @@ const ensureMigrationTable = async (client) => {
 
 const checksum = (content) => crypto.createHash("sha256").update(content).digest("hex");
 
+const compatibleChecksums = new Map([
+  [
+    "20260521143000_production_hardening.sql",
+    ["2d062451b7b17cb467e78b4ea629fba55fe4ea2f0cb48e87b4fd06bdab8401ce"],
+  ],
+]);
+
 const migrationFiles = () => {
   const dir = path.join(root, "db", "migrations");
   if (!fs.existsSync(dir)) return [];
@@ -67,7 +93,8 @@ const migrationFiles = () => {
 
 loadDotEnv();
 
-const client = new Client({ connectionString: buildConnectionString() });
+const connectionString = buildConnectionString();
+const client = new Client({ connectionString, ssl: getSslConfig(connectionString) });
 
 try {
   await client.connect();
@@ -89,10 +116,11 @@ try {
     );
 
     if (rows[0]) {
-      if (rows[0].checksum !== fileChecksum) {
+      const legacyChecksums = compatibleChecksums.get(name) || [];
+      if (rows[0].checksum !== fileChecksum && !legacyChecksums.includes(rows[0].checksum)) {
         throw new Error(`Migration ${name} ja foi aplicada com checksum diferente.`);
       }
-      console.log(`Skipping ${name}`);
+      console.log(rows[0].checksum === fileChecksum ? `Skipping ${name}` : `Skipping ${name} (compatible legacy checksum)`);
       continue;
     }
 

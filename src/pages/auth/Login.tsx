@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
 import { getPrimaryRole } from "@/lib/auth/roles";
 import { AuthShell } from "./AuthShell";
+import { SocialAuthButtons } from "./SocialAuthButtons";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,6 +18,10 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const oauthRedirect =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${from?.startsWith("/") ? from : "/"}`
+      : undefined;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +89,9 @@ const Login = () => {
           Entrar na Conta
         </Button>
       </form>
+      <div className="mt-5">
+        <SocialAuthButtons context="customer" redirectTo={oauthRedirect} />
+      </div>
       <div className="mt-6 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
           Ainda não tem conta? <Link to={from ? `/cadastrar?redirect=${encodeURIComponent(from)}` : "/cadastrar"} className="text-primary font-bold hover:underline">Cadastre-se</Link>
