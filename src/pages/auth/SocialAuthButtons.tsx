@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { backend } from "@/integrations/backend/client";
-import { hasSupabaseBrowserConfig } from "@/integrations/supabase/client";
+import { hasSupabaseBrowserConfig, supabasePublishableKey, supabaseUrl } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { OAuthProvider } from "@/integrations/backend/compat-types";
@@ -45,15 +45,67 @@ const AppleMark = ({ className }: { className?: string }) => (
 
 const PROVIDERS: Array<{ provider: OAuthProvider; label: string; Mark: typeof GoogleMark }> = [
   { provider: "google", label: "Continuar com Google", Mark: GoogleMark },
-  { provider: "apple", label: "Continuar com Apple", Mark: AppleMark },
 ];
+
+const providerLabel: Record<OAuthProvider, string> = {
+  google: "Google",
+  apple: "Apple",
+};
+
+const isProviderDisabledError = (message?: string | null) => {
+  const normalized = String(message || "").toLowerCase();
+  return normalized.includes("unsupported provider") || normalized.includes("provider is not enabled");
+};
+
+const providerSetupMessage = (provider: OAuthProvider) =>
+  `Login com ${providerLabel[provider]} ainda nao esta habilitado no Supabase. Ative o provedor no painel de Auth antes de usar este botao.`;
 
 export const SocialAuthButtons = ({ redirectTo, context }: SocialAuthButtonsProps) => {
   const [loadingProvider, setLoadingProvider] = useState<OAuthProvider | null>(null);
+  const [enabledProviders, setEnabledProviders] = useState<Record<OAuthProvider, boolean | null>>({
+    google: null,
+    apple: null,
+  });
+
+  useEffect(() => {
+    if (!hasSupabaseBrowserConfig) return;
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      try {
+        const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+          headers: {
+            apikey: supabasePublishableKey,
+            Authorization: `Bearer ${supabasePublishableKey}`,
+          },
+        });
+        if (!response.ok) return;
+        const body = await response.json();
+        if (cancelled) return;
+        setEnabledProviders({
+          google: typeof body?.external?.google === "boolean" ? body.external.google : null,
+          apple: typeof body?.external?.apple === "boolean" ? body.external.apple : null,
+        });
+      } catch {
+        // Se o endpoint de settings falhar, mantemos os botoes ativos e tratamos o erro no clique.
+      }
+    };
+
+    void loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!hasSupabaseBrowserConfig) return null;
 
   const startOAuth = async (provider: OAuthProvider) => {
+    if (enabledProviders[provider] === false) {
+      toast.error(providerSetupMessage(provider));
+      return;
+    }
+
     setLoadingProvider(provider);
     try {
       if (typeof window !== "undefined") {
@@ -68,11 +120,15 @@ export const SocialAuthButtons = ({ redirectTo, context }: SocialAuthButtonsProp
 
       if (error) {
         setLoadingProvider(null);
-        toast.error(error.message);
+        toast.error(isProviderDisabledError(error.message) ? providerSetupMessage(provider) : error.message);
       }
     } catch (error: any) {
       setLoadingProvider(null);
-      toast.error(error?.message || "Nao foi possivel iniciar o login social.");
+      toast.error(
+        isProviderDisabledError(error?.message)
+          ? providerSetupMessage(provider)
+          : error?.message || "Nao foi possivel iniciar o login social.",
+      );
     }
   };
 
@@ -87,7 +143,6 @@ export const SocialAuthButtons = ({ redirectTo, context }: SocialAuthButtonsProp
       </div>
       <div className="space-y-2">
         {PROVIDERS.map(({ provider, label, Mark }) => {
-          const isApple = provider === "apple";
           const isLoading = loadingProvider === provider;
           return (
             <button
@@ -97,10 +152,8 @@ export const SocialAuthButtons = ({ redirectTo, context }: SocialAuthButtonsProp
               disabled={Boolean(loadingProvider)}
               aria-label={label}
               className={[
-                "flex h-11 w-full items-center justify-center gap-3 rounded-md border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
-                isApple
-                  ? "border-black bg-black text-white hover:bg-black/90"
-                  : "border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]",
+                "flex h-11 w-full items-center justify-center gap-3 rounded-none border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                "border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]",
               ].join(" ")}
             >
               {isLoading ? (

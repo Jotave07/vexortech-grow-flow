@@ -72,12 +72,17 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     secondary_color: "text",
     city: "text",
     state: "text",
+    plan_id: "uuid",
+    status: "text",
+    font_family: "text",
+    payment_methods: "jsonb",
     phone: "text",
     whatsapp: "text",
     whatsapp_number: "text",
     is_active: "boolean",
     is_suspended: "boolean",
     created_at: "timestamptz",
+    updated_at: "timestamptz",
   },
   store_settings: {
     id: "uuid",
@@ -94,17 +99,23 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     accept_pix: "boolean",
     accept_cash: "boolean",
     accept_card_on_delivery: "boolean",
+    accept_card_online: "boolean",
     accept_orders_when_closed: "boolean",
     is_open: "boolean",
     delivery_radius_km: "numeric",
     delivery_base_fee: "numeric",
     delivery_fee_per_km: "numeric",
+    delivery_distance_rules: "jsonb",
+    delivery_message: "text",
+    excluded_neighborhoods: "jsonb",
     min_order_value: "numeric",
     min_order_amount: "numeric",
     free_delivery_above: "numeric",
     avg_prep_time_minutes: "integer",
     business_hours: "jsonb",
     whatsapp_number: "text",
+    payment_instructions: "text",
+    updated_at: "timestamptz",
   },
   products: {
     id: "uuid",
@@ -266,6 +277,9 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     plan_id: "uuid",
     status: "text",
     asaas_subscription_id: "text",
+    billing_type: "text",
+    canceled_at: "timestamptz",
+    cancellation_effective_at: "timestamptz",
   },
   plans: {
     id: "uuid",
@@ -277,6 +291,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     user_id: "uuid",
     store_id: "uuid",
     role: "text",
+    is_exempt: "boolean",
   },
   user_roles: {
     id: "uuid",
@@ -301,12 +316,6 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     id: "uuid",
     user_id: "uuid",
     store_id: "uuid",
-  },
-  auth_users: {
-    id: "uuid",
-    email: "text",
-    encrypted_password: "text",
-    deleted_at: "timestamptz",
   },
   users: {
     id: "uuid",
@@ -610,6 +619,10 @@ export const assertSafePatchForNonAdmin = (table: string, operation: QueryPayloa
 
   if (table === "profiles" || table === "user_roles") {
     for (const row of normalizeRows(values)) assertAssignableRole(row.role);
+  }
+
+  if (table === "profiles" && columns.includes("is_exempt")) {
+    throw new Error("Isencao de assinatura so pode ser alterada por admin da plataforma.");
   }
 };
 

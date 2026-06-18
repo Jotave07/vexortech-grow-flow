@@ -102,7 +102,7 @@ const Reports = () => {
           <p className="text-muted-foreground">Análises do seu delivery.</p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="flex border border-border rounded-md overflow-hidden">
+          <div className="flex border border-border rounded-none overflow-hidden">
             {RANGES.map((r) => (
               <button key={r.key} onClick={() => setRange(r.key)}
                 className={`px-3 py-1.5 text-sm ${range === r.key ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>

@@ -11,7 +11,9 @@ export const Hero = () => {
       <div className="absolute bottom-0 right-0 top-16 hidden w-[54vw] bg-black lg:block" />
       <img
         src="/brand/hype-delivery-brand.png"
-        alt=""
+        alt="Hype Delivery"
+        loading="eager"
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
         className="pointer-events-none absolute bottom-0 right-0 hidden h-[calc(100%-4rem)] w-[54vw] object-cover object-center lg:block"
       />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#ffffff_0%,#ffffff_46%,rgba(255,255,255,0.72)_58%,rgba(255,255,255,0)_82%)]" />
@@ -29,7 +31,7 @@ export const Hero = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/45 bg-primary/15 px-4 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-black backdrop-blur"
+              className="mb-6 inline-flex items-center gap-2 rounded-none border border-primary/45 bg-primary/15 px-4 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-black backdrop-blur"
             >
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
               Portal exclusivo para lojas parceiras
@@ -99,9 +101,9 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.8 }}
-          className="relative mt-10 block overflow-hidden rounded-3xl bg-black lg:hidden"
+          className="relative mt-10 block overflow-hidden rounded-none bg-black lg:hidden"
         >
-          <img src="/brand/hype-delivery-brand.png" alt="" className="h-full w-full object-cover" />
+          <img src="/brand/hype-delivery-brand.png" alt="Hype Delivery" loading="eager" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover" />
         </motion.div>
       </div>
     </section>

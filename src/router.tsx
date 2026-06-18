@@ -7,7 +7,7 @@ export const DefaultErrorComponent = ({ error, reset }: { error: Error; reset: (
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-none bg-destructive/10">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-8 w-8 text-destructive"
@@ -28,7 +28,7 @@ export const DefaultErrorComponent = ({ error, reset }: { error: Error; reset: (
           Ocorreu um erro inesperado. Tente novamente.
         </p>
         {import.meta.env.DEV && error.message && (
-          <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
+          <pre className="mt-4 max-h-40 overflow-auto rounded-none bg-muted p-3 text-left font-mono text-xs text-destructive">
             {error.message}
           </pre>
         )}
@@ -38,13 +38,13 @@ export const DefaultErrorComponent = ({ error, reset }: { error: Error; reset: (
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-none bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Tentar novamente
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-none border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Voltar ao início
           </a>

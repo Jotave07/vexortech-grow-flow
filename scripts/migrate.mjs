@@ -78,7 +78,10 @@ const checksum = (content) => crypto.createHash("sha256").update(content).digest
 const compatibleChecksums = new Map([
   [
     "20260521143000_production_hardening.sql",
-    ["2d062451b7b17cb467e78b4ea629fba55fe4ea2f0cb48e87b4fd06bdab8401ce"],
+    [
+      "2d062451b7b17cb467e78b4ea629fba55fe4ea2f0cb48e87b4fd06bdab8401ce",
+      "95534036768d371fd2463750363604e60c5d14b361a3e95c4f4b55226e947e65",
+    ],
   ],
 ]);
 

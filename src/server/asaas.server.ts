@@ -4,8 +4,8 @@
 
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
 const ASAAS_ENVIRONMENT = process.env.ASAAS_ENVIRONMENT || 'production';
-const ASAAS_URL = ASAAS_ENVIRONMENT === 'sandbox' 
-  ? 'https://sandbox.asaas.com/api/v3' 
+const ASAAS_URL = ASAAS_ENVIRONMENT === 'sandbox'
+  ? 'https://sandbox.asaas.com/api/v3'
   : 'https://www.asaas.com/api/v3';
 const PAYMENT_GATEWAY_DEBUG = process.env.PAYMENT_GATEWAY_DEBUG === "true";
 const ASAAS_REQUEST_TIMEOUT_MS = 25000;
@@ -80,7 +80,7 @@ async function asaasRequest(
   };
 
   if (options?.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
-  
+
   try {
     const response = await fetch(url, {
       method,
@@ -90,35 +90,59 @@ async function asaasRequest(
     });
 
     let data;
+    let jsonParseFailed = false;
     try {
       data = await response.json();
     } catch (e) {
+      jsonParseFailed = true;
       console.error("Asaas JSON Parse Error:", e instanceof Error ? e.message : "parse_error");
       data = { message: "Erro ao processar resposta do gateway" };
     }
-    
+
+    if (jsonParseFailed) {
+      if (response.ok && (response.status === 204 || method === "DELETE")) {
+        return { success: true };
+      }
+      return {
+        status: response.status,
+        retryable: response.ok || response.status >= 500 || response.status === 429,
+        errors: [{ description: "Resposta invalida do gateway de pagamento." }],
+      };
+    }
+
     if (!response.ok) {
       console.error("Asaas Error", {
         status: response.status,
         endpoint,
         errors: summarizeGatewayError(data),
       });
-      return { 
-        errors: data.errors || [{ description: data.message || 'Erro desconhecido no Asaas' }] 
+      // 5xx/429 sao indeterminados: a operacao pode ter sido aplicada no gateway.
+      // Sinalizamos `retryable` para que o caller decida reconciliar (idealmente via
+      // Idempotency-Key) em vez de criar um recurso duplicado.
+      return {
+        status: response.status,
+        retryable: response.status >= 500 || response.status === 429,
+        errors: data.errors || [{ description: data.message || 'Erro desconhecido no Asaas' }],
       };
     }
 
     return data;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
+      // Timeout: a requisicao PODE ter sido processada no Asaas (ex.: assinatura criada)
+      // mesmo sem resposta. Marcamos timeout/retryable para o caller reconciliar em vez
+      // de assumir falha e recriar (o que duplicaria a cobranca).
       console.error("Asaas Request Timeout", { endpoint, timeoutMs: ASAAS_REQUEST_TIMEOUT_MS });
       return {
+        timeout: true,
+        retryable: true,
         errors: [{ description: "Tempo esgotado na comunicacao com o gateway de pagamento." }],
       };
     }
     console.error("Asaas Network/Fetch Error:", error instanceof Error ? error.message : "network_error");
-    return { 
-      errors: [{ description: 'Falha na comunicação com o gateway de pagamento.' }] 
+    return {
+      retryable: true,
+      errors: [{ description: 'Falha na comunicação com o gateway de pagamento.' }],
     };
   } finally {
     clearTimeout(timeout);
@@ -129,15 +153,15 @@ export const asaas = {
   /**
    * Global (Platform) API calls
    */
-  async createCustomer(data: AsaasCustomer, apiKey?: string) {
+  async createCustomer(data: AsaasCustomer, apiKey?: string, options?: { idempotencyKey?: string }) {
     const key = apiKey || ASAAS_API_KEY;
     if (!key) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
-    return asaasRequest('/customers', 'POST', key, data);
+    return asaasRequest('/customers', 'POST', key, data, options);
   },
 
-  async createSubscription(data: AsaasSubscription) {
+  async createSubscription(data: AsaasSubscription, options?: { idempotencyKey?: string }) {
     if (!ASAAS_API_KEY) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
-    return asaasRequest('/subscriptions', 'POST', ASAAS_API_KEY, data);
+    return asaasRequest('/subscriptions', 'POST', ASAAS_API_KEY, data, options);
   },
 
   async updateSubscription(subscriptionId: string, data: Partial<AsaasSubscription>) {

@@ -427,7 +427,7 @@ const Orders = () => {
   if (accessState !== "active") {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-4 p-6 text-center">
-        <div className="rounded-full border-2 border-amber-200 bg-amber-50 p-4 text-amber-600">
+        <div className="rounded-none border-2 border-amber-200 bg-amber-50 p-4 text-amber-600">
           <AlertTriangle className="h-12 w-12" />
         </div>
         <div className="max-w-md">
@@ -463,10 +463,10 @@ const Orders = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className={cn(
-            "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest",
+            "flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest",
             realtimeState === "online" ? "border-primary/30 bg-primary/10 text-foreground" : "border-amber-200 bg-amber-50 text-amber-700",
           )}>
-            <div className={cn("h-2 w-2 rounded-full", realtimeState === "online" ? "animate-pulse bg-primary" : "bg-amber-500")} />
+            <div className={cn("h-2 w-2 rounded-none", realtimeState === "online" ? "animate-pulse bg-primary" : "bg-amber-500")} />
             {realtimeState === "online" ? "Tempo real ativo" : "Reconectando"}
           </div>
           {lastSync && (
@@ -474,10 +474,10 @@ const Orders = () => {
               Sync {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </div>
           )}
-          <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
+          <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="rounded-none border-border text-[10px] font-bold uppercase tracking-widest">
             Historico
           </Button>
-          <Button variant="outline" size="sm" onClick={load} className="rounded-xl border-border text-[10px] font-bold uppercase tracking-widest">
+          <Button variant="outline" size="sm" onClick={load} className="rounded-none border-border text-[10px] font-bold uppercase tracking-widest">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
         </div>
@@ -492,10 +492,10 @@ const Orders = () => {
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => boardRef.current?.scrollBy({ left: -360, behavior: "smooth" })}>
+        <Button variant="outline" size="icon" className="h-9 w-9 rounded-none" onClick={() => boardRef.current?.scrollBy({ left: -360, behavior: "smooth" })}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => boardRef.current?.scrollBy({ left: 360, behavior: "smooth" })}>
+        <Button variant="outline" size="icon" className="h-9 w-9 rounded-none" onClick={() => boardRef.current?.scrollBy({ left: 360, behavior: "smooth" })}>
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
@@ -509,12 +509,12 @@ const Orders = () => {
               <div className="px-1">
                 <div className="flex items-center justify-between border-b border-border pb-2">
                   <h3 className="text-xs font-black uppercase tracking-widest">{col.label}</h3>
-                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">{colOrders.length}</span>
+                  <span className="rounded-none bg-foreground px-2 py-0.5 text-[10px] font-black text-background">{colOrders.length}</span>
                 </div>
                 <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{col.helper}</p>
               </div>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border border-dashed border-border bg-muted/20 p-2">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-none border border-dashed border-border bg-muted/20 p-2">
                 <AnimatePresence mode="popLayout">
                   {colOrders.map((order) => {
                     const action = getNextAction(order);
@@ -530,7 +530,7 @@ const Orders = () => {
                       >
                         <Card
                           className={cn(
-                            "relative cursor-pointer overflow-hidden rounded-xl border border-border bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elegant",
+                            "relative cursor-pointer overflow-hidden rounded-none border border-border bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elegant",
                             !order.is_seen && order.status === "novo" ? "ring-2 ring-primary" : "",
                           )}
                           onClick={() => openDetails(order)}
@@ -540,7 +540,7 @@ const Orders = () => {
                           )}
 
                           <div className="mb-3 flex items-center justify-between gap-2">
-                            <span className="rounded-full bg-foreground px-2 py-0.5 text-xs font-black tracking-tighter text-background">#{order.order_number}</span>
+                            <span className="rounded-none bg-foreground px-2 py-0.5 text-xs font-black tracking-tighter text-background">#{order.order_number}</span>
                             <span className="text-[10px] font-bold uppercase text-muted-foreground">{formatOrderAge(order)}</span>
                           </div>
 
@@ -553,19 +553,19 @@ const Orders = () => {
                           </div>
 
                           <div className="mb-3 flex flex-wrap gap-1.5">
-                            <Badge variant="outline" className="h-5 rounded-full border-border text-[9px] font-black uppercase tracking-widest">
+                            <Badge variant="outline" className="h-5 rounded-none border-border text-[9px] font-black uppercase tracking-widest">
                               {order.delivery_type === "retirada" ? "Retirada" : "Entrega"}
                             </Badge>
-                            <Badge variant="outline" className={cn("h-5 rounded-full text-[9px] font-black uppercase tracking-widest", PAYMENT_STATUS_CLASSES[paymentStatus] || PAYMENT_STATUS_CLASSES.pendente)}>
+                            <Badge variant="outline" className={cn("h-5 rounded-none text-[9px] font-black uppercase tracking-widest", PAYMENT_STATUS_CLASSES[paymentStatus] || PAYMENT_STATUS_CLASSES.pendente)}>
                               {PAYMENT_STATUS_LABELS[paymentStatus] || paymentStatus}
                             </Badge>
-                            <Badge variant="outline" className="h-5 rounded-full border-border text-[9px] font-black uppercase tracking-widest">
+                            <Badge variant="outline" className="h-5 rounded-none border-border text-[9px] font-black uppercase tracking-widest">
                               {PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}
                             </Badge>
                           </div>
 
                           {order.delivery_type === "entrega" && (
-                            <div className="mb-3 flex gap-2 rounded-lg border border-border bg-muted/20 p-2 text-[10px] font-bold leading-snug text-muted-foreground">
+                            <div className="mb-3 flex gap-2 rounded-none border border-border bg-muted/20 p-2 text-[10px] font-bold leading-snug text-muted-foreground">
                               <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
                               <div className="min-w-0">
                                 {formatDeliveryAddressLines(order).map((line) => (
@@ -581,7 +581,7 @@ const Orders = () => {
                               <div className="text-lg font-black">{formatBRL(order.total)}</div>
                             </div>
                             {order.estimated_min && (
-                              <div className="rounded-lg bg-blue-50 px-2 py-1 text-right text-[10px] font-black uppercase text-blue-700">
+                              <div className="rounded-none bg-blue-50 px-2 py-1 text-right text-[10px] font-black uppercase text-blue-700">
                                 {order.estimated_min}-{order.estimated_max} min
                               </div>
                             )}
@@ -622,7 +622,7 @@ const Orders = () => {
                 </AnimatePresence>
 
                 {colOrders.length === 0 && (
-                  <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground/45">
+                  <div className="flex h-24 items-center justify-center rounded-none border border-dashed border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground/45">
                     Sem pedidos
                   </div>
                 )}
@@ -687,7 +687,7 @@ const Orders = () => {
 
           <div className="space-y-2">
             {visibleHistory.map((order) => (
-              <div key={order.id} className="grid gap-3 rounded-xl border border-border bg-white p-3 text-sm md:grid-cols-[90px_1fr_120px_120px] md:items-center">
+              <div key={order.id} className="grid gap-3 rounded-none border border-border bg-white p-3 text-sm md:grid-cols-[90px_1fr_120px_120px] md:items-center">
                 <div className="font-black">#{order.order_number}</div>
                 <div>
                   <div className="font-bold uppercase">{order.customer_name}</div>
@@ -700,14 +700,14 @@ const Orders = () => {
                     </div>
                   )}
                 </div>
-                <Badge variant="outline" className={cn("w-fit rounded-full text-[10px] font-black uppercase", STATUS_COLORS[order.status] || "")}>
+                <Badge variant="outline" className={cn("w-fit rounded-none text-[10px] font-black uppercase", STATUS_COLORS[order.status] || "")}>
                   {STATUS_LABELS[order.status] || order.status}
                 </Badge>
                 <div className="font-black">{formatBRL(order.total)}</div>
               </div>
             ))}
             {!historyLoading && visibleHistory.length === 0 && (
-              <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="rounded-none border border-dashed border-border p-8 text-center text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 Nenhum pedido no historico
               </div>
             )}
@@ -731,7 +731,7 @@ const Orders = () => {
             <DialogTitle className="flex flex-wrap items-center gap-2">
               Pedido #{selected?.order_number}
               {selected && (
-                <Badge className={cn("rounded-full border text-[10px] font-black uppercase", STATUS_COLORS[selected.status] || "")}>
+                <Badge className={cn("rounded-none border text-[10px] font-black uppercase", STATUS_COLORS[selected.status] || "")}>
                   {STATUS_LABELS[selected.status] ?? selected.status}
                 </Badge>
               )}
@@ -741,7 +741,7 @@ const Orders = () => {
           {selected && (
             <div className="grid gap-4 text-sm lg:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-4">
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                <section className="rounded-none border border-border bg-muted/20 p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente e entrega</div>
                   <div className="space-y-2">
                     <div className="font-black uppercase">{selected.customer_name}</div>
@@ -760,11 +760,11 @@ const Orders = () => {
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2 pt-1">
-                      <Badge variant="outline" className="rounded-full border-border text-[10px] font-black uppercase">
+                      <Badge variant="outline" className="rounded-none border-border text-[10px] font-black uppercase">
                         {selected.delivery_type === "retirada" ? "Retirada" : "Entrega"}
                       </Badge>
                       {selected.estimated_min && (
-                        <Badge variant="outline" className="rounded-full border-blue-200 bg-blue-50 text-[10px] font-black uppercase text-blue-700">
+                        <Badge variant="outline" className="rounded-none border-blue-200 bg-blue-50 text-[10px] font-black uppercase text-blue-700">
                           {selected.estimated_min}-{selected.estimated_max} min
                         </Badge>
                       )}
@@ -772,7 +772,7 @@ const Orders = () => {
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-border bg-white p-4">
+                <section className="rounded-none border border-border bg-white p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Itens</div>
                   <div className="space-y-3">
                     {items.map((item: any) => (
@@ -799,7 +799,7 @@ const Orders = () => {
               </div>
 
               <div className="space-y-4">
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                <section className="rounded-none border border-border bg-muted/20 p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pagamento</div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
@@ -807,13 +807,13 @@ const Orders = () => {
                         {selected.payment_method === "dinheiro" ? <Wallet className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
                         {PAYMENT_METHOD_LABELS[selected.payment_method] || selected.payment_method}
                       </span>
-                      <Badge variant="outline" className={cn("rounded-full text-[10px] font-black uppercase", PAYMENT_STATUS_CLASSES[selected.payment_status || "pendente"] || PAYMENT_STATUS_CLASSES.pendente)}>
+                      <Badge variant="outline" className={cn("rounded-none text-[10px] font-black uppercase", PAYMENT_STATUS_CLASSES[selected.payment_status || "pendente"] || PAYMENT_STATUS_CLASSES.pendente)}>
                         {PAYMENT_STATUS_LABELS[selected.payment_status || "pendente"] || selected.payment_status}
                       </Badge>
                     </div>
                     {selected.change_for && <div className="text-xs text-muted-foreground">Troco para: {formatBRL(selected.change_for)}</div>}
                     {selected.payment_method !== "pix" && selected.status !== "entregue" && (
-                      <div className="rounded-lg border border-dashed border-border bg-white p-3 text-[11px] font-medium text-muted-foreground">
+                      <div className="rounded-none border border-dashed border-border bg-white p-3 text-[11px] font-medium text-muted-foreground">
                         Receba no ato da entrega/retirada. Ao concluir o pedido, o pagamento será marcado como pago automaticamente.
                       </div>
                     )}
@@ -826,7 +826,7 @@ const Orders = () => {
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-border bg-white p-4">
+                <section className="rounded-none border border-border bg-white p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resumo financeiro</div>
                   <div className="space-y-1">
                     {items.length > 0 && <div className="flex justify-between"><span>Itens</span><span>{formatBRL(selectedItemsTotal)}</span></div>}
@@ -843,10 +843,10 @@ const Orders = () => {
                       <span className="text-primary">{formatBRL(selected.total)}</span>
                     </div>
                   </div>
-                  {selected.notes && <div className="mt-3 rounded-lg bg-muted p-3 text-xs italic text-muted-foreground">Obs: "{selected.notes}"</div>}
+                  {selected.notes && <div className="mt-3 rounded-none bg-muted p-3 text-xs italic text-muted-foreground">Obs: "{selected.notes}"</div>}
                 </section>
 
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                <section className="rounded-none border border-border bg-muted/20 p-4">
                   <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ações rápidas</div>
                   <div className="flex flex-col gap-2">
                     {selectedAction && (
@@ -886,7 +886,7 @@ type SummaryCardProps = {
 
 const SummaryCard = ({ icon: Icon, label, value, helper, tone = "default" }: SummaryCardProps) => (
   <Card className={cn(
-    "rounded-xl border p-4",
+    "rounded-none border p-4",
     tone === "warning" ? "border-amber-200 bg-amber-50" : "border-border bg-white",
   )}>
     <div className="flex items-start justify-between gap-3">
@@ -896,7 +896,7 @@ const SummaryCard = ({ icon: Icon, label, value, helper, tone = "default" }: Sum
         <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{helper}</div>
       </div>
       <div className={cn(
-        "rounded-lg p-2",
+        "rounded-none p-2",
         tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary",
       )}>
         <Icon className="h-4 w-4" />

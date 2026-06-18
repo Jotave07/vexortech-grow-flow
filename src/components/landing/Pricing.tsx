@@ -90,10 +90,10 @@ export const Pricing = () => {
               key={plan.id} 
               variants={itemVariants}
               whileHover={{ y: -8, transition: { duration: 0.3 } }}
-              className={`vexor-panel relative flex flex-col rounded-2xl border bg-card p-7 shadow-card transition-colors ${plan.highlight ? "border-primary shadow-elegant" : "border-border hover:border-primary/40"}`}
+              className={`vexor-panel relative flex flex-col rounded-none border bg-card p-7 shadow-card transition-colors ${plan.highlight ? "border-primary shadow-elegant" : "border-border hover:border-primary/40"}`}
             >
               {plan.highlight && (
-                <div className="absolute -top-3 left-5 rounded-full border border-primary bg-primary px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-primary-foreground">
+                <div className="absolute -top-3 left-5 rounded-none border border-primary bg-primary px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-primary-foreground">
                   Mais escolhido
                 </div>
               )}

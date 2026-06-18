@@ -105,8 +105,8 @@ const MerchantSignup = () => {
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
               {/* Headline */}
               <div className="max-w-2xl text-white">
-                <div className="mb-4 inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary ring-1 ring-inset ring-primary/25">
-                  <span className="mr-2 h-2 w-2 rounded-full bg-primary" />
+                <div className="mb-4 inline-flex items-center rounded-none bg-primary/15 px-3 py-1 text-sm font-bold text-primary ring-1 ring-inset ring-primary/25">
+                  <span className="mr-2 h-2 w-2 rounded-none bg-primary" />
                   Seja um Parceiro Oficial
                 </div>
                 <h1 className="mb-6 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl italic uppercase">
@@ -250,7 +250,7 @@ const MerchantSignup = () => {
                 }
               ].map((benefit, idx) => (
                 <Card key={idx} className="group border-0 p-8 shadow-sm transition-all hover:-translate-y-2 hover:shadow-xl">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-none bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <div className="transition-transform group-hover:scale-110">
                       {benefit.icon}
                     </div>
@@ -268,10 +268,12 @@ const MerchantSignup = () => {
           <div className="container mx-auto px-4">
             <div className="flex flex-col items-center gap-12 lg:flex-row">
               <div className="lg:w-1/2">
-                <img 
-                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2026&auto=format&fit=crop" 
-                  alt="Gestão de Negócios" 
-                  className="rounded-3xl shadow-2xl"
+                <img
+                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2026&auto=format&fit=crop"
+                  alt="Gestão de Negócios"
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  className="rounded-none shadow-2xl"
                 />
               </div>
               <div className="lg:w-1/2">
@@ -297,7 +299,7 @@ const MerchantSignup = () => {
                     }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-6">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-black text-primary-foreground italic">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-none bg-primary text-lg font-black text-primary-foreground italic">
                         {item.step}
                       </div>
                       <div>
@@ -322,7 +324,7 @@ const MerchantSignup = () => {
                 { icon: <MapPin className="h-6 w-6" />, label: "Raio de Entrega", value: "Você Define" },
                 { icon: <Banknote className="h-6 w-6" />, label: "Repasses", value: "Semanais" }
               ].map((item, idx) => (
-                <div key={idx} className="rounded-2xl bg-white/10 p-6 backdrop-blur-sm">
+                <div key={idx} className="rounded-none bg-white/10 p-6 backdrop-blur-sm">
                   <div className="mb-4 flex justify-center">{item.icon}</div>
                   <p className="text-white/70">{item.label}</p>
                   <p className="text-2xl font-black uppercase italic">{item.value}</p>

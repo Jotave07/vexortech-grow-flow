@@ -392,7 +392,7 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="general" className="space-y-5">
-        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-secondary/80 p-1">
+        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none bg-secondary/80 p-1">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="address">Endereço</TabsTrigger>
           <TabsTrigger value="delivery">Entrega</TabsTrigger>
@@ -471,10 +471,10 @@ const Settings = () => {
             />
 
             <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-              <div className="rounded-lg border border-border bg-background/70 p-4">
+              <div className="rounded-none border border-border bg-background/70 p-4">
                 <div className="text-sm text-muted-foreground">Pontuacao do perfil</div>
                 <div className="mt-2 text-3xl font-bold text-foreground">{storeVerification.score}%</div>
-                <Badge className="mt-3 rounded-full bg-primary/15 text-foreground hover:bg-primary/15">
+                <Badge className="mt-3 rounded-none bg-primary/15 text-foreground hover:bg-primary/15">
                   <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
                   {storeVerification.label}
                 </Badge>
@@ -483,7 +483,7 @@ const Settings = () => {
 
               <div className="grid gap-2 sm:grid-cols-2">
                 {storeVerification.checks.map((check) => (
-                  <div key={check.key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-3 py-2 text-sm">
+                  <div key={check.key} className="flex items-center justify-between gap-3 rounded-none border border-border bg-background/70 px-3 py-2 text-sm">
                     <span>{check.label}</span>
                     <Badge variant={check.ok ? "default" : "secondary"}>{check.ok ? "OK" : "Pendente"}</Badge>
                   </div>
@@ -512,7 +512,7 @@ const Settings = () => {
                 </Select>
               </Field>
 
-              <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground">
+              <div className="rounded-none border border-border bg-secondary/35 p-4 text-sm text-muted-foreground">
                 {getStoreStatusValue(storeSettings) === "open" && "A loja fica visivel e aceita pedidos normalmente."}
                 {getStoreStatusValue(storeSettings) === "closed" && "A loja continua publicada, mas o checkout não deve aceitar novos pedidos."}
                 {getStoreStatusValue(storeSettings) === "paused" && "A operação fica em pausa, com a base pronta para comportamento diferenciado em fluxos futuros."}
@@ -521,7 +521,7 @@ const Settings = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {WEEKDAYS.map((day) => (
-                <div key={day.key} className="rounded-lg border border-border bg-background/65 p-4 space-y-3">
+                <div key={day.key} className="rounded-none border border-border bg-background/65 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{day.label}</span>
                     <Switch
@@ -582,7 +582,7 @@ const Settings = () => {
             </div>
 
             {cepLookup.message && (
-              <div className={`rounded-lg border px-4 py-3 text-sm ${
+              <div className={`rounded-none border px-4 py-3 text-sm ${
                 cepLookup.status === "error"
                   ? "border-destructive/25 bg-destructive/5 text-destructive"
                   : cepLookup.status === "success"
@@ -620,7 +620,7 @@ const Settings = () => {
               </Field>
             </div>
 
-            <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
+            <div className="rounded-none border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
               <div className="font-medium text-foreground">Endereço consolidado</div>
               <div>{buildAddressLabel({
                 street: storeForm.address ?? "",
@@ -646,7 +646,7 @@ const Settings = () => {
               description="Controle disponibilidade, localizacao da loja e raio maximo. Os valores de frete sao configurados na aba Entregas."
             />
 
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
+            <div className="rounded-none border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
               Os valores de frete sao configurados na aba Entregas.
             </div>
 
@@ -678,7 +678,7 @@ const Settings = () => {
               </Field>
             </div>
 
-            <div className="rounded-lg border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
+            <div className="rounded-none border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
               <div className="font-medium text-foreground">Resumo atual</div>
               <div>
                 Raio maximo configurado: {toNullableNumber(storeSettings.delivery_radius_km)
@@ -693,7 +693,7 @@ const Settings = () => {
             </div>
 
             {!deliveryValidation.valid && (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive space-y-1">
+              <div className="rounded-none border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive space-y-1">
                 {deliveryValidation.issues.map((issue) => (
                   <div key={`${issue.field}-${issue.message}`}>{issue.message}</div>
                 ))}
@@ -715,7 +715,7 @@ const Settings = () => {
                 <Wallet className="h-4 w-4" /> Pix da loja
               </h3>
               
-              <div className="grid gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <div className="grid gap-4 rounded-none border border-primary/20 bg-primary/5 p-4">
                 <div className="space-y-2">
                   <Label htmlFor="store-pix-key" className="text-xs font-black uppercase tracking-widest">
                     Chave Pix ou Pix copia e cola
@@ -729,7 +729,7 @@ const Settings = () => {
                       pix_key: event.target.value,
                       pix_key_type: event.target.value.trim().startsWith("000201") ? "copy_paste" : "key",
                     } as any)}
-                    className="min-h-[96px] rounded-xl border border-border bg-white font-mono text-sm"
+                    className="min-h-[96px] rounded-none border border-border bg-white font-mono text-sm"
                   />
                 </div>
 
@@ -745,7 +745,7 @@ const Settings = () => {
                       ...storeSettings,
                       payment_instructions: event.target.value,
                     } as any)}
-                    className="min-h-[76px] rounded-xl border border-border bg-white text-sm"
+                    className="min-h-[76px] rounded-none border border-border bg-white text-sm"
                   />
                 </div>
 
@@ -784,12 +784,12 @@ const Settings = () => {
                     <Input 
                       value="Confirmacao manual pelo painel de pedidos"
                       readOnly 
-                      className="rounded-xl border border-border bg-white font-mono text-[10px]" 
+                      className="rounded-none border border-border bg-white font-mono text-[10px]" 
                     />
                     <Button 
                       variant="outline" 
                       size="icon" 
-                      className="shrink-0 rounded-xl border border-border"
+                      className="shrink-0 rounded-none border border-border"
                       onClick={() => {
                         navigator.clipboard.writeText("Confirmacao manual pelo painel de pedidos");
                         toast.success("Link copiado!");
@@ -817,7 +817,7 @@ const Settings = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
               <div className="space-y-4">
-                <div className="rounded-lg border border-border bg-background/70 p-5">
+                <div className="rounded-none border border-border bg-background/70 p-5">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-sm text-muted-foreground">Assinatura atual</div>
@@ -841,11 +841,11 @@ const Settings = () => {
                     </div>
 
                     {activePlan.marketingFeatures.length > 0 && (
-                      <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                      <div className="rounded-none border border-border bg-secondary/30 p-4">
                         <div className="text-sm font-medium">Recursos cadastrados no plano</div>
                         <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                           {activePlan.marketingFeatures.slice(0, 6).map((feature) => (
-                            <div key={feature} className="rounded-md bg-background/70 px-3 py-2">{feature}</div>
+                            <div key={feature} className="rounded-none bg-background/70 px-3 py-2">{feature}</div>
                           ))}
                         </div>
                       </div>
@@ -854,13 +854,13 @@ const Settings = () => {
                 )}
               </div>
 
-              <div className="rounded-lg border border-border bg-secondary/35 p-4 flex flex-col justify-between gap-4">
+              <div className="rounded-none border border-border bg-secondary/35 p-4 flex flex-col justify-between gap-4">
                 <div className="space-y-3">
                   <div>
                     <div className="text-sm text-muted-foreground">Mensalidade</div>
                     <div className="text-2xl font-bold">{formatBRL(activePlan?.priceMonthly ?? 0)}</div>
                   </div>
-                  <div className="rounded-lg border border-border bg-background/70 p-3 text-xs text-muted-foreground">
+                  <div className="rounded-none border border-border bg-background/70 p-3 text-xs text-muted-foreground">
                     Dados de cartao nao aparecem aqui. Para evitar alteracoes acidentais, troca de plano e pagamento ficam na tela segura de assinatura.
                   </div>
                 </div>
@@ -908,14 +908,14 @@ const Settings = () => {
               </Field>
             </div>
 
-            <div className="rounded-2xl border border-border bg-secondary/35 p-4">
+            <div className="rounded-none border border-border bg-secondary/35 p-4">
               <div className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Previa da loja</div>
-              <div style={getStoreThemeStyle(storeForm)} className="overflow-hidden rounded-2xl border border-border bg-white">
+              <div style={getStoreThemeStyle(storeForm)} className="overflow-hidden rounded-none border border-border bg-white">
                 <div className="h-20 bg-[linear-gradient(135deg,var(--primary),var(--accent))]" />
                 <div className="grid gap-3 p-4 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center">
-                  <div className="-mt-10 h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-white shadow-sm">
+                  <div className="-mt-10 h-20 w-20 overflow-hidden rounded-none border-4 border-white bg-white shadow-sm">
                     {storeForm.logo_url ? (
-                      <img src={storeForm.logo_url} alt="" className="h-full w-full object-cover" />
+                      <img src={storeForm.logo_url} alt={storeForm.public_name || storeForm.name || 'Logo da loja'} onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-secondary text-primary">
                         <Store className="h-6 w-6" />
@@ -949,7 +949,7 @@ const SectionHeader = ({
   description: string;
 }) => (
   <div className="flex items-start gap-3">
-    <div className="rounded-lg border border-border bg-secondary/45 p-2.5">
+    <div className="rounded-none border border-border bg-secondary/45 p-2.5">
       <Icon className="h-4 w-4 text-primary" />
     </div>
     <div>
@@ -970,7 +970,7 @@ const SwitchRow = ({
   checked: boolean;
   onCheckedChange: (value: boolean) => void;
 }) => (
-  <div className="rounded-lg border border-border bg-background/65 p-4">
+  <div className="rounded-none border border-border bg-background/65 p-4">
     <div className="flex items-start justify-between gap-4">
       <div>
         <div className="font-medium">{label}</div>
@@ -994,11 +994,11 @@ const UploadField = ({
   emptyIcon: React.ReactNode;
   onFileSelect: (file: File) => void;
 }) => (
-  <div className="rounded-lg border border-border bg-background/65 p-4 space-y-3">
+  <div className="rounded-none border border-border bg-background/65 p-4 space-y-3">
     <Label>{label}</Label>
     <div className="flex items-center gap-3">
-      <div className={`${previewClassName} rounded-2xl border border-border bg-white overflow-hidden flex items-center justify-center shrink-0`}>
-        {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-contain" /> : emptyIcon}
+      <div className={`${previewClassName} rounded-none border border-border bg-white overflow-hidden flex items-center justify-center shrink-0`}>
+        {imageUrl ? <img src={imageUrl} alt={label} onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-contain" /> : emptyIcon}
       </div>
       <label className="cursor-pointer">
         <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onFileSelect(e.target.files[0])} />
@@ -1009,7 +1009,7 @@ const UploadField = ({
 );
 
 const MiniStat = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-lg border border-border bg-background/70 p-4">
+  <div className="rounded-none border border-border bg-background/70 p-4">
     <div className="text-sm text-muted-foreground">{label}</div>
     <div className="mt-1 text-lg font-semibold">{value}</div>
   </div>

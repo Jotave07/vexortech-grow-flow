@@ -1,17 +1,31 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 
-export const ProtectedRoute = ({ 
-  children, 
-  requiredRole 
-}: { 
-  children: React.ReactNode, 
-  requiredRole?: "super_admin" | "store_owner" | "customer" 
+export const ProtectedRoute = ({
+  children,
+  requiredRole
+}: {
+  children: React.ReactNode,
+  requiredRole?: "super_admin" | "store_owner" | "customer"
 }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const location = useLocation();
   const path = location.pathname;
+  const [profileTimeout, setProfileTimeout] = useState(false);
+
+  // Timeout para evitar loading infinito quando o perfil falha
+  useEffect(() => {
+    if (user && !profile && !loading) {
+      const timer = setTimeout(() => setProfileTimeout(true), 10000);
+      return () => clearTimeout(timer);
+    }
+    if (profile) {
+      setProfileTimeout(false);
+    }
+  }, [user, profile, loading]);
 
   if (loading) {
     return (
@@ -25,12 +39,28 @@ export const ProtectedRoute = ({
     let loginPath = "/entrar";
     if (path.startsWith("/admin")) loginPath = "/admin/entrar";
     else if (path.startsWith("/lojista")) loginPath = "/lojista/entrar";
-    
+
     return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
-  // Se estiver carregando o perfil mas o usuário já estiver autenticado, esperar um pouco
+  // Se estiver carregando o perfil mas o usuário já estiver autenticado, mostrar timeout com opção de retry
   if (user && !profile) {
+    if (profileTimeout) {
+      return (
+        <div className="flex min-h-screen items-center justify-center p-6">
+          <div className="max-w-sm text-center">
+            <AlertTriangle className="mx-auto mb-3 h-12 w-12 text-destructive" />
+            <h1 className="mb-2 text-xl font-bold">Erro ao carregar perfil</h1>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Não foi possível carregar seus dados de perfil. Verifique sua conexão e tente novamente.
+            </p>
+            <Button onClick={() => { setProfileTimeout(false); refreshProfile?.(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Tentar novamente
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -44,19 +74,19 @@ export const ProtectedRoute = ({
     const isStoreOwner = profile?.role === "store_owner";
     const isCustomer = profile?.role === "customer";
 
-    // Se a rota exige ser cliente, lojistas e admins também podem acessar
+    // Cliente: apenas customers (sem acesso de lojistas/admins como cliente)
     if (requiredRole === "customer") {
-      if (!isCustomer && !isStoreOwner && !isSuperAdmin) {
+      if (!isCustomer) {
         return <Navigate to="/" replace />;
       }
-    } 
-    // Se a rota exige ser lojista, apenas lojistas e admins podem acessar (admins podem acessar tudo)
+    }
+    // Lojista: apenas store_owners e super_admins
     else if (requiredRole === "store_owner") {
       if (!isStoreOwner && !isSuperAdmin) {
         return <Navigate to="/cliente" replace />;
       }
     }
-    // Se a rota exige ser admin, apenas admins podem acessar
+    // Admin: apenas super_admin
     else if (requiredRole === "super_admin") {
       if (!isSuperAdmin) {
         return <Navigate to="/" replace />;

@@ -5,7 +5,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ShoppingBag, DollarSign, TrendingUp, Clock, Loader2, AlertTriangle, ArrowRight } from "lucide-react";
+import {
+  ShoppingBag,
+  DollarSign,
+  TrendingUp,
+  Clock,
+  Loader2,
+  AlertTriangle,
+  ArrowRight,
+  Truck,
+  UtensilsCrossed,
+  BarChart3,
+  Ticket,
+} from "lucide-react";
 import { useSubscriptionStatus } from "@/hooks/use-subscription-status";
 import { buildDeliveryUrl } from "@/lib/domains";
 
@@ -94,7 +106,7 @@ const Dashboard = () => {
   if (accessState !== "active") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
-        <div className="bg-amber-50 text-amber-600 p-4 rounded-full border-2 border-amber-200">
+        <div className="bg-amber-50 text-amber-600 p-4 rounded-none border-2 border-amber-200">
           <AlertTriangle className="h-12 w-12" />
         </div>
         <div className="max-w-md">
@@ -110,75 +122,92 @@ const Dashboard = () => {
     );
   }
 
+  const activeOrders = stats.pending + stats.preparing + stats.delivering;
+
   return (
-    <div className="space-y-8 max-w-6xl">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-black uppercase tracking-tight">Painel de Controle</h1>
-          <p className="text-muted-foreground font-medium">Performance do seu delivery em tempo real.</p>
+          <h1 className="text-3xl font-black uppercase tracking-tight">Visão Geral</h1>
+          <p className="font-medium text-muted-foreground">Performance do seu delivery em tempo real.</p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground bg-muted/30 px-3 py-1.5 border border-border">
-          <Clock className="h-3.5 w-3.5" /> Atualizado agora
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-none border border-border bg-muted/40 px-3 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 text-primary" /> Atualizado agora
+          </div>
+          <Button variant="hero" className="h-10 font-black uppercase tracking-widest text-xs" asChild>
+            <Link to="/lojista/pedidos">
+              Ver pedidos <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          label="Receita Hoje" 
-          value={formatBRL(stats.todayRevenue)} 
-          icon={DollarSign} 
-          color="text-[var(--hype-green-dark)]"
-        />
-        <StatCard 
-          label="Pedidos Hoje" 
-          value={String(stats.todayOrders)} 
-          icon={ShoppingBag} 
-          color="text-blue-600"
-        />
-        <StatCard 
-          label="Ticket Médio" 
-          value={formatBRL(stats.avgTicket)} 
-          icon={TrendingUp} 
-          color="text-indigo-600"
-        />
-        <StatCard 
-          label="Total no Mês" 
-          value={formatBRL(stats.monthRevenue)} 
-          icon={DollarSign} 
-          color="text-primary"
-        />
+      {/* KPI cards — dados reais */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard label="Faturamento Hoje" value={formatBRL(stats.todayRevenue)} icon={DollarSign} tone="primary" hint="Hoje" />
+        <StatCard label="Pedidos Hoje" value={String(stats.todayOrders)} icon={ShoppingBag} tone="info" hint="Hoje" />
+        <StatCard label="Ticket Médio" value={formatBRL(stats.avgTicket)} icon={TrendingUp} tone="indigo" hint="Hoje" />
+        <StatCard label="Em Rota" value={String(stats.delivering)} icon={Truck} tone="cyan" hint="Agora" />
+        <StatCard label="Pendentes" value={String(stats.pending)} icon={Clock} tone="amber" hint="Agora" />
+        <StatCard label="Total no Mês" value={formatBRL(stats.monthRevenue)} icon={DollarSign} tone="primary" hint="Mês" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusMiniCard label="Pendentes" value={stats.pending} color="bg-blue-500" />
-        <StatusMiniCard label="Em preparo" value={stats.preparing} color="bg-amber-500" />
-        <StatusMiniCard label="Em rota" value={stats.delivering} color="bg-cyan-500" />
-        <StatusMiniCard label="Finalizados" value={stats.delivered} color="bg-primary" />
-      </div>
+      {/* Board de status (estilo kanban da referência) */}
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-border bg-muted/30 p-4">
+          <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+            <ShoppingBag className="h-4 w-4 text-primary" /> Pedidos por status
+          </h2>
+          <span className="rounded-none bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
+            {activeOrders} ativos
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-4 p-4 lg:grid-cols-4">
+          <StatusColumn label="Novos / Pendentes" value={stats.pending} accent="bg-blue-500" />
+          <StatusColumn label="Em Preparo" value={stats.preparing} accent="bg-amber-500" />
+          <StatusColumn label="Em Rota / Prontos" value={stats.delivering} accent="bg-cyan-500" />
+          <StatusColumn label="Finalizados" value={stats.delivered} accent="bg-primary" />
+        </div>
+        <div className="border-t border-border p-3 text-center">
+          <Link
+            to="/lojista/pedidos"
+            className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-foreground hover:text-primary"
+          >
+            Gerenciar todos os pedidos <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 p-0 overflow-hidden">
-          <div className="border-b border-border bg-muted/30 p-4">
-            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Produtos em Destaque
+      {/* Mais vendidos + lateral */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <Card className="overflow-hidden p-0 lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 p-4">
+            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+              <TrendingUp className="h-4 w-4 text-primary" /> Produtos mais vendidos
             </h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mês atual</span>
           </div>
           <div className="p-6">
             {topProducts.length === 0 ? (
-              <div className="py-10 text-center text-muted-foreground text-sm italic">
+              <div className="py-10 text-center text-sm italic text-muted-foreground">
                 Aguardando os primeiros pedidos do mês...
               </div>
             ) : (
               <div className="space-y-4">
                 {topProducts.map((p, i) => (
                   <div key={p.name} className="group relative">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-bold truncate pr-10">{i + 1}. {p.name}</span>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="truncate pr-10 text-sm font-bold">
+                        <span className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-none bg-primary/15 text-[10px] font-black text-foreground">{i + 1}</span>
+                        {p.name}
+                      </span>
                       <span className="text-sm font-black">{p.qty} un.</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full border border-border bg-muted">
-                      <div 
-                        className="h-full bg-primary transition-all duration-1000 ease-out" 
+                    <div className="h-2 w-full overflow-hidden rounded-none border border-border bg-muted">
+                      <div
+                        className="h-full bg-primary transition-all duration-1000 ease-out"
                         style={{ width: `${(p.qty / (topProducts[0]?.qty || 1)) * 100}%` }}
                       />
                     </div>
@@ -189,46 +218,92 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-6 flex flex-col items-center justify-center text-center bg-[var(--hype-dark)] text-white border-primary/20 shadow-elegant">
-          <div className="rounded-full bg-white/20 p-4 mb-4">
-            <ShoppingBag className="h-8 w-8" />
-          </div>
-          <h3 className="text-lg font-black uppercase tracking-tight mb-2">Sua Loja está Online</h3>
-          <p className="text-sm text-white/80 mb-6">
-            Continue oferecendo o melhor serviço para seus clientes.
-          </p>
-          <Button variant="outline" className="w-full bg-primary text-primary-foreground border-primary hover:bg-[var(--hype-green-dark)] font-bold uppercase tracking-widest text-xs" asChild>
-            <a href={buildDeliveryUrl(`/loja/${store.slug}`)} target="_blank" rel="noreferrer">
-              Abrir Visualização
-            </a>
-          </Button>
-        </Card>
+        <div className="space-y-6">
+          {/* Ações rápidas */}
+          <Card className="p-5">
+            <h3 className="mb-4 text-sm font-black uppercase tracking-widest">Ações rápidas</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <QuickAction to="/lojista/cardapio" icon={UtensilsCrossed} label="Cardápio" />
+              <QuickAction to="/lojista/pedidos" icon={ShoppingBag} label="Pedidos" />
+              <QuickAction to="/lojista/cupons" icon={Ticket} label="Cupons" />
+              <QuickAction to="/lojista/relatorios" icon={BarChart3} label="Relatórios" />
+            </div>
+          </Card>
+
+          {/* Loja online */}
+          <Card className="flex flex-col items-center justify-center border-primary/20 bg-[var(--hype-dark)] p-6 text-center text-white shadow-elegant">
+            <div className="mb-4 rounded-none bg-primary/20 p-4">
+              <ShoppingBag className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="mb-2 text-lg font-black uppercase tracking-tight">Sua loja está online</h3>
+            <p className="mb-6 text-sm text-white/80">Continue oferecendo o melhor serviço para seus clientes.</p>
+            <Button
+              variant="outline"
+              className="w-full border-primary bg-primary text-primary-foreground font-bold uppercase tracking-widest text-xs hover:bg-[var(--hype-green-dark)]"
+              asChild
+            >
+              <a href={buildDeliveryUrl(`/loja/${store.slug}`)} target="_blank" rel="noreferrer">
+                Abrir visualização
+              </a>
+            </Button>
+          </Card>
+        </div>
       </div>
     </div>
   );
 };
 
-const StatCard = ({ label, value, icon: Icon, color }: { label: string; value: string; icon: any; color: string }) => (
-  <Card className="p-6 group hover:border-primary transition-smooth">
-    <div className="flex items-center justify-between mb-4">
-      <div className="rounded-xl bg-muted p-2 group-hover:bg-primary/10 transition-smooth">
-        <Icon className={cn("h-5 w-5", color)} />
+const TONES: Record<string, string> = {
+  primary: "text-[var(--hype-green-dark)] bg-primary/10 group-hover:bg-primary/20",
+  info: "text-blue-600 bg-blue-50 group-hover:bg-blue-100",
+  indigo: "text-indigo-600 bg-indigo-50 group-hover:bg-indigo-100",
+  cyan: "text-cyan-600 bg-cyan-50 group-hover:bg-cyan-100",
+  amber: "text-amber-600 bg-amber-50 group-hover:bg-amber-100",
+};
+
+const StatCard = ({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  tone: keyof typeof TONES;
+  hint: string;
+}) => (
+  <Card className="group p-5 transition-smooth hover:border-primary">
+    <div className="mb-3 flex items-center justify-between">
+      <div className={cn("rounded-none p-2 transition-smooth", TONES[tone])}>
+        <Icon className="h-5 w-5" />
       </div>
-      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Global</span>
+      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{hint}</span>
     </div>
-    <div className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-1">{label}</div>
-    <div className="text-3xl font-black tracking-tighter">{value}</div>
+    <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{label}</div>
+    <div className="text-2xl font-black tracking-tighter">{value}</div>
   </Card>
 );
 
-const StatusMiniCard = ({ label, value, color }: { label: string; value: number; color: string }) => (
-  <Card className="p-4 flex items-center gap-4">
-    <div className={cn("h-3 w-3 shrink-0 rounded-full animate-pulse", color)} />
-    <div>
-      <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">{label}</div>
-      <div className="text-xl font-black">{value}</div>
+const StatusColumn = ({ label, value, accent }: { label: string; value: number; accent: string }) => (
+  <div className="rounded-none border border-border bg-card p-4">
+    <div className="mb-3 flex items-center gap-2">
+      <span className={cn("h-2.5 w-2.5 rounded-none", accent)} />
+      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
     </div>
-  </Card>
+    <div className="text-3xl font-black tracking-tighter">{value}</div>
+  </div>
+);
+
+const QuickAction = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => (
+  <Link
+    to={to}
+    className="flex flex-col items-center justify-center gap-2 rounded-none border border-border bg-muted/30 p-4 text-center transition-smooth hover:border-primary hover:bg-primary/10"
+  >
+    <Icon className="h-5 w-5 text-primary" />
+    <span className="text-[11px] font-black uppercase tracking-widest">{label}</span>
+  </Link>
 );
 
 export default Dashboard;

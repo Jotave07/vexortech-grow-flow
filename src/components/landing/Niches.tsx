@@ -61,9 +61,9 @@ export const Niches = () => {
               key={niche.name} 
               variants={itemVariants}
               whileHover={{ scale: 1.05, borderColor: "color-mix(in srgb, var(--primary) 45%, transparent)" }}
-              className="group flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-card p-5 text-center shadow-card transition-colors"
+              className="group flex min-h-32 flex-col items-center justify-center gap-3 rounded-none border border-border bg-card p-5 text-center shadow-card transition-colors"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-md bg-secondary text-primary transition-smooth group-hover:bg-primary group-hover:text-primary-foreground">
+              <div className="flex h-11 w-11 items-center justify-center rounded-none bg-secondary text-primary transition-smooth group-hover:bg-primary group-hover:text-primary-foreground">
                 <niche.icon className="h-5 w-5" />
               </div>
               <span className="text-sm font-medium">{niche.name}</span>

@@ -43,7 +43,9 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminStores = lazy(() => import("./pages/admin/AdminStores"));
 const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminParceiros = lazy(() => import("./pages/admin/AdminParceiros"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
+const CustomerSubscription = lazy(() => import("./pages/cliente/Subscription"));
 const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 const StoresList = lazy(() => import("./pages/public/StoresList"));
 const PartnerLanding = lazy(() => import("./pages/Index"));
@@ -87,7 +89,7 @@ const App = () => {
                 {/* Admin Auth */}
                 <Route path="/admin/entrar" element={<AdminLogin />} />
 
-                <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+                <Route path="/onboarding" element={<ProtectedRoute requiredRole="store_owner"><Onboarding /></ProtectedRoute>} />
 
                 <Route path="/lojas" element={<StoresList />} />
                 <Route path="/loja/:slug" element={<PublicStore />} />
@@ -106,6 +108,7 @@ const App = () => {
                 {/* Painel do Consumidor */}
                 <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerLayout /></ProtectedRoute>}>
                   <Route index element={<CustomerDashboard />} />
+                  <Route path="assinatura" element={<CustomerSubscription />} />
                 </Route>
 
                 {/* Painel do Lojista */}
@@ -129,6 +132,7 @@ const App = () => {
                 <Route path="/admin" element={<ProtectedRoute requiredRole="super_admin"><AdminLayout /></ProtectedRoute>}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="lojas" element={<AdminStores />} />
+                  <Route path="parceiros" element={<AdminParceiros />} />
                   <Route path="planos" element={<AdminPlans />} />
                   <Route path="configuracoes" element={<AdminSettings />} />
                 </Route>

@@ -10,44 +10,12 @@ import { LocalQueryBuilder } from "./query-builder";
 import {
   getSupabaseBrowserClient,
   getSupabasePublicStorageUrl,
-  hasSupabaseBrowserConfig,
 } from "@/integrations/supabase/client";
 
-const SESSION_KEY = "hype_delivery.session";
 const API_PATH = "/api/backend";
 const REQUEST_TIMEOUT_MS = 70_000;
 
-const authListeners = new Set<AuthStateCallback>();
-
 const isBrowser = () => typeof window !== "undefined";
-
-const readSession = (): LocalSession | null => {
-  if (!isBrowser()) return null;
-  const raw = window.localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try {
-    const session = JSON.parse(raw) as LocalSession;
-    if (!session?.access_token || !session?.expires_at) return null;
-    if (session.expires_at <= Math.floor(Date.now() / 1000)) {
-      window.localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-    return session;
-  } catch {
-    window.localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-};
-
-const writeSession = (session: LocalSession | null) => {
-  if (!isBrowser()) return;
-  if (session) window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  else window.localStorage.removeItem(SESSION_KEY);
-};
-
-const emitAuth = (event: AuthChangeEvent, session: LocalSession | null) => {
-  for (const listener of authListeners) listener(event, session);
-};
 
 const readAuthSession = async (): Promise<LocalSession | null> => {
   const supabase = getSupabaseBrowserClient();
@@ -55,7 +23,7 @@ const readAuthSession = async (): Promise<LocalSession | null> => {
     const { data } = await supabase.auth.getSession();
     return (data.session as LocalSession | null) ?? null;
   }
-  return readSession();
+  return null;
 };
 
 const authHeader = async (): Promise<Record<string, string>> => {
@@ -89,7 +57,7 @@ const jsonRequest = async <T = any>(payload: Record<string, unknown>): Promise<T
     if (!response.ok) {
       return {
         data: null,
-        error: { message: body?.error || body?.message || "Erro na API local" },
+        error: { message: body?.error || body?.message || "Erro na API" },
       } as T;
     }
     return body as T;
@@ -99,40 +67,13 @@ const jsonRequest = async <T = any>(payload: Record<string, unknown>): Promise<T
       error: {
         message:
           error?.name === "AbortError"
-            ? "A API local demorou demais para responder. Tente novamente."
-            : error?.message || "Falha ao comunicar com a API local.",
+            ? "A API demorou demais para responder. Tente novamente."
+            : error?.message || "Falha ao comunicar com a API.",
       },
     } as T;
   } finally {
     timeout.clear();
   }
-};
-
-const maybeRecoverSessionFromUrl = async () => {
-  if (hasSupabaseBrowserConfig) return readAuthSession();
-  if (!isBrowser()) return readSession();
-  const current = readSession();
-  if (current) return current;
-
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const queryParams = new URLSearchParams(window.location.search);
-  const token = hashParams.get("access_token") || queryParams.get("access_token");
-  if (!token) return null;
-
-  const result = await jsonRequest<BackendResult<LocalSession>>({
-    kind: "auth",
-    action: "sessionFromToken",
-    token,
-  });
-
-  if (result.data) {
-    writeSession(result.data);
-    emitAuth("PASSWORD_RECOVERY", result.data);
-    window.history.replaceState({}, document.title, window.location.pathname);
-    return result.data;
-  }
-
-  return null;
 };
 
 const normalizeAuthEvent = (event: string): AuthChangeEvent => {
@@ -251,110 +192,6 @@ class SupabaseAuthClient {
   }
 }
 
-class LocalAuthClient {
-  onAuthStateChange(callback: AuthStateCallback) {
-    authListeners.add(callback);
-    setTimeout(() => callback("INITIAL_SESSION", readSession()), 0);
-    return {
-      data: {
-        subscription: {
-          unsubscribe: () => authListeners.delete(callback),
-        },
-      },
-    };
-  }
-
-  async getSession() {
-    const session = await maybeRecoverSessionFromUrl();
-    return { data: { session }, error: null };
-  }
-
-  async signInWithPassword(input: { email: string; password: string }) {
-    const result = await jsonRequest<BackendResult<LocalSession>>({
-      kind: "auth",
-      action: "signInWithPassword",
-      email: input.email,
-      password: input.password,
-    });
-    if (result.data) {
-      writeSession(result.data);
-      emitAuth("SIGNED_IN", result.data);
-    }
-    return {
-      data: { user: result.data?.user ?? null, session: result.data ?? null },
-      error: result.error,
-    };
-  }
-
-  async signUp(input: {
-    email: string;
-    password: string;
-    options?: { data?: Record<string, unknown> };
-  }) {
-    const result = await jsonRequest<BackendResult<LocalSession>>({
-      kind: "auth",
-      action: "signUp",
-      email: input.email,
-      password: input.password,
-      data: input.options?.data || {},
-    });
-    if (result.data) {
-      writeSession(result.data);
-      emitAuth("SIGNED_IN", result.data);
-    }
-    return {
-      data: { user: result.data?.user ?? null, session: result.data ?? null },
-      error: result.error,
-    };
-  }
-
-  async signOut() {
-    writeSession(null);
-    emitAuth("SIGNED_OUT", null);
-    return { error: null };
-  }
-
-  async updateUser(input: { password?: string; data?: Record<string, unknown> }) {
-    const result = await jsonRequest<BackendResult<LocalSession>>({
-      kind: "auth",
-      action: "updateUser",
-      ...input,
-    });
-    if (result.data) {
-      writeSession(result.data);
-      emitAuth("USER_UPDATED", result.data);
-    }
-    return { data: { user: result.data?.user ?? null }, error: result.error };
-  }
-
-  async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
-    return jsonRequest<BackendResult<{ sent: boolean }>>({
-      kind: "auth",
-      action: "resetPasswordForEmail",
-      email,
-      redirectTo: options?.redirectTo,
-    });
-  }
-
-  async getClaims(token?: string) {
-    return jsonRequest<BackendResult<{ claims: Record<string, unknown> }>>({
-      kind: "auth",
-      action: "getClaims",
-      token,
-    });
-  }
-
-  async signInWithOAuth(_input: {
-    provider: OAuthProvider;
-    options?: { redirectTo?: string; queryParams?: Record<string, string> };
-  }) {
-    return {
-      data: null,
-      error: { message: "Login social requer Supabase configurado." },
-    };
-  }
-}
-
 class LocalStorageBucket {
   constructor(private readonly bucket: string) {}
 
@@ -396,19 +233,13 @@ class LocalStorageBucket {
 
   getPublicUrl(path: string) {
     const supabaseUrl = getSupabasePublicStorageUrl(this.bucket, path);
-    if (supabaseUrl) return { data: { publicUrl: supabaseUrl } };
-
-    const cleanPath = path.split("/").map(encodeURIComponent).join("/");
-    const origin = isBrowser() ? window.location.origin : "";
-    return {
-      data: { publicUrl: `${origin}/storage/${encodeURIComponent(this.bucket)}/${cleanPath}` },
-    };
+    return { data: { publicUrl: supabaseUrl } };
   }
 }
 
 class LocalRealtimeChannel {
   private handlers: Array<{ filter: any; callback: (payload: any) => void }> = [];
-  private source?: EventSource;
+  private abortController?: AbortController;
 
   constructor(private readonly name: string) {}
 
@@ -419,8 +250,11 @@ class LocalRealtimeChannel {
 
   subscribe(callback?: (status: string) => void) {
     if (!isBrowser()) return this;
+    this.close();
+    const controller = new AbortController();
+    this.abortController = controller;
+
     void (async () => {
-      const token = (await readAuthSession())?.access_token || "";
       const url = new URL(`${window.location.origin}${API_PATH}`);
       url.searchParams.set("stream", "realtime");
       url.searchParams.set("channel", this.name);
@@ -428,26 +262,62 @@ class LocalRealtimeChannel {
       if (firstFilter?.table) url.searchParams.set("table", String(firstFilter.table));
       if (firstFilter?.event) url.searchParams.set("event", String(firstFilter.event));
       if (firstFilter?.filter) url.searchParams.set("filter", String(firstFilter.filter));
-      if (token) url.searchParams.set("token", token);
-      this.source = new EventSource(url.toString());
-      this.source.onopen = () => callback?.("SUBSCRIBED");
-      this.source.onerror = () => callback?.("CHANNEL_ERROR");
-      this.source.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          for (const handler of this.handlers) {
-            if (matchesRealtimeFilter(handler.filter, payload)) handler.callback(payload);
-          }
-        } catch {
-          // Ignore malformed heartbeat/event frames.
+
+      try {
+        const response = await fetch(url.toString(), {
+          method: "GET",
+          headers: await authHeader(),
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) {
+          callback?.("CHANNEL_ERROR");
+          return;
         }
-      };
+
+        callback?.("SUBSCRIBED");
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (!controller.signal.aborted) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split(/\r?\n\r?\n/);
+          buffer = frames.pop() || "";
+          for (const frame of frames) this.handleFrame(frame);
+        }
+      } catch (error: any) {
+        if (error?.name !== "AbortError") callback?.("CHANNEL_ERROR");
+      }
     })();
     return this;
   }
 
+  private handleFrame(frame: string) {
+    const lines = frame.split(/\r?\n/);
+    const event = lines.find((line) => line.startsWith("event:"))?.slice("event:".length).trim() || "message";
+    if (event !== "message") return;
+
+    const data = lines
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).trimStart())
+      .join("\n");
+    if (!data) return;
+
+    try {
+      const payload = JSON.parse(data);
+      for (const handler of this.handlers) {
+        if (matchesRealtimeFilter(handler.filter, payload)) handler.callback(payload);
+      }
+    } catch {
+      // Ignore malformed event frames.
+    }
+  }
+
   close() {
-    this.source?.close();
+    this.abortController?.abort();
+    this.abortController = undefined;
   }
 }
 
@@ -471,7 +341,7 @@ const executeQuery = (payload: QueryPayload) =>
   });
 
 const backendClient = {
-  auth: hasSupabaseBrowserConfig ? new SupabaseAuthClient() : new LocalAuthClient(),
+  auth: new SupabaseAuthClient(),
   from(table: string) {
     return new LocalQueryBuilder(table, executeQuery);
   },

@@ -2,30 +2,6 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-DO $$
-BEGIN
-  IF to_regnamespace('auth') IS NULL THEN
-    CREATE SCHEMA auth;
-  END IF;
-
-  IF to_regclass('auth.users') IS NULL THEN
-    CREATE TABLE auth.users (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      email text UNIQUE,
-      encrypted_password text,
-      raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
-      created_at timestamptz DEFAULT now(),
-      updated_at timestamptz DEFAULT now(),
-      deleted_at timestamptz
-    );
-  END IF;
-EXCEPTION
-  WHEN insufficient_privilege THEN
-    IF to_regclass('auth.users') IS NULL THEN
-      RAISE;
-    END IF;
-END $$;
-
 CREATE TABLE IF NOT EXISTS public.stores (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_user_id uuid,

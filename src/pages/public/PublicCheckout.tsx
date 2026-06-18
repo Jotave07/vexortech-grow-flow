@@ -700,7 +700,7 @@ const PublicCheckout = () => {
                 <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
                   <RadioGroupItem value="pix" id="pix" />
                   <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
+                    <div className="h-8 w-8 rounded-none bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
                     PIX (APROVACAO DA LOJA)
                   </Label>
                 </div>
@@ -752,7 +752,7 @@ const PublicCheckout = () => {
               <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1 italic">Total do Pedido</p>
               <p className="text-2xl font-black tracking-tighter text-slate-950">{formatBRL(total)}</p>
             </div>
-            <Button onClick={submit} disabled={submitting || items.length === 0} className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 font-black uppercase tracking-tighter text-lg rounded-xl shadow-lg transition-transform active:scale-95">
+            <Button onClick={submit} disabled={submitting || items.length === 0} className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 font-black uppercase tracking-tighter text-lg rounded-none shadow-lg transition-transform active:scale-95">
               {submitting ? <Loader2 className="h-6 w-6 animate-spin" /> : "ENVIAR PEDIDO"}
             </Button>
           </div>
@@ -766,7 +766,7 @@ const PublicCheckout = () => {
         }
         setShowPixModal(open);
       }}>
-        <DialogContent className="max-w-[400px] border border-primary p-0 overflow-hidden bg-white sm:rounded-3xl shadow-2xl">
+        <DialogContent className="max-w-[400px] border border-primary p-0 overflow-hidden bg-white sm:rounded-none shadow-2xl">
           <div className="bg-primary p-6 text-center border-b border-primary/20">
             <h2 className="text-xl font-black text-primary-foreground uppercase tracking-tighter italic">Pagamento via Pix</h2>
           </div>
@@ -788,9 +788,11 @@ const PublicCheckout = () => {
 
             {pixData?.qrCodeUrl && (
               <div className="bg-white p-4 border border-border shadow-panel">
-                <img 
-                  src={pixData.qrCodeUrl.startsWith('data:') ? pixData.qrCodeUrl : `data:image/png;base64,${pixData.qrCodeUrl}`} 
-                  alt="QR Code PIX" 
+                <img
+                  src={pixData.qrCodeUrl.startsWith('data:') ? pixData.qrCodeUrl : `data:image/png;base64,${pixData.qrCodeUrl}`}
+                  alt="QR Code PIX"
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   className="w-48 h-48"
                 />
               </div>
@@ -808,7 +810,7 @@ const PublicCheckout = () => {
             </div>
 
             <Button 
-              className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-tight rounded-xl shadow-panel flex items-center justify-center gap-2 text-lg transition-all active:scale-95"
+              className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-tight rounded-none shadow-panel flex items-center justify-center gap-2 text-lg transition-all active:scale-95"
               onClick={() => {
                 if (pixData?.pixCode) {
                   navigator.clipboard.writeText(pixData.pixCode);
@@ -827,7 +829,7 @@ const PublicCheckout = () => {
               <Button 
                 variant="outline"
                 disabled
-                className="w-full h-14 border border-primary text-primary font-black uppercase tracking-tighter text-sm rounded-xl hover:bg-muted transition-all active:scale-95 shadow-panel"
+                className="w-full h-14 border border-primary text-primary font-black uppercase tracking-tighter text-sm rounded-none hover:bg-muted transition-all active:scale-95 shadow-panel"
               >
                 Aguardando confirmacao da loja
               </Button>

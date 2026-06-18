@@ -143,11 +143,11 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto p-0">
         <div className="space-y-5 p-5 sm:p-6">
-          <div className="mx-auto h-36 w-36 overflow-hidden rounded-full border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-44 sm:w-44">
+          <div className="mx-auto h-36 w-36 overflow-hidden rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-44 sm:w-44">
             {product.image_url ? (
-              <img src={product.image_url} alt={product.name} className="h-full w-full rounded-full object-contain" />
+              <img src={product.image_url} alt={product.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full rounded-none object-contain" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-primary">
+              <div className="flex h-full w-full items-center justify-center rounded-none bg-white text-primary">
                 <Sparkles className="h-9 w-9" />
               </div>
             )}
@@ -268,13 +268,13 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
           )}
 
           {!loading && missingRequiredGroups.length > 0 && (
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-xs font-bold text-primary">
+            <div className="rounded-none border border-primary/20 bg-primary/5 p-3 text-xs font-bold text-primary">
               Complete: {missingRequiredGroups.map((group) => group.name).join(", ")}
             </div>
           )}
 
           {!loading && unavailableRequiredGroups.length > 0 && (
-            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
+            <div className="rounded-none border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
               Indisponível para montagem: {unavailableRequiredGroups.map((group) => group.name).join(", ")}
             </div>
           )}

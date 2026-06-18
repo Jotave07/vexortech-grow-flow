@@ -182,7 +182,7 @@ const CustomerDashboard = () => {
             <p className="text-white/62 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary/15 border-2 border-primary flex items-center justify-center">
+            <div className="h-12 w-12 rounded-none bg-primary/15 border-2 border-primary flex items-center justify-center">
               <User className="h-6 w-6 text-primary" />
             </div>
           </div>
@@ -191,11 +191,11 @@ const CustomerDashboard = () => {
 
       <main className="container max-w-4xl mx-auto p-4 -mt-6">
         <Tabs defaultValue="pedidos" className="space-y-6">
-          <TabsList className="w-full bg-white border border-border rounded-2xl h-14 p-1 shadow-panel">
-            <TabsTrigger value="pedidos" className="flex-1 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
+          <TabsList className="w-full bg-white border border-border rounded-none h-14 p-1 shadow-panel">
+            <TabsTrigger value="pedidos" className="flex-1 rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
               <Package className="h-4 w-4 mr-2" /> Meus Pedidos
             </TabsTrigger>
-            <TabsTrigger value="perfil" className="flex-1 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
+            <TabsTrigger value="perfil" className="flex-1 rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
               <User className="h-4 w-4 mr-2" /> Meu Perfil
             </TabsTrigger>
           </TabsList>
@@ -212,7 +212,7 @@ const CustomerDashboard = () => {
               </Card>
             ) : (
               orders.map((order) => (
-                <Card key={order.id} className="p-6 border border-border rounded-xl bg-white shadow-elegant hover:shadow-elegant transition-all">
+                <Card key={order.id} className="p-6 border border-border rounded-none bg-white shadow-elegant hover:shadow-elegant transition-all">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-border/5 pb-4">
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Pedido #{order.order_number}</div>
@@ -220,10 +220,10 @@ const CustomerDashboard = () => {
                       <div className="text-xs font-bold text-muted-foreground">{formatDateTime(order.created_at)}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Badge className={`rounded-xl border border-border uppercase font-black text-[10px] px-3 py-1 ${STATUS_COLORS[order.status] || ''}`}>
+                      <Badge className={`rounded-none border border-border uppercase font-black text-[10px] px-3 py-1 ${STATUS_COLORS[order.status] || ''}`}>
                         {STATUS_LABELS[order.status] || order.status}
                       </Badge>
-                      <Button variant="outline" size="sm" className="rounded-xl border-border h-8 text-[10px] font-black uppercase" asChild>
+                      <Button variant="outline" size="sm" className="rounded-none border-border h-8 text-[10px] font-black uppercase" asChild>
                         <a href={`/pedido/${order.public_token}`}>
                           <ExternalLink className="h-3 w-3 mr-1" /> Rastrear
                         </a>
@@ -252,7 +252,7 @@ const CustomerDashboard = () => {
 
                   <div className="flex gap-2 border-t-2 border-border/5 pt-4 mt-4">
                     {order.stores?.whatsapp && (
-                      <Button variant="outline" size="sm" className="flex-1 rounded-xl border-border bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366] hover:text-white font-black uppercase text-[10px] h-10 transition-colors" asChild>
+                      <Button variant="outline" size="sm" className="flex-1 rounded-none border-border bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366] hover:text-white font-black uppercase text-[10px] h-10 transition-colors" asChild>
                         <a href={buildWhatsAppLink(order.stores.whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
                           <MessageSquare className="h-4 w-4 mr-2" /> WhatsApp da Loja
                         </a>
@@ -265,10 +265,10 @@ const CustomerDashboard = () => {
           </TabsContent>
 
           <TabsContent value="perfil" className="space-y-6">
-            <Card className="p-6 border border-border rounded-xl bg-white shadow-elegant">
+            <Card className="p-6 border border-border rounded-none bg-white shadow-elegant">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-primary/15 p-3">
+                  <div className="rounded-none bg-primary/15 p-3">
                     <ShieldCheck className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -276,20 +276,20 @@ const CustomerDashboard = () => {
                     <p className="text-sm text-muted-foreground">{profileVerification.detail}</p>
                   </div>
                 </div>
-                <Badge className="w-fit rounded-full bg-primary px-3 py-1 text-primary-foreground">
+                <Badge className="w-fit rounded-none bg-primary px-3 py-1 text-primary-foreground">
                   {profileVerification.score}% completo
                 </Badge>
               </div>
               <div className="mt-5 grid gap-2 sm:grid-cols-2">
                 {profileVerification.checks.map((check) => (
-                  <div key={check.key} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <div key={check.key} className="flex items-center justify-between rounded-none border border-border bg-muted/40 px-3 py-2 text-sm">
                     <span>{check.label}</span>
                     <Badge variant={check.ok ? "default" : "secondary"}>{check.ok ? "OK" : "Pendente"}</Badge>
                   </div>
                 ))}
               </div>
             </Card>
-            <Card className="p-8 border border-border rounded-xl bg-white shadow-elegant">
+            <Card className="p-8 border border-border rounded-none bg-white shadow-elegant">
               <h2 className="text-xl font-black uppercase tracking-tight mb-6 italic border-b border-border pb-2">Informações Pessoais</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
@@ -330,7 +330,7 @@ const CustomerDashboard = () => {
       </main>
 
       <Dialog open={editModalOpen} onOpenChange={isProfileComplete ? setEditModalOpen : () => {}}>
-        <DialogContent className="border border-border rounded-xl max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="border border-border rounded-none max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">
               {!isProfileComplete ? "Complete seu Cadastro" : "Editar Perfil"}
@@ -349,7 +349,7 @@ const CustomerDashboard = () => {
                   id="full_name" 
                   value={formData.full_name} 
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -360,7 +360,7 @@ const CustomerDashboard = () => {
                   value={formData.document} 
                   onChange={(e) => setFormData({ ...formData, document: e.target.value })}
                   placeholder="000.000.000-00"
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -371,7 +371,7 @@ const CustomerDashboard = () => {
                   value={formData.phone} 
                   onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                   placeholder="(00) 00000-0000"
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -383,14 +383,14 @@ const CustomerDashboard = () => {
                     value={formData.zip_code} 
                     onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
                     placeholder="00000-000"
-                    className="border border-border rounded-xl h-11 font-bold flex-1"
+                    className="border border-border rounded-none h-11 font-bold flex-1"
                     required
                   />
                   <Button 
                     type="button" 
                     size="icon" 
                     variant="outline" 
-                    className="border border-border rounded-xl h-11 w-11 shrink-0"
+                    className="border border-border rounded-none h-11 w-11 shrink-0"
                     onClick={async () => {
                       const cep = formData.zip_code.replace(/\D/g, "");
                       if (cep.length !== 8) return toast.error("CEP inválido");
@@ -423,7 +423,7 @@ const CustomerDashboard = () => {
                   id="street" 
                   value={formData.street} 
                   onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -433,7 +433,7 @@ const CustomerDashboard = () => {
                   id="number" 
                   value={formData.number} 
                   onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -446,7 +446,7 @@ const CustomerDashboard = () => {
                   id="complement" 
                   value={formData.complement} 
                   onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                 />
               </div>
               <div className="space-y-2">
@@ -455,7 +455,7 @@ const CustomerDashboard = () => {
                   id="neighborhood" 
                   value={formData.neighborhood} 
                   onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -468,7 +468,7 @@ const CustomerDashboard = () => {
                   id="city" 
                   value={formData.city} 
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -479,7 +479,7 @@ const CustomerDashboard = () => {
                   value={formData.state} 
                   onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
                   maxLength={2}
-                  className="border border-border rounded-xl h-11 font-bold"
+                  className="border border-border rounded-none h-11 font-bold"
                   required
                 />
               </div>
@@ -491,7 +491,7 @@ const CustomerDashboard = () => {
                   type="button" 
                   variant="outline" 
                   onClick={() => setEditModalOpen(false)}
-                  className="border border-border rounded-xl font-black uppercase tracking-widest text-xs h-12"
+                  className="border border-border rounded-none font-black uppercase tracking-widest text-xs h-12"
                 >
                   Cancelar
                 </Button>

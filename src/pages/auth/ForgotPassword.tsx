@@ -33,7 +33,7 @@ const ForgotPassword = () => {
         <h1 className="mb-2 text-2xl font-bold">Recuperar senha</h1>
         <p className="mb-6 text-sm text-muted-foreground">Enviaremos um link para redefinir sua senha.</p>
         {sent ? (
-          <p className="rounded-md border border-success/25 bg-success/10 p-3 text-sm text-success">
+          <p className="rounded-none border border-success/25 bg-success/10 p-3 text-sm text-success">
             Pronto! Confira sua caixa de entrada.
           </p>
         ) : (

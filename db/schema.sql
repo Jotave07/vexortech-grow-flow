@@ -1,4 +1,4 @@
--- Canonical schema entrypoint for the local PostgreSQL backend.
+-- Canonical schema entrypoint for the Supabase/PostgreSQL backend.
 -- Apply with:
 --   npm run db:migrate
 --   npm run db:check

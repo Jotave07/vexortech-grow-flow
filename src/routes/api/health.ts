@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { query } from "@/backend/db";
 import { validateRuntimeEnv } from "@/backend/env";
+import { hasSupabaseAdminConfig } from "@/backend/supabase";
 
 const latestMigrationVersion = async () => {
   const migrationsDir = path.join(process.cwd(), "db", "migrations");
@@ -32,15 +33,7 @@ const checkMigrations = async () => {
 };
 
 const checkStorage = async () => {
-  if (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return true;
-  }
-  const dir = process.env.STORAGE_DIR || path.join(process.cwd(), ".storage-health");
-  const filePath = path.join(dir, `.health-${Date.now()}`);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(filePath, "ok", "utf8");
-  await fs.unlink(filePath);
-  return true;
+  return hasSupabaseAdminConfig();
 };
 
 export const Route = createFileRoute("/api/health")({

@@ -2,6 +2,7 @@ import type { BackendResult, LocalSession } from "@/integrations/backend/compat-
 import { getActor, signUp } from "./auth";
 import { query, withTransaction } from "./db";
 import { publishRealtime } from "./realtime";
+import { deleteSupabaseAuthUser, listSupabaseAuthUsers } from "./supabase";
 import { createCheckoutOrderHandler } from "@/server/order.functions";
 import { quoteDeliveryHandler } from "@/server/delivery.service";
 import { updateOrderStatusHandler } from "@/server/order-status.service";
@@ -126,12 +127,12 @@ const adminDeleteStore = async (body: any, token?: string) => {
   if (body?.action === "cleanup_orphans") {
     const { rows: profileRows } = await query(`SELECT user_id FROM public.profiles WHERE user_id IS NOT NULL`);
     const profileIds = new Set(profileRows.map((row) => row.user_id));
-    const { rows: users } = await query(`SELECT id, email FROM auth.users WHERE deleted_at IS NULL`);
+    const users = await listSupabaseAuthUsers();
     let deleted = 0;
     for (const user of users) {
       if (user.id === actor.user.id || user.email === "jvieira@vexortech.com.br") continue;
       if (!profileIds.has(user.id)) {
-        await query(`UPDATE auth.users SET deleted_at = now(), updated_at = now() WHERE id = $1`, [user.id]);
+        await deleteSupabaseAuthUser(user.id);
         deleted += 1;
       }
     }
@@ -141,9 +142,10 @@ const adminDeleteStore = async (body: any, token?: string) => {
   const storeId = String(body?.store_id || "");
   if (!storeId) return errorResult("Store ID is required.");
 
+  let ownerUserId: string | null = null;
   await withTransaction(async (client) => {
     const { rows } = await client.query(`SELECT owner_user_id FROM public.stores WHERE id = $1`, [storeId]);
-    const ownerUserId = rows[0]?.owner_user_id;
+    ownerUserId = rows[0]?.owner_user_id || null;
     if (!rows[0]) throw new Error("Loja nao encontrada.");
 
     const simpleTables = [
@@ -192,9 +194,14 @@ const adminDeleteStore = async (body: any, token?: string) => {
     await client.query(`DELETE FROM public.stores WHERE id = $1`, [storeId]);
     if (ownerUserId) {
       await client.query(`DELETE FROM public.profiles WHERE user_id = $1`, [ownerUserId]).catch(() => null);
-      await client.query(`UPDATE auth.users SET deleted_at = now(), updated_at = now() WHERE id = $1`, [ownerUserId]).catch(() => null);
     }
   });
+
+  if (ownerUserId) {
+    await deleteSupabaseAuthUser(ownerUserId).catch((error) => {
+      console.warn("Nao foi possivel remover usuario no Supabase Auth apos excluir loja:", error?.message || error);
+    });
+  }
 
   publishRealtime({ schema: "public", table: "stores", eventType: "DELETE", new: null, old: { id: storeId } });
   return { data: { success: true }, error: null };

@@ -88,12 +88,24 @@ const checks = [
     sql: "SELECT to_regclass('public.orders_public_token_unique') IS NOT NULL AS ok",
   },
   {
-    label: "orders_checkout_idempotency_unique",
-    sql: "SELECT to_regclass('public.orders_checkout_idempotency_unique') IS NOT NULL AS ok",
+    label: "orders idempotency index is not duplicated",
+    sql: `
+      SELECT
+        to_regclass('public.orders_store_customer_idempotency_unique') IS NOT NULL
+        AND to_regclass('public.orders_checkout_idempotency_unique') IS NULL AS ok
+    `,
   },
   {
-    label: "orders_store_customer_idempotency_unique",
-    sql: "SELECT to_regclass('public.orders_store_customer_idempotency_unique') IS NOT NULL AS ok",
+    label: "foreign key covering indexes",
+    sql: `
+      SELECT
+        to_regclass('public.customers_store_id_idx') IS NOT NULL
+        AND to_regclass('public.order_status_history_order_id_idx') IS NOT NULL
+        AND to_regclass('public.orders_customer_id_idx') IS NOT NULL
+        AND to_regclass('public.product_option_items_option_id_idx') IS NOT NULL
+        AND to_regclass('public.product_options_product_id_idx') IS NOT NULL
+        AND to_regclass('public.products_store_id_idx') IS NOT NULL AS ok
+    `,
   },
   {
     label: "delivery quote columns",
@@ -162,15 +174,99 @@ const checks = [
     params: [["notes", "subtotal", "options_total"]],
   },
   {
-    label: "store profile columns",
+    label: "store contract columns",
     sql: `
-      SELECT count(*) = 4 AS ok
+      SELECT count(*) = 33 AS ok
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = 'stores'
         AND column_name = ANY($1::text[])
     `,
-    params: [["store_type", "is_verified", "verification_status", "verification_notes"]],
+    params: [[
+      "public_name",
+      "description",
+      "store_type",
+      "is_verified",
+      "verification_status",
+      "verification_notes",
+      "logo_url",
+      "cover_url",
+      "document",
+      "email",
+      "address",
+      "address_number",
+      "address_complement",
+      "neighborhood",
+      "zip_code",
+      "latitude",
+      "longitude",
+      "primary_color",
+      "secondary_color",
+      "city",
+      "state",
+      "plan_id",
+      "status",
+      "font_family",
+      "payment_methods",
+      "phone",
+      "whatsapp",
+      "whatsapp_number",
+      "is_active",
+      "is_suspended",
+      "delivery_fee",
+      "min_order_amount",
+      "updated_at",
+    ]],
+  },
+  {
+    label: "stores_plan_id_fkey",
+    sql: `
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'stores_plan_id_fkey'
+      ) AS ok
+    `,
+  },
+  {
+    label: "store settings contract columns",
+    sql: `
+      SELECT count(*) = 28 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'store_settings'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [[
+      "payment_instructions",
+      "payment_gateway_provider",
+      "payment_gateway_api_key",
+      "payment_gateway_config",
+      "pix_key",
+      "pix_key_type",
+      "asaas_wallet_id",
+      "allow_delivery",
+      "allow_pickup",
+      "accept_pix",
+      "accept_cash",
+      "accept_card_on_delivery",
+      "accept_orders_when_closed",
+      "accept_card_online",
+      "is_open",
+      "delivery_radius_km",
+      "delivery_base_fee",
+      "delivery_fee_per_km",
+      "delivery_distance_rules",
+      "delivery_message",
+      "excluded_neighborhoods",
+      "min_order_value",
+      "min_order_amount",
+      "free_delivery_above",
+      "avg_prep_time_minutes",
+      "business_hours",
+      "whatsapp_number",
+      "updated_at",
+    ]],
   },
   {
     label: "plan catalog safety columns",
@@ -202,6 +298,55 @@ const checks = [
   {
     label: "user role uniqueness",
     sql: "SELECT to_regclass('public.user_roles_user_role_store_unique') IS NOT NULL AS ok",
+  },
+  {
+    label: "public tables do not expose Data API privileges to anon/authenticated",
+    sql: `
+      SELECT count(*) = 0 AS ok
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r', 'p')
+        AND (
+          has_table_privilege('anon', c.oid, 'select, insert, update, delete')
+          OR has_table_privilege('authenticated', c.oid, 'select, insert, update, delete')
+        )
+    `,
+  },
+  {
+    label: "public functions use fixed search_path",
+    sql: `
+      SELECT count(*) = 0 AS ok
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = ANY($1::text[])
+        AND NOT EXISTS (
+          SELECT 1
+          FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) cfg(value)
+          WHERE cfg.value LIKE 'search_path=%'
+        )
+    `,
+    params: [[
+      "is_vexor_admin",
+      "get_public_order",
+      "get_public_order_items",
+      "get_public_order_status_history",
+      "get_store_rating",
+      "normalize_signup_role",
+      "handle_auth_user_created",
+    ]],
+  },
+  {
+    label: "internal auth trigger helpers are not executable through Data API roles",
+    sql: `
+      SELECT NOT (
+        has_function_privilege('anon', 'public.handle_auth_user_created()', 'execute')
+        OR has_function_privilege('authenticated', 'public.handle_auth_user_created()', 'execute')
+        OR has_function_privilege('anon', 'public.normalize_signup_role(jsonb)', 'execute')
+        OR has_function_privilege('authenticated', 'public.normalize_signup_role(jsonb)', 'execute')
+      ) AS ok
+    `,
   },
 ];
 

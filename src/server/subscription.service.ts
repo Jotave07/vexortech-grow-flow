@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { getActor } from "@/backend/auth";
-import { query as defaultQuery } from "@/backend/db";
+import { query as defaultQuery, withTransaction as defaultWithTransaction } from "@/backend/db";
 import { publishRealtime as defaultPublishRealtime } from "@/backend/realtime";
 import { asaas } from "./asaas.server";
 
@@ -60,9 +61,14 @@ const cancelSchema = z.object({
 type QueryFn = typeof defaultQuery;
 type ActorFn = typeof getActor;
 
+// Funcao de query escopada (pool global ou client de transacao). Usada por persistSubscription
+// para que as escritas rodem DENTRO da mesma transacao/lock do checkout.
+type ScopedQuery = (text: string, params?: unknown[]) => Promise<any>;
+
 type SubscriptionDeps = {
   getActor: ActorFn;
   query: QueryFn;
+  withTransaction: typeof defaultWithTransaction;
   publishRealtime: typeof defaultPublishRealtime;
   createCustomer: typeof asaas.createCustomer;
   createSubscription: typeof asaas.createSubscription;
@@ -80,6 +86,7 @@ const defaultDeps = async (): Promise<SubscriptionDeps> => {
   return {
     getActor: auth.getActor,
     query: defaultQuery,
+    withTransaction: defaultWithTransaction,
     publishRealtime: defaultPublishRealtime,
     createCustomer: asaas.createCustomer,
     createSubscription: asaas.createSubscription,
@@ -90,6 +97,20 @@ const defaultDeps = async (): Promise<SubscriptionDeps> => {
 };
 
 const todayIsoDate = () => new Date().toISOString().split("T")[0];
+const ASAAS_IDEMPOTENCY_KEY_MAX_LENGTH = 48;
+
+const asaasIdempotencyKey = (scope: "pc" | "ps", ...parts: string[]) => {
+  const digest = createHash("sha256").update(parts.join(":")).digest("hex").slice(0, 32);
+  const key = `${scope}_${digest}`;
+  if (key.length > ASAAS_IDEMPOTENCY_KEY_MAX_LENGTH) {
+    throw new Error("Chave de idempotencia do Asaas excede o limite permitido.");
+  }
+  return key;
+};
+
+// Chave de lock por loja, serializando checkouts concorrentes da MESMA loja (duplo-clique/retry).
+// Espelha o padrao usado no fluxo de Pix manual (asaas.service.ts: `manual-pix:${orderId}`).
+const subscriptionLockKey = (storeId: string) => `subscription:${storeId}`;
 
 const resolveRemoteIp = (context: FunctionContext) => {
   const remoteIp = context.remoteIp?.split(",")[0]?.trim();
@@ -145,6 +166,23 @@ const loadStorePlanSubscription = async (deps: SubscriptionDeps, storeId: string
   if (!store) throw new Error("Loja nao encontrada.");
   if (planId && !plan) throw new Error("Plano pago nao encontrado ou inativo.");
   return { store, plan, subscription };
+};
+
+// Re-le a assinatura da loja DENTRO da transacao, travando a linha (FOR UPDATE) apos o
+// advisory lock. Esta e a leitura autoritativa para decidir criar/atualizar, evitando a
+// janela de corrida entre a leitura inicial e a gravacao.
+const lockAndLoadSubscription = async (q: ScopedQuery, storeId: string) => {
+  await q(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [subscriptionLockKey(storeId)]);
+  const { rows } = await q(
+    `SELECT s.*, p.price_monthly AS current_price_monthly, p.name AS current_plan_name
+     FROM public.subscriptions s
+     LEFT JOIN public.plans p ON p.id = s.plan_id
+     WHERE s.store_id = $1::uuid
+     FOR UPDATE OF s
+     LIMIT 1`,
+    [storeId],
+  );
+  return rows[0] || null;
 };
 
 const validateUpgrade = (subscription: any, plan: any) => {
@@ -205,18 +243,26 @@ const buildGatewaySubscriptionPayload = (input: {
     : {}),
 });
 
+// Cancela a assinatura anterior no gateway ANTES de criar a nova. Diferente da versao
+// anterior, NAO engole o erro: se o cancelamento falhar, a operacao e abortada (a
+// transacao do checkout faz rollback) para nunca deixar duas assinaturas cobrando em
+// paralelo. Retorno antecipado quando nao ha o que cancelar.
 const cancelExistingGatewaySubscription = async (deps: SubscriptionDeps, subscription: any) => {
   if (!subscription?.asaas_subscription_id) return;
   const status = String(subscription.status || "");
   if (status === "cancelada" || status === "encerrada") return;
-  const canceled = await deps.cancelSubscription(subscription.asaas_subscription_id).catch(() => null);
+  const canceled = await deps.cancelSubscription(subscription.asaas_subscription_id);
   if (canceled?.errors) {
-    console.warn("Existing Asaas subscription cancel skipped:", canceled.errors[0]?.description || "unknown_error");
+    throw new Error(
+      canceled.errors[0]?.description
+        || "Falha ao cancelar a assinatura anterior no gateway. Operacao abortada para evitar cobranca duplicada.",
+    );
   }
 };
 
 const persistSubscription = async (
   deps: SubscriptionDeps,
+  q: ScopedQuery,
   data: {
     storeId: string;
     planId: string;
@@ -228,14 +274,14 @@ const persistSubscription = async (
     externalReference: string;
   },
 ) => {
-  await deps.query(
+  await q(
     `UPDATE public.stores
      SET plan_id = $2::uuid, updated_at = now()
      WHERE id = $1::uuid`,
     [data.storeId, data.planId],
   );
 
-  const { rows } = await deps.query(
+  const { rows } = await q(
     `INSERT INTO public.subscriptions (
        store_id, plan_id, provider, asaas_customer_id, asaas_subscription_id,
        billing_type, external_reference, status, last_payment_status, next_due_date,
@@ -274,6 +320,30 @@ const persistSubscription = async (
   return rows[0];
 };
 
+// Resolve o customerId do gateway, criando o cliente apenas quando ainda nao existir.
+const resolveGatewayCustomerId = async (
+  deps: SubscriptionDeps,
+  storeId: string,
+  existingCustomerId: string | null,
+  customerData: z.infer<typeof customerSchema>,
+) => {
+  if (existingCustomerId) return existingCustomerId;
+  const customer = await deps.createCustomer(
+    {
+      name: customerData.name,
+      email: customerData.email,
+      cpfCnpj: customerData.cpfCnpj,
+      mobilePhone: customerData.mobilePhone,
+    },
+    undefined,
+    { idempotencyKey: asaasIdempotencyKey("pc", storeId) },
+  );
+  if (customer.errors) throw new Error(customer.errors[0]?.description || "Erro ao criar cliente no gateway.");
+  const customerId = customer.id || null;
+  if (!customerId) throw new Error("Cliente do gateway nao foi criado para a assinatura.");
+  return customerId;
+};
+
 export const createSubscriptionCheckoutHandler = async (
   input: unknown,
   token?: string,
@@ -290,72 +360,85 @@ export const createSubscriptionCheckoutHandler = async (
   }
 
   const { plan, subscription: existingSubscription } = await loadStorePlanSubscription(deps, data.storeId, data.planId);
-  if (isActiveSubscription(existingSubscription)) {
-    if (existingSubscription.plan_id === data.planId) {
-      return {
-        invoiceUrl: null,
-        checkoutUrl: null,
-        subscriptionId: existingSubscription.asaas_subscription_id,
-        billingType: existingSubscription.billing_type || billingType,
-        mode: "active",
-      };
-    }
-    validateUpgrade(existingSubscription, plan);
+  // Atalho rapido (sem transacao) quando ja esta ativo no mesmo plano.
+  if (isActiveSubscription(existingSubscription) && existingSubscription.plan_id === data.planId) {
+    return {
+      invoiceUrl: null,
+      checkoutUrl: null,
+      subscriptionId: existingSubscription.asaas_subscription_id,
+      billingType: existingSubscription.billing_type || billingType,
+      mode: "active",
+    };
   }
 
   const nextDueDate = todayIsoDate();
   const externalReference = `platform-subscription:${data.storeId}`;
   const remoteIp = billingType === "CREDIT_CARD" ? resolveRemoteIp(context) : "";
 
-  let customerId = existingSubscription?.asaas_customer_id || null;
-  if (!customerId) {
-    const customer = await deps.createCustomer({
-      name: data.customerData.name,
-      email: data.customerData.email,
-      cpfCnpj: data.customerData.cpfCnpj,
-      mobilePhone: data.customerData.mobilePhone,
+  // Secao critica serializada por loja: advisory lock + re-leitura FOR UPDATE garantem que
+  // dois checkouts concorrentes da mesma loja nao criem duas assinaturas no gateway.
+  return await deps.withTransaction(async (client) => {
+    const q: ScopedQuery = (text, params) => client.query(text, params as any);
+    const locked = await lockAndLoadSubscription(q, data.storeId);
+
+    // Outro request concorrente pode ter ativado a assinatura enquanto aguardavamos o lock.
+    if (isActiveSubscription(locked) && locked.plan_id === data.planId) {
+      return {
+        invoiceUrl: null,
+        checkoutUrl: null,
+        subscriptionId: locked.asaas_subscription_id,
+        billingType: locked.billing_type || billingType,
+        mode: "active",
+      };
+    }
+    if (isActiveSubscription(locked)) validateUpgrade(locked, plan);
+
+    const customerId = await resolveGatewayCustomerId(
+      deps,
+      data.storeId,
+      locked?.asaas_customer_id || existingSubscription?.asaas_customer_id || null,
+      data.customerData,
+    );
+
+    // Cancela qualquer assinatura anterior do gateway ANTES de criar a nova (propagando erro).
+    await cancelExistingGatewaySubscription(deps, locked);
+
+    const subscription = await deps.createSubscription(
+      buildGatewaySubscriptionPayload({
+        customerId,
+        billingType,
+        plan,
+        nextDueDate,
+        externalReference,
+        cardData: data.cardData,
+        remoteIp,
+      }),
+      // Defesa em profundidade contra retry/timeout: se a 1a tentativa criou a assinatura
+      // mas estourou o timeout, o retry com a mesma chave nao duplica no gateway.
+      { idempotencyKey: asaasIdempotencyKey("ps", data.storeId, data.planId, nextDueDate) },
+    );
+    if (subscription.errors) throw new Error(subscription.errors[0]?.description || "Erro ao criar assinatura no gateway.");
+    if (!subscription.id) throw new Error("Assinatura do gateway nao foi criada para a loja.");
+
+    await persistSubscription(deps, q, {
+      storeId: data.storeId,
+      planId: data.planId,
+      asaasCustomerId: customerId,
+      asaasSubscriptionId: subscription.id,
+      billingType,
+      status: "pendente_pagamento",
+      nextDueDate: subscription.nextDueDate || nextDueDate,
+      externalReference,
     });
-    if (customer.errors) throw new Error(customer.errors[0]?.description || "Erro ao criar cliente no gateway.");
-    customerId = customer.id || null;
-  }
-  if (!customerId) throw new Error("Cliente do gateway nao foi criado para a assinatura.");
 
-  const subscription = await deps.createSubscription(buildGatewaySubscriptionPayload({
-    customerId,
-    billingType,
-    plan,
-    nextDueDate,
-    externalReference,
-    cardData: data.cardData,
-    remoteIp,
-  }));
-  if (subscription.errors) throw new Error(subscription.errors[0]?.description || "Erro ao criar assinatura no gateway.");
-
-  await persistSubscription(deps, {
-    storeId: data.storeId,
-    planId: data.planId,
-    asaasCustomerId: customerId,
-    asaasSubscriptionId: subscription.id || null,
-    billingType,
-    status: "pendente_pagamento",
-    nextDueDate: subscription.nextDueDate || nextDueDate,
-    externalReference,
+    return {
+      invoiceUrl: subscription.invoiceUrl || null,
+      checkoutUrl: subscription.invoiceUrl || null,
+      subscriptionId: subscription.id,
+      billingType,
+      mode: "card_validated",
+    };
   });
-
-  if (
-    existingSubscription?.asaas_subscription_id
-    && existingSubscription.asaas_subscription_id !== subscription.id
-  ) {
-    await cancelExistingGatewaySubscription(deps, existingSubscription);
-  }
-
-  return {
-    invoiceUrl: subscription.invoiceUrl || null,
-    checkoutUrl: subscription.invoiceUrl || null,
-    subscriptionId: subscription.id,
-    billingType,
-    mode: "card_validated",
-  };
 };
 
 export const updateSubscriptionPlanHandler = async (
@@ -369,84 +452,95 @@ export const updateSubscriptionPlanHandler = async (
   const billingType = data.billingType || "CREDIT_CARD";
   await assertStoreAccess(deps, token, data.storeId);
 
-  const { plan, subscription } = await loadStorePlanSubscription(deps, data.storeId, data.planId);
-  if (!subscription?.asaas_subscription_id) {
-    throw new Error("Assinatura existente nao encontrada. Inicie uma assinatura antes de alterar plano.");
-  }
-  validateUpgrade(subscription, plan);
+  const { plan } = await loadStorePlanSubscription(deps, data.storeId, data.planId);
+  const externalReference = `platform-subscription:${data.storeId}`;
 
-  const nextDueDate = subscription.next_due_date
-    ? new Date(subscription.next_due_date).toISOString().split("T")[0]
-    : todayIsoDate();
-  const externalReference = subscription.external_reference || `platform-subscription:${data.storeId}`;
+  return await deps.withTransaction(async (client) => {
+    const q: ScopedQuery = (text, params) => client.query(text, params as any);
+    const subscription = await lockAndLoadSubscription(q, data.storeId);
+    if (!subscription?.asaas_subscription_id) {
+      throw new Error("Assinatura existente nao encontrada. Inicie uma assinatura antes de alterar plano.");
+    }
+    validateUpgrade(subscription, plan);
 
-  if (billingType === "CREDIT_CARD" && data.cardData) {
-    const customerId = subscription.asaas_customer_id;
-    if (!customerId) {
-      throw new Error("Cliente do gateway nao encontrado. Inicie uma nova assinatura.");
+    const nextDueDate = subscription.next_due_date
+      ? new Date(subscription.next_due_date).toISOString().split("T")[0]
+      : todayIsoDate();
+    const effectiveExternalReference = subscription.external_reference || externalReference;
+
+    if (billingType === "CREDIT_CARD" && data.cardData) {
+      const customerId = subscription.asaas_customer_id;
+      if (!customerId) {
+        throw new Error("Cliente do gateway nao encontrado. Inicie uma nova assinatura.");
+      }
+
+      // Cancela a assinatura atual ANTES de criar a nova com o cartao informado.
+      await cancelExistingGatewaySubscription(deps, subscription);
+
+      const created = await deps.createSubscription(
+        buildGatewaySubscriptionPayload({
+          customerId,
+          billingType,
+          plan,
+          nextDueDate: todayIsoDate(),
+          externalReference: effectiveExternalReference,
+          cardData: data.cardData,
+          remoteIp: resolveRemoteIp(context),
+        }),
+        { idempotencyKey: asaasIdempotencyKey("ps", data.storeId, data.planId, todayIsoDate()) },
+      );
+      if (created.errors) throw new Error(created.errors[0]?.description || "Erro ao criar assinatura no gateway.");
+      if (!created.id) throw new Error("Assinatura do gateway nao foi criada para a loja.");
+
+      await persistSubscription(deps, q, {
+        storeId: data.storeId,
+        planId: data.planId,
+        asaasCustomerId: customerId,
+        asaasSubscriptionId: created.id,
+        billingType,
+        status: "pendente_pagamento",
+        nextDueDate: created.nextDueDate || todayIsoDate(),
+        externalReference: effectiveExternalReference,
+      });
+
+      return {
+        invoiceUrl: created.invoiceUrl || null,
+        checkoutUrl: created.invoiceUrl || null,
+        subscriptionId: created.id,
+        billingType,
+        mode: "card_validated",
+      };
     }
 
-    const created = await deps.createSubscription(buildGatewaySubscriptionPayload({
-      customerId,
+    const updated = await deps.updateSubscription(subscription.asaas_subscription_id, {
       billingType,
-      plan,
-      nextDueDate: todayIsoDate(),
-      externalReference,
-      cardData: data.cardData,
-      remoteIp: resolveRemoteIp(context),
-    }));
-    if (created.errors) throw new Error(created.errors[0]?.description || "Erro ao criar assinatura no gateway.");
+      value: Number(plan.price_monthly),
+      nextDueDate,
+      cycle: "MONTHLY",
+      description: `Assinatura Plano ${plan.name} - Hype Delivery`,
+      externalReference: effectiveExternalReference,
+    });
+    if (updated.errors) throw new Error(updated.errors[0]?.description || "Erro ao atualizar assinatura no gateway.");
 
-    await persistSubscription(deps, {
+    await persistSubscription(deps, q, {
       storeId: data.storeId,
       planId: data.planId,
-      asaasCustomerId: customerId,
-      asaasSubscriptionId: created.id || null,
+      asaasCustomerId: subscription.asaas_customer_id || updated.customer || null,
+      asaasSubscriptionId: subscription.asaas_subscription_id,
       billingType,
-      status: "pendente_pagamento",
-      nextDueDate: created.nextDueDate || todayIsoDate(),
-      externalReference,
+      status: subscription.status === "ativa" ? "ativa" : "pendente_pagamento",
+      nextDueDate: updated.nextDueDate || nextDueDate,
+      externalReference: effectiveExternalReference,
     });
 
-    await cancelExistingGatewaySubscription(deps, subscription);
-
     return {
-      invoiceUrl: created.invoiceUrl || null,
-      checkoutUrl: created.invoiceUrl || null,
-      subscriptionId: created.id,
+      invoiceUrl: updated.invoiceUrl || null,
+      checkoutUrl: updated.invoiceUrl || null,
+      subscriptionId: subscription.asaas_subscription_id,
       billingType,
-      mode: "card_validated",
+      mode: "updated",
     };
-  }
-
-  const updated = await deps.updateSubscription(subscription.asaas_subscription_id, {
-    billingType,
-    value: Number(plan.price_monthly),
-    nextDueDate,
-    cycle: "MONTHLY",
-    description: `Assinatura Plano ${plan.name} - Hype Delivery`,
-    externalReference,
   });
-  if (updated.errors) throw new Error(updated.errors[0]?.description || "Erro ao atualizar assinatura no gateway.");
-
-  await persistSubscription(deps, {
-    storeId: data.storeId,
-    planId: data.planId,
-    asaasCustomerId: subscription.asaas_customer_id || updated.customer || null,
-    asaasSubscriptionId: subscription.asaas_subscription_id,
-    billingType,
-    status: subscription.status === "ativa" ? "ativa" : "pendente_pagamento",
-    nextDueDate: updated.nextDueDate || nextDueDate,
-    externalReference,
-  });
-
-  return {
-    invoiceUrl: updated.invoiceUrl || null,
-    checkoutUrl: updated.invoiceUrl || null,
-    subscriptionId: subscription.asaas_subscription_id,
-    billingType,
-    mode: "updated",
-  };
 };
 
 export const syncSubscriptionStatusHandler = async (
@@ -472,14 +566,24 @@ export const syncSubscriptionStatusHandler = async (
   const payments = normalizeGatewayPayments(gatewayResponse);
   const paidPayment = payments.find((payment: any) => gatewayPaidPaymentStatuses.has(String(payment.status || "").toUpperCase()));
   const failedPayment = payments.find((payment: any) => gatewayFailedPaymentStatuses.has(String(payment.status || "").toUpperCase()));
-  const referencePayment = paidPayment || failedPayment || payments[0] || null;
+
+  // Decide pelo pagamento ACIONADO mais recente (pago x falho/estornado). Antes, "qualquer
+  // pago vence" reativava uma assinatura estornada mesmo quando o estorno era mais recente.
+  let actionedPayment: any = null;
+  if (paidPayment && failedPayment) {
+    actionedPayment = paymentTimestamp(failedPayment) > paymentTimestamp(paidPayment) ? failedPayment : paidPayment;
+  } else {
+    actionedPayment = paidPayment || failedPayment || null;
+  }
+  const isPaid = Boolean(actionedPayment) && actionedPayment === paidPayment;
+  const referencePayment = actionedPayment || payments[0] || null;
   const gatewayStatus = referencePayment?.status ? String(referencePayment.status).toUpperCase() : null;
 
   if (!referencePayment) {
     return { success: true, status: subscription.status, synced: false, message: "Nenhuma cobranca encontrada para esta assinatura." };
   }
 
-  if (!paidPayment && !failedPayment) {
+  if (!actionedPayment) {
     const { rows } = await deps.query(
       `UPDATE public.subscriptions
        SET last_payment_status = $2,
@@ -494,8 +598,8 @@ export const syncSubscriptionStatusHandler = async (
     return { success: true, status: updated.status, gatewayStatus, synced: true };
   }
 
-  const nextStatus = paidPayment ? "ativa" : "inadimplente";
-  const paidAt = paidPayment ? paidAtForGatewayPayment(paidPayment) : null;
+  const nextStatus = isPaid ? "ativa" : "inadimplente";
+  const paidAt = isPaid ? paidAtForGatewayPayment(actionedPayment) : null;
   const dueDate = dueDateForGatewayPayment(referencePayment, subscription);
   const { rows } = await deps.query(
     `UPDATE public.subscriptions

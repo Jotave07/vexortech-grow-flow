@@ -33,7 +33,7 @@ export const AuthShell = ({ children, theme = "customer", title, subtitle }: Aut
     <div className={cn("min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-500", themeClasses[theme])}>
       <BrandMark to="/" className="mb-8 scale-125" inverted={theme === "admin"} />
       
-      <Card className={cn("w-full max-w-md rounded-3xl p-8 border shadow-xl transition-all duration-300", cardClasses[theme])}>
+      <Card className={cn("w-full max-w-md rounded-none p-8 border shadow-xl transition-all duration-300", cardClasses[theme])}>
         <div className="mb-6 text-center">
           <h1 className={cn("font-display text-2xl font-black uppercase tracking-tight", titleClasses[theme])}>{title}</h1>
           {subtitle && <p className={cn("mt-2 text-sm font-medium", theme === "admin" ? "text-zinc-400" : "text-muted-foreground")}>{subtitle}</p>}

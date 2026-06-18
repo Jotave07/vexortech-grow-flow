@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const queryMock = vi.fn();
 const withTransactionMock = vi.fn();
 const publishRealtimeMock = vi.fn();
+const storeId = "11111111-1111-4111-8111-111111111111";
 
 vi.mock("./db", () => ({
   query: queryMock,
@@ -37,8 +38,16 @@ describe("Asaas webhook", () => {
 
   it("rejects production webhooks when the secret is missing", async () => {
     process.env.NODE_ENV = "production";
-    process.env.JWT_SECRET = "a".repeat(40);
     process.env.DATABASE_URL = "postgres://user:pass@localhost:5432/db";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+    process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
+    process.env.PUBLIC_APP_URL = "https://example.com";
+    process.env.ASAAS_ENVIRONMENT = "production";
+    process.env.EVOLUTION_API_URL = "https://evolution.example.com";
+    process.env.EVOLUTION_API_KEY = "test";
+    process.env.EVOLUTION_INSTANCE = "hype";
+    process.env.EVOLUTION_AUTOMATION_PHONE = "5511999999999";
     delete process.env.ASAAS_WEBHOOK_SECRET;
     const { handleAsaasWebhook } = await import("./webhooks");
 
@@ -112,6 +121,61 @@ describe("Asaas webhook", () => {
 
     expect(response.status).toBe(200);
     expect(client.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.order_status_history"), expect.any(Array));
+  });
+
+  it("revokes a platform subscription on refund without touching the order transaction", async () => {
+    const revokedRow = {
+      id: "sub-1",
+      store_id: storeId,
+      status: "cancelada",
+      external_reference: `platform-subscription:${storeId}`,
+    };
+    queryMock.mockResolvedValue({ rows: [revokedRow] });
+    const { handleAsaasWebhook } = await import("./webhooks");
+
+    const response = await handleAsaasWebhook(makeRequest({
+      event: "PAYMENT_REFUNDED",
+      payment: { id: "pay_1", externalReference: `platform-subscription:${storeId}`, value: 99 },
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true, subscription: true });
+    // O UPDATE de revogacao recebe o flag de revoke=true como ultimo parametro ($7).
+    const updateCall = queryMock.mock.calls.find(([sql]) => String(sql).includes("UPDATE public.subscriptions"));
+    expect(updateCall).toBeTruthy();
+    expect(updateCall?.[1]?.[6]).toBe(true);
+    expect(updateCall?.[1]?.[7]).toBe(storeId);
+    expect(withTransactionMock).not.toHaveBeenCalled();
+    expect(publishRealtimeMock).toHaveBeenCalled();
+  });
+
+  it("revokes a platform subscription on chargeback request", async () => {
+    queryMock.mockResolvedValue({ rows: [{ id: "sub-1", store_id: storeId, status: "cancelada" }] });
+    const { handleAsaasWebhook } = await import("./webhooks");
+
+    const response = await handleAsaasWebhook(makeRequest({
+      event: "PAYMENT_CHARGEBACK_REQUESTED",
+      payment: { id: "pay_2", externalReference: `platform-subscription:${storeId}`, value: 99 },
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true, subscription: true });
+    expect(withTransactionMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 so Asaas can retry when subscription update fails", async () => {
+    queryMock.mockRejectedValueOnce(new Error("database unavailable"));
+    const { handleAsaasWebhook } = await import("./webhooks");
+
+    const response = await handleAsaasWebhook(makeRequest({
+      event: "PAYMENT_CONFIRMED",
+      payment: { id: "pay_3", externalReference: `platform-subscription:${storeId}`, value: 99 },
+    }));
+
+    expect(response.status).toBe(500);
+    expect(withTransactionMock).not.toHaveBeenCalled();
   });
 
   it("does not mark an order as paid when Asaas value diverges", async () => {

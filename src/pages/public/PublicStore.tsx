@@ -113,7 +113,7 @@ const PublicStore = () => {
       <header className="sticky top-0 z-40 bg-[#ffffff]/95 backdrop-blur-xl border-b border-[#e6e8de] py-3">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {store.logo_url && <img src={store.logo_url} alt="" className="h-9 w-9 rounded-full object-cover" />}
+            {store.logo_url && <img src={store.logo_url} alt={publicStoreName} loading="eager" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-9 w-9 rounded-none object-cover" />}
             <span className="font-black uppercase tracking-tighter text-sm italic cursor-pointer" onClick={() => navigate("/")}>{publicStoreName}</span>
           </div>
           <div className="flex items-center gap-3">
@@ -154,22 +154,22 @@ const PublicStore = () => {
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(182,255,0,0.16),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.76),rgba(246,247,242,0.96))]" />
         <div className="container relative mx-auto px-4 pb-8 pt-6">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
-            <Card className="overflow-hidden rounded-3xl border-[#e1d7c7] bg-white p-0 shadow-sm">
+            <Card className="overflow-hidden rounded-none border-[#e1d7c7] bg-white p-0 shadow-sm">
               <div className="relative h-40 overflow-hidden sm:h-48">
-                <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+                <img src={coverUrl} alt={publicStoreName} loading="eager" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
-                <Badge variant={isOpen ? "default" : "secondary"} className="absolute right-4 top-4 rounded-full px-3 py-1">
+                <Badge variant={isOpen ? "default" : "secondary"} className="absolute right-4 top-4 rounded-none px-3 py-1">
                   {isOpen ? "Aberto agora" : "Fechado"}
                 </Badge>
-                <div className="absolute bottom-4 left-4 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-stone-700 shadow-sm">
+                <div className="absolute bottom-4 left-4 rounded-none bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-stone-700 shadow-sm">
                   {storeSegment}
                 </div>
               </div>
 
               <div className="grid gap-4 p-4 sm:grid-cols-[5rem_minmax(0,1fr)] sm:p-5">
-                <div className="-mt-12 h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg sm:h-20 sm:w-20">
+                <div className="-mt-12 h-24 w-24 overflow-hidden rounded-none border-4 border-white bg-white shadow-lg sm:h-20 sm:w-20">
                   {store.logo_url ? (
-                    <img src={store.logo_url} alt="" className="h-full w-full object-cover" />
+                    <img src={store.logo_url} alt={publicStoreName} loading="eager" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-[#f6f7f2] text-primary">
                       <ShoppingBag className="h-7 w-7" />
@@ -180,7 +180,7 @@ const PublicStore = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-2xl font-bold tracking-tight text-stone-950 md:text-3xl">{publicStoreName}</h1>
                     {(verification.status === "verified" || verification.status === "complete") && (
-                      <Badge className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-stone-900 hover:bg-primary/15">
+                      <Badge className="rounded-none bg-primary/15 px-3 py-1 text-xs font-bold text-stone-900 hover:bg-primary/15">
                         <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
                         {verification.label}
                       </Badge>
@@ -192,21 +192,21 @@ const PublicStore = () => {
                     </p>
                   )}
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
+                    <div className="rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-3">
                       <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Região</div>
                       <div className="flex items-center gap-2 text-sm font-semibold text-black">
                         <MapPin className="h-4 w-4 text-primary" />
                         <span>{store.city || "Cidade"}{store.state ? `/${store.state}` : ""}</span>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
+                    <div className="rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-3">
                       <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Preparo</div>
                       <div className="flex items-center gap-2 text-sm font-semibold text-black">
                         <Clock className="h-4 w-4 text-primary" />
                         <span>{settings?.avg_prep_time_minutes ? `~${settings.avg_prep_time_minutes} min` : "Sob demanda"}</span>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-[#e6e8de] bg-[#f6f7f2] p-3">
+                    <div className="rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-3">
                       <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Mínimo</div>
                       <div className="text-sm font-semibold text-black">
                         {settings?.min_order_value > 0 ? formatBRL(settings.min_order_value) : "Livre"}
@@ -217,13 +217,13 @@ const PublicStore = () => {
               </div>
             </Card>
 
-            <Card className="rounded-3xl border-[#e1d7c7] bg-white p-5 shadow-sm">
+            <Card className="rounded-none border-[#e1d7c7] bg-white p-5 shadow-sm">
               <div className="mb-4 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Cardápio</div>
               <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    className="h-11 rounded-xl border-[#e6e8de] pl-9"
+                    className="h-11 rounded-none border-[#e6e8de] pl-9"
                     placeholder="Buscar no cardápio"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
@@ -233,7 +233,7 @@ const PublicStore = () => {
                   <Button
                     variant={activeCategory === "all" ? "default" : "outline"}
                     onClick={() => setActiveCategory("all")}
-                    className="h-9 rounded-xl px-4 text-xs font-bold uppercase tracking-widest"
+                    className="h-9 rounded-none px-4 text-xs font-bold uppercase tracking-widest"
                   >
                     Tudo
                   </Button>
@@ -242,7 +242,7 @@ const PublicStore = () => {
                       key={category.id}
                       variant={activeCategory === category.id ? "default" : "outline"}
                       onClick={() => setActiveCategory(category.id)}
-                      className="h-9 rounded-xl px-4 text-xs font-bold uppercase tracking-widest"
+                      className="h-9 rounded-none px-4 text-xs font-bold uppercase tracking-widest"
                     >
                       {category.name}
                     </Button>
@@ -279,7 +279,7 @@ const PublicStore = () => {
 
         <div className="space-y-8">
           {sections.length === 0 ? (
-            <Card className="rounded-3xl border-[#e6e8de] p-10 text-center text-muted-foreground">
+            <Card className="rounded-none border-[#e6e8de] p-10 text-center text-muted-foreground">
               {products.length === 0 ? "Cardápio em construção." : "Nenhum produto encontrado."}
             </Card>
           ) : (
@@ -304,18 +304,18 @@ const PublicStore = () => {
                       disabled={!acceptOrders || !product.is_available}
                       className="h-full text-left disabled:cursor-not-allowed disabled:opacity-55"
                     >
-                      <Card className="group h-full overflow-hidden rounded-3xl border-[#e6e8de] bg-white p-4 shadow-sm transition-smooth hover:-translate-y-1 hover:border-primary/45 hover:shadow-lg">
+                      <Card className="group h-full overflow-hidden rounded-none border-[#e6e8de] bg-white p-4 shadow-sm transition-smooth hover:-translate-y-1 hover:border-primary/45 hover:shadow-lg">
                         <div className="flex h-full flex-col">
-                          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-full border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-32 sm:w-32">
+                          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-32 sm:w-32">
                             {product.image_url ? (
-                              <img src={product.image_url} alt={product.name} className="h-full w-full rounded-full object-contain transition-smooth group-hover:scale-[1.03]" />
+                              <img src={product.image_url} alt={product.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full rounded-none object-contain transition-smooth group-hover:scale-[1.03]" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-primary">
+                              <div className="flex h-full w-full items-center justify-center rounded-none bg-white text-primary">
                                 <ShoppingBag className="h-8 w-8" />
                               </div>
                             )}
                             {!product.is_available && (
-                              <Badge variant="destructive" className="absolute inset-x-3 bottom-1 justify-center rounded-full px-2 py-0.5 text-[10px]">
+                              <Badge variant="destructive" className="absolute inset-x-3 bottom-1 justify-center rounded-none px-2 py-0.5 text-[10px]">
                                 Esgotado
                               </Badge>
                             )}
@@ -325,7 +325,7 @@ const PublicStore = () => {
                             <div className="flex flex-wrap items-center justify-center gap-2">
                               <h3 className="text-lg font-semibold leading-tight text-black">{product.name}</h3>
                               {product.promo_price && (
-                                <Badge className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-stone-900 hover:bg-primary/15">
+                                <Badge className="rounded-none bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-stone-900 hover:bg-primary/15">
                                   Oferta
                                 </Badge>
                               )}
@@ -348,7 +348,7 @@ const PublicStore = () => {
                                   </span>
                                 )}
                               </div>
-                              <div className="mt-3 rounded-full border border-[#e6e8de] bg-[#f6f7f2] px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-stone-700">
+                              <div className="mt-3 rounded-none border border-[#e6e8de] bg-[#f6f7f2] px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-stone-700">
                                 {acceptOrders && product.is_available ? "Personalizar item" : "Indisponivel"}
                               </div>
                             </div>

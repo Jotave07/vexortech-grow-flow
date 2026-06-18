@@ -15,11 +15,13 @@ const AdminDashboard = () => {
         backend.from("stores").select("*", { count: "exact", head: true }),
         backend.from("stores").select("*", { count: "exact", head: true }).eq("is_active", true).eq("is_suspended", false),
         backend.from("orders").select("total, status").gte("created_at", since).limit(5000),
-        backend.from("subscriptions").select("status, plans(price_monthly)").in("status", ["ativa", "trial"]),
+        backend.from("subscriptions").select("status, asaas_subscription_id, plans(price_monthly)").in("status", ["ativa", "trial"]),
       ]);
       const valid = (orders ?? []).filter((o: any) => o.status !== "cancelado");
       const revenue = valid.reduce((s: number, o: any) => s + Number(o.total), 0);
-      const mrr = (subs ?? []).filter((s: any) => s.status === "ativa").reduce((sum: number, s: any) => sum + Number(s.plans?.price_monthly ?? 0), 0);
+      const mrr = (subs ?? [])
+        .filter((s: any) => s.status === "ativa" && s.asaas_subscription_id)
+        .reduce((sum: number, s: any) => sum + Number(s.plans?.price_monthly ?? 0), 0);
       setStats({ stores: total ?? 0, activeStores: active ?? 0, orders30: valid.length, revenue30: revenue, mrr });
       setLoading(false);
     })();

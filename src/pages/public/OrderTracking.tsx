@@ -174,7 +174,7 @@ const OrderTracking = () => {
   if (!order || !token || token === "undefined") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4">
-        <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center text-muted-foreground mb-4">
+        <div className="h-20 w-20 bg-muted rounded-none flex items-center justify-center text-muted-foreground mb-4">
           <Circle className="h-10 w-10 opacity-20" />
         </div>
         <h1 className="font-black text-2xl uppercase tracking-tighter italic">Pedido não encontrado</h1>
@@ -183,7 +183,7 @@ const OrderTracking = () => {
             ? "O link do pedido parece estar incompleto. Por favor, feche esta aba e tente novamente pelo checkout."
             : "Não conseguimos localizar as informações deste pedido. Verifique o link ou entre em contato com a loja."}
         </p>
-        <Button variant="outline" onClick={() => window.location.reload()} className="border border-border rounded-xl font-bold uppercase">
+        <Button variant="outline" onClick={() => window.location.reload()} className="border border-border rounded-none font-bold uppercase">
           Tentar Novamente
         </Button>
       </div>
@@ -199,7 +199,7 @@ const OrderTracking = () => {
       {isPaidSuccess && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
           <div className="text-center space-y-4 p-6 max-w-sm">
-            <div className="mx-auto w-20 h-20 bg-primary/15 text-primary rounded-full flex items-center justify-center shadow-lg animate-bounce">
+            <div className="mx-auto w-20 h-20 bg-primary/15 text-primary rounded-none flex items-center justify-center shadow-lg animate-bounce">
               <Check className="h-10 w-10 stroke-[3px]" />
             </div>
             <h2 className="text-3xl font-black uppercase tracking-tight italic text-foreground">Pagamento Confirmado!</h2>
@@ -219,16 +219,16 @@ const OrderTracking = () => {
              Live Tracking
            </Badge>
         </div>
-        {order.store_logo_url && <img src={order.store_logo_url} alt="" className="w-16 h-16 mx-auto rounded-xl mb-3 object-contain bg-white border border-border shadow-panel" />}
+        {order.store_logo_url && <img src={order.store_logo_url} alt={order.store_name} loading="eager" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border border-border shadow-panel" />}
         <h1 className="font-black text-xl uppercase tracking-tighter">{order.store_name}</h1>
         <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Pedido #{order.order_number}</div>
       </header>
 
       <div className="container max-w-xl mx-auto p-4 space-y-4 -mt-6">
         {order.payment_method === "pix" && order.status === "aguardando_pagamento" && (
-          <Card className="p-6 border-4 border-primary bg-primary/5 text-center space-y-6 rounded-xl shadow-elegant">
+          <Card className="p-6 border-4 border-primary bg-primary/5 text-center space-y-6 rounded-none shadow-elegant">
             <div className="flex flex-col items-center gap-2">
-              <div className="h-14 w-14 bg-primary/15 rounded-2xl flex items-center justify-center text-primary mb-2">
+              <div className="h-14 w-14 bg-primary/15 rounded-none flex items-center justify-center text-primary mb-2">
                 <QrCode className="h-8 w-8" />
               </div>
               <h2 className="font-black uppercase tracking-tight text-xl italic text-foreground">Pague com PIX</h2>
@@ -243,7 +243,7 @@ const OrderTracking = () => {
                   variant="outline" 
                   size="sm" 
                   onClick={() => load()} 
-                  className="border-2 border-primary text-primary font-black uppercase rounded-xl"
+                  className="border-2 border-primary text-primary font-black uppercase rounded-none"
                 >
                   Tentar Carregar Novamente
                 </Button>
@@ -260,7 +260,7 @@ const OrderTracking = () => {
                     setPixInfo(null);
                     void load();
                   }} 
-                  className="border border-border font-black uppercase rounded-xl"
+                  className="border border-border font-black uppercase rounded-none"
                 >
                   Tentar Novamente
                 </Button>
@@ -268,50 +268,52 @@ const OrderTracking = () => {
             ) : (
               <>
                 {pixInfo.qrCodeUrl && (
-                  <div className="bg-white p-4 inline-block border-4 border-border rounded-2xl shadow-xl">
-                    <img 
-                      src={pixInfo.qrCodeUrl.startsWith('data:') ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`} 
-                      alt="QR Code PIX" 
-                      className="w-48 h-48" 
+                  <div className="bg-white p-4 inline-block border-4 border-border rounded-none shadow-xl">
+                    <img
+                      src={pixInfo.qrCodeUrl.startsWith('data:') ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`}
+                      alt="QR Code PIX"
+                      loading="lazy"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      className="w-48 h-48"
                     />
                   </div>
                 )}
 
                 <div className="space-y-3 w-full">
-                  <div className="bg-white border-2 border-border p-3 rounded-xl font-mono text-[10px] break-all text-center select-all opacity-70">
+                  <div className="bg-white border-2 border-border p-3 rounded-none font-mono text-[10px] break-all text-center select-all opacity-70">
                     {pixInfo.pixCode}
                   </div>
-                  <Button onClick={copyPix} variant="default" className="w-full h-14 font-black bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground uppercase tracking-tighter text-lg rounded-xl border border-border shadow-panel active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+                  <Button onClick={copyPix} variant="default" className="w-full h-14 font-black bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground uppercase tracking-tighter text-lg rounded-none border border-border shadow-panel active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
                     <Copy className="h-5 w-5 mr-2" /> Copiar Código PIX
                   </Button>
                 </div>
               </>
             )}
             
-            <div className="p-3 bg-white border-2 border-dashed border-border rounded-xl text-[10px] text-foreground font-bold uppercase leading-tight">
+            <div className="p-3 bg-white border-2 border-dashed border-border rounded-none text-[10px] text-foreground font-bold uppercase leading-tight">
               Apos pagar, aguarde a loja confirmar o recebimento.
             </div>
           </Card>
         )}
 
-        <Card className="p-6 border border-border rounded-xl overflow-hidden relative">
+        <Card className="p-6 border border-border rounded-none overflow-hidden relative">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="font-black uppercase tracking-tighter italic text-lg">Acompanhe seu pedido</h2>
               <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Atualizações em tempo real</p>
             </div>
-            <Badge className={`rounded-xl border border-border text-[10px] font-black uppercase px-3 py-1 ${cancelled ? "bg-red-500" : "bg-primary"}`}>
+            <Badge className={`rounded-none border border-border text-[10px] font-black uppercase px-3 py-1 ${cancelled ? "bg-red-500" : "bg-primary"}`}>
               {STATUS_LABELS[order.status] ?? order.status}
             </Badge>
           </div>
           
           <div className="relative pt-2 pb-8">
             {/* Progress Line Background */}
-            <div className="absolute top-7 left-0 w-full h-1 bg-muted rounded-full" />
+            <div className="absolute top-7 left-0 w-full h-1 bg-muted rounded-none" />
             
             {/* Progress Line Active */}
             <motion.div 
-              className="absolute top-7 left-0 h-1 bg-primary rounded-full"
+              className="absolute top-7 left-0 h-1 bg-primary rounded-none"
               initial={{ width: 0 }}
               animate={{ 
                 width: `${(TRACKING_STEPS.findIndex(s => s.statuses.includes(order.status)) / (TRACKING_STEPS.length - 1)) * 100}%` 
@@ -344,7 +346,7 @@ const OrderTracking = () => {
                       transition={{ 
                         scale: isCurrent ? { repeat: Infinity, duration: 2 } : { duration: 0.3 }
                       }}
-                      className={`w-14 h-14 rounded-full border-4 flex items-center justify-center z-10 shadow-panel bg-white`}
+                      className={`w-14 h-14 rounded-none border-4 flex items-center justify-center z-10 shadow-panel bg-white`}
                     >
                       <Icon className={`h-6 w-6 ${isCompleted || isCurrent ? "text-primary-foreground" : "text-muted-foreground"}`} />
                       
@@ -352,7 +354,7 @@ const OrderTracking = () => {
                         <motion.div 
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 border border-border"
+                          className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-none p-0.5 border border-border"
                         >
                           <Check className="h-3 w-3 stroke-[4px]" />
                         </motion.div>
@@ -383,7 +385,7 @@ const OrderTracking = () => {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="flex items-start gap-3"
                   >
-                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary ring-4 ring-primary/10 flex-shrink-0" />
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-none bg-primary ring-4 ring-primary/10 flex-shrink-0" />
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-tight">{STATUS_LABELS[h.status] || h.status}</p>
                       <p className="text-[9px] text-muted-foreground font-medium">{new Date(h.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
@@ -396,7 +398,7 @@ const OrderTracking = () => {
         </Card>
 
         {order.delivery_type === "entrega" && (
-          <Card className="p-5 border border-border rounded-xl space-y-3">
+          <Card className="p-5 border border-border rounded-none space-y-3">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
               <h3 className="font-black uppercase tracking-tighter italic text-sm">Endereço de Entrega</h3>
@@ -410,7 +412,7 @@ const OrderTracking = () => {
         )}
 
 
-        <Card className="p-6 border border-border rounded-xl space-y-4">
+        <Card className="p-6 border border-border rounded-none space-y-4">
           <h3 className="font-black uppercase tracking-tighter italic text-sm">Resumo da Compra</h3>
           <ul className="space-y-3">
             {items.map((it) => {
@@ -477,7 +479,7 @@ const OrderTracking = () => {
 
         <div className="grid grid-cols-1 gap-3">
           {order.store_whatsapp && (
-            <Button asChild className="w-full h-14 rounded-xl border border-border font-black uppercase tracking-tight bg-[#25D366] hover:bg-[#128C7E] text-white shadow-panel">
+            <Button asChild className="w-full h-14 rounded-none border border-border font-black uppercase tracking-tight bg-[#25D366] hover:bg-[#128C7E] text-white shadow-panel">
               <a href={buildWhatsAppLink(order.store_whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
                 <MessageSquare className="h-5 w-5 mr-2" /> Chamar no WhatsApp
               </a>

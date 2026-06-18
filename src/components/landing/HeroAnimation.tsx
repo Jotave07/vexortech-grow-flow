@@ -39,21 +39,21 @@ export const HeroAnimation = () => {
       <div className="flex flex-col items-center gap-6 p-8 opacity-80">
         <div className="flex gap-4">
           <div className="flex flex-col items-center gap-2">
-            <div className="rounded-full bg-primary/20 p-3"><Package className="h-6 w-6 text-primary" /></div>
+            <div className="rounded-none bg-primary/20 p-3"><Package className="h-6 w-6 text-primary" /></div>
             <span className="text-[10px] font-bold uppercase text-white/60">Pedido</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="rounded-full bg-primary/20 p-3"><CreditCard className="h-6 w-6 text-primary" /></div>
+            <div className="rounded-none bg-primary/20 p-3"><CreditCard className="h-6 w-6 text-primary" /></div>
             <span className="text-[10px] font-bold uppercase text-white/60">Pagamento</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="rounded-full bg-primary p-3"><Bike className="h-6 w-6 text-primary-foreground" /></div>
+            <div className="rounded-none bg-primary p-3"><Bike className="h-6 w-6 text-primary-foreground" /></div>
             <span className="text-[10px] font-bold uppercase text-primary">Entrega</span>
           </div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-black/40 p-4 backdrop-blur">
+        <div className="rounded-none border border-white/10 bg-black/40 p-4 backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+            <div className="h-2 w-2 animate-pulse rounded-none bg-primary" />
             <span className="text-sm font-medium text-white">Seu pedido está a caminho</span>
           </div>
         </div>
@@ -71,7 +71,7 @@ export const HeroAnimation = () => {
             opacity: [0.3, 0.5, 0.3]
           }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[80px]" 
+          className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-none bg-primary/20 blur-[80px]" 
         />
       </div>
 
@@ -89,13 +89,13 @@ export const HeroAnimation = () => {
           {/* Step 1: Order */}
           <div className="relative flex flex-col items-center gap-3">
             <motion.div variants={itemVariants} className="group relative z-10">
-              <div className="rounded-full border border-white/10 bg-black/40 p-4 backdrop-blur transition-colors group-hover:border-primary/50">
+              <div className="rounded-none border border-white/10 bg-black/40 p-4 backdrop-blur transition-colors group-hover:border-primary/50">
                 <Package className="h-7 w-7 text-primary" />
               </div>
               <motion.div 
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-primary shadow-[0_0_8px_rgba(182,255,0,0.55)]" 
+                className="absolute -right-1 -top-1 h-3 w-3 rounded-none bg-primary shadow-[0_0_8px_rgba(182,255,0,0.55)]" 
               />
             </motion.div>
             <motion.span variants={itemVariants} className="text-[10px] font-black uppercase tracking-widest text-white/50">Recebido</motion.span>
@@ -107,14 +107,14 @@ export const HeroAnimation = () => {
           {/* Step 2: Payment */}
           <div className="relative flex flex-col items-center gap-3">
             <motion.div variants={itemVariants} className="group relative z-10">
-              <div className="rounded-full border border-white/10 bg-black/40 p-4 backdrop-blur transition-colors group-hover:border-primary/50">
+              <div className="rounded-none border border-white/10 bg-black/40 p-4 backdrop-blur transition-colors group-hover:border-primary/50">
                 <CreditCard className="h-7 w-7 text-primary" />
               </div>
               <motion.div 
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 1.6, type: "spring" }}
-                className="absolute -bottom-1 -right-1 rounded-full bg-black"
+                className="absolute -bottom-1 -right-1 rounded-none bg-black"
               >
                 <CheckCircle2 className="h-5 w-5 text-primary" />
               </motion.div>
@@ -133,13 +133,13 @@ export const HeroAnimation = () => {
           {/* Step 3: Preparation */}
           <div className="relative flex flex-col items-center gap-3">
             <motion.div variants={itemVariants} className="group relative z-10">
-              <div className="rounded-full border border-white/10 bg-black/40 p-4 backdrop-blur transition-colors group-hover:border-primary/50">
+              <div className="rounded-none border border-white/10 bg-black/40 p-4 backdrop-blur transition-colors group-hover:border-primary/50">
                 <Clock className="h-7 w-7 text-primary" />
               </div>
               <motion.div 
                 animate={{ rotate: 360 }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary" 
+                className="absolute inset-0 rounded-none border-2 border-primary/20 border-t-primary" 
               />
             </motion.div>
             <motion.span variants={itemVariants} className="text-[10px] font-black uppercase tracking-widest text-white/50">Preparo</motion.span>
@@ -156,7 +156,7 @@ export const HeroAnimation = () => {
           <div className="vexor-panel overflow-hidden border border-white/15 bg-black/60 p-5 shadow-2xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <div className="flex h-8 w-8 items-center justify-center rounded-none bg-primary">
                   <Bike className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex flex-col">
@@ -170,9 +170,9 @@ export const HeroAnimation = () => {
             <div className="space-y-4">
               <div className="relative flex items-start gap-3">
                 <div className="mt-1 flex flex-col items-center">
-                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <div className="h-2 w-2 rounded-none bg-primary" />
                   <div className="h-10 w-[1px] border-l border-dashed border-white/20" />
-                  <div className="h-2 w-2 rounded-full border border-white/40" />
+                  <div className="h-2 w-2 rounded-none border border-white/40" />
                 </div>
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col">
@@ -188,7 +188,7 @@ export const HeroAnimation = () => {
             </div>
 
             {/* Moving Scooter Route Visual */}
-            <div className="mt-6 relative h-10 w-full overflow-hidden rounded-lg bg-white/5">
+            <div className="mt-6 relative h-10 w-full overflow-hidden rounded-none bg-white/5">
               <div className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-white/10" />
               <motion.div 
                 animate={{ 
@@ -206,7 +206,7 @@ export const HeroAnimation = () => {
                   <motion.div 
                     animate={{ opacity: [0, 1, 0], scale: [0.5, 1.5, 0.5] }}
                     transition={{ duration: 1, repeat: Infinity }}
-                    className="absolute -left-1 -top-1 h-8 w-8 rounded-full bg-primary/20" 
+                    className="absolute -left-1 -top-1 h-8 w-8 rounded-none bg-primary/20" 
                   />
                 </div>
                 {/* Visual trail */}
@@ -224,9 +224,9 @@ export const HeroAnimation = () => {
             initial={{ scale: 0, opacity: 0, x: 20, y: -20 }}
             animate={{ scale: 1, opacity: 1, x: 40, y: -10 }}
             transition={{ delay: 5, type: "spring", stiffness: 200 }}
-            className="absolute -right-4 -top-8 z-20 flex items-center gap-2 rounded-lg border border-primary/30 bg-black/80 px-3 py-2 shadow-xl backdrop-blur md:-right-8"
+            className="absolute -right-4 -top-8 z-20 flex items-center gap-2 rounded-none border border-primary/30 bg-black/80 px-3 py-2 shadow-xl backdrop-blur md:-right-8"
           >
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/100">
+            <div className="flex h-5 w-5 items-center justify-center rounded-none bg-primary/100">
               <CheckCircle2 className="h-3 w-3 text-black" />
             </div>
             <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-primary">Pedido Entregue!</span>

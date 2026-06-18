@@ -86,7 +86,7 @@ const ChartTooltipContent = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+        "grid min-w-[8rem] items-start gap-1.5 rounded-none border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
         className
       )}
     >
@@ -95,7 +95,7 @@ const ChartTooltipContent = React.forwardRef<
         {payload.map((item: any, index: number) => (
           <div key={index} className="flex items-center gap-2">
             <div
-              className="h-2 w-2 shrink-0 rounded-[2px]"
+              className="h-2 w-2 shrink-0 rounded-none"
               style={{ backgroundColor: item.color }}
             />
             <span className="text-muted-foreground">{item.name}:</span>
@@ -126,7 +126,7 @@ const ChartLegendContent = React.forwardRef<
       {payload.map((item: any, index: number) => (
         <div key={index} className="flex items-center gap-1.5">
           <div
-            className="h-2 w-2 shrink-0 rounded-[2px]"
+            className="h-2 w-2 shrink-0 rounded-none"
             style={{ backgroundColor: item.color }}
           />
           {item.value}

@@ -6,13 +6,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-2xl: 24px;
-  --radius-3xl: 32px;
-  --radius-4xl: 40px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
   
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,7 +41,7 @@
 }
 
 :root {
-  --radius: 16px;
+  --radius: 0px;
   --hype-green: #b6ff00;
   --hype-green-dark: #7ed900;
   --hype-black: #080808;
@@ -166,7 +166,7 @@
   }
 
   .vexor-panel {
-    @apply rounded-2xl border border-border bg-white transition-all duration-300;
+    @apply border border-border bg-white transition-all duration-300;
     box-shadow: var(--shadow-panel);
   }
 
@@ -180,7 +180,7 @@
   }
 
   .auth-card {
-    @apply w-full max-w-md rounded-2xl border border-border bg-white p-8 shadow-panel;
+    @apply w-full max-w-md border border-border bg-white p-8 shadow-panel;
   }
 
   .transition-smooth {
@@ -193,7 +193,7 @@
   }
 
   .hype-badge {
-    @apply rounded-full border border-primary/40 bg-primary px-3 py-1 text-[11px] font-black uppercase tracking-widest text-primary-foreground;
+    @apply border border-primary/40 bg-primary px-3 py-1 text-[11px] font-black uppercase tracking-widest text-primary-foreground;
   }
 }
 

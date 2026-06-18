@@ -21,8 +21,8 @@ const hasSupabaseAuthConfig = () =>
       clean(process.env.NEXT_PUBLIC_SUPABASE_URL) ||
       clean(process.env.VITE_SUPABASE_URL)) &&
       (clean(process.env.SUPABASE_SECRET_KEY) ||
-        clean(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
-        clean(process.env.SUPABASE_PUBLISHABLE_KEY) ||
+        clean(process.env.SUPABASE_SERVICE_ROLE_KEY)) &&
+      (clean(process.env.SUPABASE_PUBLISHABLE_KEY) ||
         clean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ||
         clean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY)),
   );
@@ -30,12 +30,8 @@ const hasSupabaseAuthConfig = () =>
 export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } = {}) => {
   if (!isProduction()) return;
 
-  const jwtSecret = clean(process.env.JWT_SECRET) || clean(process.env.AUTH_SECRET);
-  if (
-    !hasSupabaseAuthConfig() &&
-    (!jwtSecret || jwtSecret.length < 32 || jwtSecret === "hype-delivery-local-dev-secret")
-  ) {
-    throw new Error("JWT_SECRET forte e obrigatorio em producao.");
+  if (!hasSupabaseAuthConfig()) {
+    throw new Error("Supabase Auth e obrigatorio em producao. Defina URL, publishable key e secret key.");
   }
 
   if (!hasDatabaseConfig()) {
@@ -46,11 +42,8 @@ export const validateRuntimeEnv = (options: { requireWebhookSecret?: boolean } =
     throw new Error("PUBLIC_APP_URL obrigatorio em producao.");
   }
 
-  if (
-    !clean(process.env.STORAGE_DIR) &&
-    !(clean(process.env.SUPABASE_URL) || clean(process.env.NEXT_PUBLIC_SUPABASE_URL))
-  ) {
-    throw new Error("STORAGE_DIR obrigatorio em producao.");
+  if (!(clean(process.env.SUPABASE_SECRET_KEY) || clean(process.env.SUPABASE_SERVICE_ROLE_KEY))) {
+    throw new Error("Supabase Storage exige SUPABASE_SECRET_KEY em producao.");
   }
 
   if (options.requireWebhookSecret && !clean(process.env.ASAAS_WEBHOOK_SECRET)) {

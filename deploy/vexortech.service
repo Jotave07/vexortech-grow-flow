@@ -9,7 +9,7 @@ WorkingDirectory=/var/www/vexortech/current
 Environment=NODE_ENV=production
 Environment=PORT=3000
 EnvironmentFile=/etc/vexortech/vexortech.env
-ExecStart=/usr/bin/npm run start
+ExecStart=/usr/bin/node server/index.mjs
 Restart=always
 RestartSec=5
 

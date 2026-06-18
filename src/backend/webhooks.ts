@@ -7,6 +7,21 @@ const paidEvents = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"]);
 const failedEvents = new Set(["PAYMENT_OVERDUE"]);
 const cancelledEvents = new Set(["PAYMENT_DELETED", "PAYMENT_CANCELLED"]);
 const refundedEvents = new Set(["PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED"]);
+const chargebackEvents = new Set([
+  "PAYMENT_CHARGEBACK_REQUESTED",
+  "PAYMENT_CHARGEBACK_DISPUTE",
+  "PAYMENT_AWAITING_CHARGEBACK_REVERSAL",
+]);
+// Eventos que devem REVOGAR o acesso da assinatura imediatamente (estorno total / chargeback).
+// Estorno parcial (PAYMENT_PARTIALLY_REFUNDED) nao revoga: apenas registra o status.
+const subscriptionRevocationEvents = new Set([
+  "PAYMENT_REFUNDED",
+  "PAYMENT_CHARGEBACK_REQUESTED",
+  "PAYMENT_CHARGEBACK_DISPUTE",
+  "PAYMENT_AWAITING_CHARGEBACK_REVERSAL",
+]);
+const platformSubscriptionPrefix = "platform-subscription:";
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const safeEqual = (left?: string | null, right?: string | null) => {
   if (!left || !right) return false;
@@ -21,6 +36,7 @@ const paymentStatusForEvent = (event: string) => {
   if (failedEvents.has(event)) return "falhou";
   if (cancelledEvents.has(event)) return "cancelado";
   if (refundedEvents.has(event)) return "estornado";
+  if (chargebackEvents.has(event)) return "estornado";
   return null;
 };
 
@@ -69,14 +85,23 @@ const insertPaymentEvent = async (
 };
 
 const updateSubscriptionIfPresent = async (event: string, payment: any) => {
-  if (!payment.subscription && !payment.externalReference) return;
+  const externalReference = String(payment.externalReference || "");
+  const platformStoreId = externalReference.startsWith(platformSubscriptionPrefix)
+    ? externalReference.slice(platformSubscriptionPrefix.length)
+    : null;
+  const safePlatformStoreId = platformStoreId && uuidRe.test(platformStoreId) ? platformStoreId : null;
+
+  if (!payment.subscription && !safePlatformStoreId) return false;
+  const revoke = subscriptionRevocationEvents.has(event);
   const status = paidEvents.has(event)
     ? "ativa"
     : failedEvents.has(event)
       ? "inadimplente"
       : cancelledEvents.has(event)
         ? "cancelada"
-        : null;
+        : revoke
+          ? "cancelada"
+          : null;
   if (!status) return false;
 
   const paidAt = payment.paymentDate || payment.confirmedDate || payment.clientPaymentDate || null;
@@ -91,21 +116,23 @@ const updateSubscriptionIfPresent = async (event: string, payment: any) => {
          END,
          current_period_end = CASE
            WHEN $1 = 'ativa' THEN COALESCE(($5::date + INTERVAL '30 days')::timestamptz, current_period_end, now() + INTERVAL '30 days')
+           WHEN $7 THEN now()
            ELSE current_period_end
          END,
          next_due_date = COALESCE($5::date, next_due_date),
          canceled_at = CASE WHEN $1 = 'cancelada' THEN COALESCE(canceled_at, now()) ELSE canceled_at END,
          cancellation_effective_at = CASE
+           WHEN $7 THEN now()
            WHEN $1 = 'cancelada' THEN COALESCE(cancellation_effective_at, current_period_end, next_due_date::timestamptz, now())
            ELSE cancellation_effective_at
          END,
          updated_at = now()
      WHERE asaas_subscription_id = $3
-        OR external_reference = $6
-        OR store_id::text = regexp_replace(COALESCE($6, ''), '^platform-subscription:', '')
+        OR ($6::text IS NOT NULL AND external_reference = $6)
+        OR ($8::uuid IS NOT NULL AND store_id = $8::uuid)
      RETURNING *`,
-    [status, event, payment.subscription || null, paidAt, dueDate, payment.externalReference || null],
-  ).catch(() => ({ rows: [] as any[] }));
+    [status, event, payment.subscription || null, paidAt, dueDate, externalReference || null, revoke, safePlatformStoreId],
+  );
 
   for (const subscription of rows) {
     publishRealtime({ schema: "public", table: "subscriptions", eventType: "UPDATE", new: subscription, old: subscription });
@@ -147,7 +174,17 @@ export const handleAsaasWebhook = async (request: Request) => {
   const mappedStatus = paymentStatusForEvent(event);
   if (!mappedStatus) return Response.json({ success: true, ignored: true });
 
-  const updatedSubscription = await updateSubscriptionIfPresent(event, payment);
+  let updatedSubscription = false;
+  try {
+    updatedSubscription = await updateSubscriptionIfPresent(event, payment);
+  } catch (error: any) {
+    console.error("[asaas:webhook] subscription update failed", {
+      event,
+      paymentId: payment.id,
+      message: error?.message || "subscription update failed",
+    });
+    return safeJsonError("Webhook processing failed", 500);
+  }
   if (updatedSubscription && String(payment.externalReference || "").startsWith("platform-subscription:")) {
     return Response.json({ success: true, subscription: true });
   }

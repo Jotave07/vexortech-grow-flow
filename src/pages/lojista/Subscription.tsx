@@ -16,11 +16,24 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowUpRight, CheckCircle2, CreditCard, Loader2, LockKeyhole, RefreshCcw, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CheckCircle2,
+  CreditCard,
+  Crown,
+  Loader2,
+  LockKeyhole,
+  RefreshCcw,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   getFeatureLabel,
   getPlanLimits,
@@ -439,143 +452,242 @@ const Subscription = () => {
   }
 
   const canReturnToApp = isPlatformAdmin || accessState === "active";
+  const paymentConfirmed = formatPaymentStatus((subscription as any)?.last_payment_status) === "Confirmado";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-3 py-1 text-xs font-medium text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-            Assinatura da plataforma
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-none border border-border bg-muted/40 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Assinatura da plataforma
           </div>
           <div>
-            <h1 className="text-2xl font-bold md:text-3xl">Assinatura e acesso da loja</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-3xl font-black uppercase tracking-tight">Assinatura e acesso da loja</h1>
+            <p className="mt-1 max-w-2xl font-medium text-muted-foreground">
               A assinatura da plataforma e cobrada de forma recorrente no cartao de credito do lojista. Os pagamentos dos pedidos da loja continuam separados.
             </p>
           </div>
         </div>
 
         {canReturnToApp && (
-          <Button variant="outline" onClick={() => navigate(redirectPath, { replace: true })}>
-            Voltar ao painel
+          <Button
+            variant="outline"
+            className="h-10 font-black uppercase tracking-widest text-xs"
+            onClick={() => navigate(redirectPath, { replace: true })}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao painel
           </Button>
         )}
       </div>
 
-      <Card className="border-primary/15 bg-gradient-to-br from-card to-secondary/35">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <CardTitle className="text-xl">Status da assinatura</CardTitle>
-              <CardDescription>{message}</CardDescription>
+      {/* Plano atual em destaque */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-col gap-6 border-b border-border bg-[var(--hype-dark)] p-6 text-white md:flex-row md:items-center md:justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+                <Crown className="h-3.5 w-3.5 text-primary" /> {showUpgradeOptions ? "Plano em analise" : "Plano atual"}
+              </div>
+              <div>
+                <div className="text-3xl font-black uppercase tracking-tight">{summaryPlan?.name ?? "Nenhum plano escolhido"}</div>
+                <div className="mt-1 text-sm font-medium text-white/70">{message}</div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black tracking-tighter text-primary">{formatBRL(summaryPlan?.priceMonthly ?? 0)}</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-white/60">/ mes</span>
+              </div>
             </div>
-            <Badge variant={subscriptionMeta.tone}>{subscriptionMeta.label}</Badge>
+            <div className="flex flex-col items-start gap-3 md:items-end">
+              <StatusPill meta={subscriptionMeta} />
+              <div className="flex items-center gap-2 rounded-none border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold">
+                {paymentConfirmed ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span className="text-primary">Pagamento confirmado</span>
+                  </>
+                ) : (
+                  <>
+                    <Loader2 className={cn("h-4 w-4 text-amber-400", syncing && "animate-spin")} />
+                    <span className="text-white/80">{formatPaymentStatus((subscription as any)?.last_payment_status)}</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-background/75 p-4 text-sm text-muted-foreground">
-            {getStateSummary(accessParam)}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Timeline / detalhes */}
+          <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
             {timelineCards.map((item) => (
-              <div key={item.label} className="rounded-lg border border-border bg-background/75 p-3">
-                <div className="text-xs text-muted-foreground">{item.label}</div>
-                <div className="mt-1 font-semibold">{item.value}</div>
+              <div key={item.label} className="bg-card p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{item.label}</div>
+                <div className="mt-1.5 text-base font-black tracking-tight">{item.value}</div>
                 {item.detail && <div className="mt-1 text-xs text-muted-foreground">{item.detail}</div>}
               </div>
             ))}
           </div>
-          {(subscription as any)?.status === "cancelada" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
-              Sua assinatura foi cancelada, mas sua loja permanecera ativa ate {formatDate((subscription as any)?.cancellation_effective_at || (subscription as any)?.current_period_end)}.
-            </div>
-          )}
-        </CardHeader>
-      </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">
+          <div className="space-y-3 p-6">
+            <div className="rounded-none border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+              {getStateSummary(accessParam)}
+            </div>
+            {(subscription as any)?.status === "cancelada" && (
+              <div className="flex items-start gap-3 rounded-none border border-[#ff2d55]/25 bg-[#ff2d55]/5 p-4 text-sm font-semibold text-[#ff2d55]">
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Sua assinatura foi cancelada, mas sua loja permanecera ativa ate {formatDate((subscription as any)?.cancellation_effective_at || (subscription as any)?.current_period_end)}.
+                </span>
+              </div>
+            )}
+
+            {/* Gerenciamento */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              {hasActiveSubscription && !showUpgradeOptions && upgradePlans.length > 0 && (
+                <Button
+                  variant="hero"
+                  className="h-10 font-black uppercase tracking-widest text-xs"
+                  onClick={() => setShowUpgradeOptions(true)}
+                >
+                  <ArrowUpRight className="mr-2 h-4 w-4" /> Atualizar plano
+                </Button>
+              )}
+              {showUpgradeOptions && (
+                <Button
+                  variant="outline"
+                  className="h-10 font-black uppercase tracking-widest text-xs"
+                  onClick={() => setShowUpgradeOptions(false)}
+                  disabled={submittingPlanId !== null}
+                >
+                  Ocultar upgrades
+                </Button>
+              )}
+              {subscription && (subscription as any).status !== "cancelada" && (
+                <Button
+                  variant="outline"
+                  className="h-10 border-[#ff2d55]/40 font-black uppercase tracking-widest text-xs text-[#ff2d55] hover:bg-[#ff2d55]/10"
+                  onClick={() => void cancelCurrentSubscription()}
+                  disabled={canceling || submittingPlanId !== null}
+                >
+                  {canceling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+                  Cancelar assinatura
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="h-10 font-black uppercase tracking-widest text-xs"
+                onClick={() => void syncCurrentSubscription()}
+                disabled={submittingPlanId !== null || syncing}
+              >
+                <RefreshCcw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
+                Atualizar status
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+
+      <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+        {/* Grade de planos */}
+        <Card className="overflow-hidden p-0">
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 p-4">
+            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+              <Crown className="h-4 w-4 text-primary" />
               {showPlanCatalog ? (showUpgradeOptions ? "Planos para upgrade" : "Escolha um plano pago") : "Assinatura protegida"}
-            </CardTitle>
-            <CardDescription>
+            </h2>
+            {showUpgradeOptions && (
+              <span className="rounded-none bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
+                Upgrade
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-4 p-6">
+            <p className="text-sm font-medium text-muted-foreground">
               {showPlanCatalog
                 ? "Apenas o plano escolhido nesta etapa abre validacao de cartao. O plano atual permanece intacto ate a confirmacao."
                 : "Sua assinatura atual fica visivel para consulta. Dados de cartao e troca de plano aparecem somente em upgrade."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
+
             {!showPlanCatalog ? (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="rounded-none border border-primary/20 bg-primary/5 p-5">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-background p-2">
-                    <LockKeyhole className="h-4 w-4 text-primary" />
+                  <div className="rounded-none bg-background p-2.5">
+                    <LockKeyhole className="h-5 w-5 text-primary" />
                   </div>
                   <div className="space-y-2">
-                    <div className="font-semibold">Nenhuma acao de cartao pendente</div>
-                    <p className="text-sm text-muted-foreground">
+                    <div className="font-black uppercase tracking-tight">Nenhuma acao de cartao pendente</div>
+                    <p className="text-sm font-medium text-muted-foreground">
                       O plano ativo nao pode ser sobrescrito por engano nesta tela. Para trocar de plano, abra o comparativo de upgrade e confirme um plano superior.
                     </p>
                   </div>
                 </div>
               </div>
             ) : plansLoading ? (
-              <div className="rounded-lg border border-border bg-secondary/25 p-4 text-sm text-muted-foreground">
+              <div className="rounded-none border border-border bg-muted/30 p-5 text-sm font-medium text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                 Carregando planos...
               </div>
             ) : visiblePlans.length === 0 ? (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+              <div className="rounded-none border border-[#ff2d55]/20 bg-[#ff2d55]/5 p-5 text-sm font-semibold text-[#ff2d55]">
                 {showUpgradeOptions
                   ? "Nenhum plano superior esta disponivel no momento."
                   : "Nenhum plano pago esta disponivel no momento. Revise a tabela de planos antes de liberar novos cadastros."}
               </div>
             ) : (
-              <RadioGroup value={selectedPlanId} onValueChange={setSelectedPlanId} className="space-y-3">
-                {visiblePlans.map((item) => {
+              <RadioGroup value={selectedPlanId} onValueChange={setSelectedPlanId} className="space-y-4">
+                {visiblePlans.map((item, index) => {
                   const normalized = normalizePlan(item);
                   const isCurrent = subscription?.plan_id === item.id;
+                  const isSelected = selectedPlanId === item.id;
+                  const isRecommended = !showUpgradeOptions && !isCurrent && index === Math.min(1, visiblePlans.length - 1);
                   const upgradeHighlights = normalized ? getUpgradeHighlights(currentPlan, normalized) : [];
 
                   return (
                     <label
                       key={item.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-smooth ${
-                        selectedPlanId === item.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/35"
-                      }`}
+                      className={cn(
+                        "relative flex cursor-pointer items-start gap-3 rounded-none border-2 p-5 transition-smooth",
+                        isSelected ? "border-primary bg-primary/5 shadow-glow" : "border-border hover:border-primary/40",
+                      )}
                     >
-                      <RadioGroupItem value={item.id} className="mt-0.5" />
-                      <div className="min-w-0 flex-1 space-y-3">
+                      {isRecommended && (
+                        <span className="absolute -top-2.5 left-5 rounded-none bg-primary px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-glow">
+                          Recomendado
+                        </span>
+                      )}
+                      <RadioGroupItem value={item.id} className="mt-1" />
+                      <div className="min-w-0 flex-1 space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold">{item.name}</span>
-                              {isCurrent && <Badge variant="secondary">Plano atual</Badge>}
+                              <span className="text-lg font-black uppercase tracking-tight">{item.name}</span>
+                              {isCurrent && (
+                                <Badge variant="secondary" className="font-black uppercase tracking-widest text-[10px]">Plano atual</Badge>
+                              )}
                             </div>
-                            {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+                            {item.description && <p className="mt-1 text-sm font-medium text-muted-foreground">{item.description}</p>}
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-semibold text-primary">{formatBRL(item.price_monthly)}</div>
-                            <div className="text-xs text-muted-foreground">cobranca mensal</div>
+                            <div className="text-2xl font-black tracking-tighter text-primary">{formatBRL(item.price_monthly)}</div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">cobranca mensal</div>
                           </div>
                         </div>
 
                         {normalized && (
-                          <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                            <div>Produtos: {normalized.limits.products ?? "Ilimitado"}</div>
-                            <div>Pedidos por mes: {normalized.limits.monthlyOrders ?? "Ilimitado"}</div>
-                            <div>Usuarios internos: {normalized.limits.internalUsers ?? "Ilimitado"}</div>
-                            <div>Lojas/unidades: {normalized.limits.stores ?? "Ilimitado"}</div>
+                          <div className="grid gap-2.5 text-sm sm:grid-cols-2">
+                            <PlanFeature label={`Produtos: ${normalized.limits.products ?? "Ilimitado"}`} />
+                            <PlanFeature label={`Pedidos por mes: ${normalized.limits.monthlyOrders ?? "Ilimitado"}`} />
+                            <PlanFeature label={`Usuarios internos: ${normalized.limits.internalUsers ?? "Ilimitado"}`} />
+                            <PlanFeature label={`Lojas/unidades: ${normalized.limits.stores ?? "Ilimitado"}`} />
                           </div>
                         )}
                         {showUpgradeOptions && upgradeHighlights.length > 0 && (
-                          <div className="rounded-lg border border-primary/15 bg-primary/5 p-3">
-                            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                          <div className="rounded-none border border-primary/15 bg-primary/5 p-4">
+                            <div className="mb-2.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
                               <ArrowUpRight className="h-3.5 w-3.5" />
                               Evolucao sobre o plano atual
                             </div>
-                            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                            <div className="grid gap-2 text-xs font-medium text-muted-foreground sm:grid-cols-2">
                               {upgradeHighlights.slice(0, 6).map((highlight) => (
                                 <div key={highlight} className="flex items-start gap-2">
                                   <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
@@ -585,6 +697,19 @@ const Subscription = () => {
                             </div>
                           </div>
                         )}
+
+                        <Button
+                          type="button"
+                          variant={isSelected ? "hero" : "outline"}
+                          className="h-9 w-full font-black uppercase tracking-widest text-[11px]"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setSelectedPlanId(item.id);
+                          }}
+                          disabled={isCurrent}
+                        >
+                          {isCurrent ? "Plano atual" : showUpgradeOptions ? "Selecionar para upgrade" : "Selecionar plano"}
+                        </Button>
                       </div>
                     </label>
                   );
@@ -592,92 +717,79 @@ const Subscription = () => {
               </RadioGroup>
             )}
 
-            <div className="flex flex-wrap gap-3">
-              <div className="w-full rounded-lg border border-border bg-secondary/25 p-4 text-sm text-muted-foreground">
-                O pagamento da mensalidade abre aqui no painel, com validacao segura pelo Asaas. A cobranca entra na conta administradora da plataforma, sem expor token do administrador ao lojista.
-              </div>
-              {hasActiveSubscription && !showUpgradeOptions && upgradePlans.length > 0 && (
-                <Button variant="hero" onClick={() => setShowUpgradeOptions(true)}>
-                  <ArrowUpRight className="h-4 w-4" />
-                  Comparar upgrades
-                </Button>
-              )}
-              {showUpgradeOptions && (
-                <Button variant="outline" onClick={() => setShowUpgradeOptions(false)} disabled={submittingPlanId !== null}>
-                  Ocultar upgrades
-                </Button>
-              )}
-              {showPlanCatalog && visiblePlans.length > 0 && (
-                <Button
-                  variant="hero"
-                  onClick={() => void startCheckout()}
-                  disabled={plansLoading || !selectedPlanId || submittingPlanId !== null}
-                >
-                  {submittingPlanId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  {showUpgradeOptions ? "Confirmar upgrade com cartao" : subscription ? "Informar cartao da assinatura" : "Informar cartao e assinar"}
-                </Button>
-              )}
-              {subscription && (subscription as any).status !== "cancelada" && (
-                <Button variant="outline" onClick={() => void cancelCurrentSubscription()} disabled={canceling || submittingPlanId !== null}>
-                  {canceling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Cancelar assinatura
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => void syncCurrentSubscription()} disabled={submittingPlanId !== null || syncing}>
-                <RefreshCcw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                Atualizar status
-              </Button>
+            <div className="rounded-none border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+              O pagamento da mensalidade abre aqui no painel, com validacao segura pelo Asaas. A cobranca entra na conta administradora da plataforma, sem expor token do administrador ao lojista.
             </div>
 
-            <div className="rounded-lg border border-border bg-secondary/25 p-4 text-sm text-muted-foreground">
-              Os dados do cartao sao enviados apenas para validacao no gateway e nao sao armazenados pela plataforma. A ativacao da assinatura acontece pelo retorno do Asaas e pelo webhook configurado no painel administrativo.
+            {showPlanCatalog && visiblePlans.length > 0 && (
+              <Button
+                variant="hero"
+                className="h-12 w-full font-black uppercase tracking-widest text-xs"
+                onClick={() => void startCheckout()}
+                disabled={plansLoading || !selectedPlanId || submittingPlanId !== null}
+              >
+                {submittingPlanId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                {showUpgradeOptions ? "Confirmar upgrade com cartao" : subscription ? "Informar cartao da assinatura" : "Informar cartao e assinar"}
+              </Button>
+            )}
+
+            <div className="flex items-start gap-3 rounded-none border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                Os dados do cartao sao enviados apenas para validacao no gateway e nao sao armazenados pela plataforma. A ativacao da assinatura acontece pelo retorno do Asaas e pelo webhook configurado no painel administrativo.
+              </span>
             </div>
-          </CardContent>
+          </div>
         </Card>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Resumo do plano</CardTitle>
-              <CardDescription>Visao rapida do contrato atual e dos limites conhecidos.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-border bg-background/70 p-4">
-                <div className="text-sm text-muted-foreground">{showUpgradeOptions ? "Plano em analise" : "Plano atual"}</div>
-                <div className="mt-1 text-xl font-semibold">{summaryPlan?.name ?? "Nenhum plano escolhido"}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{subscriptionMeta.detail}</div>
+        {/* Lateral: resumo + consumo */}
+        <div className="space-y-8">
+          <Card className="overflow-hidden p-0">
+            <div className="flex items-center gap-2 border-b border-border bg-muted/30 p-4">
+              <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+                <CreditCard className="h-4 w-4 text-primary" /> Resumo do plano
+              </h2>
+            </div>
+            <div className="space-y-4 p-6">
+              <div className="rounded-none border border-border bg-muted/30 p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  {showUpgradeOptions ? "Plano em analise" : "Plano atual"}
+                </div>
+                <div className="mt-1 text-xl font-black uppercase tracking-tight">{summaryPlan?.name ?? "Nenhum plano escolhido"}</div>
+                <div className="mt-1 text-sm font-medium text-muted-foreground">{subscriptionMeta.detail}</div>
               </div>
 
-              <div className="rounded-lg border border-border bg-background/70 p-4">
-                <div className="text-sm text-muted-foreground">Mensalidade</div>
-                <div className="mt-1 text-2xl font-bold">{formatBRL(summaryPlan?.priceMonthly ?? 0)}</div>
-                <div className="mt-1 text-xs text-muted-foreground">
+              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Mensalidade</div>
+                <div className="mt-1 text-3xl font-black tracking-tighter">{formatBRL(summaryPlan?.priceMonthly ?? 0)}</div>
+                <div className="mt-1 text-xs font-medium text-muted-foreground">
                   Renovacao e liberacao dependem do status enviado pelo gateway e confirmado via webhook.
                 </div>
               </div>
-            </CardContent>
+            </div>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Consumo e limites</CardTitle>
-              <CardDescription>Base pronta para bloquear recursos pelo plano sem espalhar regra entre componentes.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="overflow-hidden p-0">
+            <div className="flex items-center gap-2 border-b border-border bg-muted/30 p-4">
+              <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+                <ShieldCheck className="h-4 w-4 text-primary" /> Consumo e limites
+              </h2>
+            </div>
+            <div className="space-y-5 p-6">
               {usageCards.map((item) => {
                 const progress = getPlanUsageProgress(item.current, item.limit);
 
                 return (
                   <div key={item.label} className="space-y-2">
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-medium">{item.label}</span>
-                      <span className="text-muted-foreground">{progress.label}</span>
+                      <span className="font-bold uppercase tracking-tight">{item.label}</span>
+                      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{progress.label}</span>
                     </div>
                     <Progress value={progress.unlimited ? 12 : progress.value} className="h-2.5" />
                   </div>
                 );
               })}
-            </CardContent>
+            </div>
           </Card>
         </div>
       </div>
@@ -690,7 +802,9 @@ const Subscription = () => {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{showUpgradeOptions ? "Confirmar upgrade com cartao" : "Assinar com cartao de credito"}</DialogTitle>
+            <DialogTitle className="font-black uppercase tracking-tight">
+              {showUpgradeOptions ? "Confirmar upgrade com cartao" : "Assinar com cartao de credito"}
+            </DialogTitle>
             <DialogDescription>
               {checkoutPlan ? `${checkoutPlan.name} - ${formatBRL(checkoutPlan.priceMonthly)} por mes` : "Informe os dados para validar a assinatura."}
             </DialogDescription>
@@ -698,7 +812,7 @@ const Subscription = () => {
 
           <div className="space-y-5">
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
+              <div className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
                 <CreditCard className="h-4 w-4 text-primary" />
                 Dados do cartao
               </div>
@@ -762,7 +876,7 @@ const Subscription = () => {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
+              <div className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 Titular e endereco
               </div>
@@ -840,8 +954,14 @@ const Subscription = () => {
             <Button type="button" variant="outline" onClick={() => setCardDialogOpen(false)} disabled={submittingPlanId !== null}>
               Cancelar
             </Button>
-            <Button type="button" variant="hero" onClick={() => void submitCardCheckout()} disabled={submittingPlanId !== null}>
-              {submittingPlanId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+            <Button
+              type="button"
+              variant="hero"
+              className="font-black uppercase tracking-widest text-xs"
+              onClick={() => void submitCardCheckout()}
+              disabled={submittingPlanId !== null}
+            >
+              {submittingPlanId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               Validar assinatura
             </Button>
           </DialogFooter>
@@ -850,6 +970,31 @@ const Subscription = () => {
     </div>
   );
 };
+
+const StatusPill = ({ meta }: { meta: ReturnType<typeof getStatusMeta> }) => {
+  const tone = meta.tone;
+  const styles =
+    tone === "default"
+      ? "bg-primary/20 text-primary border-primary/30"
+      : tone === "secondary"
+        ? "bg-[#ffc857]/15 text-[#ffc857] border-[#ffc857]/30"
+        : tone === "destructive"
+          ? "bg-[#ff2d55]/15 text-[#ff2d55] border-[#ff2d55]/30"
+          : "bg-white/10 text-white border-white/20";
+
+  return (
+    <span className={cn("inline-flex items-center gap-2 rounded-none border px-3 py-1.5 text-xs font-black uppercase tracking-widest", styles)}>
+      {meta.label}
+    </span>
+  );
+};
+
+const PlanFeature = ({ label }: { label: string }) => (
+  <div className="flex items-start gap-2 font-medium text-muted-foreground">
+    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+    <span>{label}</span>
+  </div>
+);
 
 const formatLimitValue = (value: number | null | undefined) =>
   value === null || value === undefined ? "Ilimitado" : String(value);

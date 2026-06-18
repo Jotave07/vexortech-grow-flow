@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getActor } from "./auth";
+import { parseBearerToken } from "./db";
 
 type RealtimePayload = {
   schema: "public";
@@ -94,7 +95,7 @@ export const createRealtimeStream = async (request: Request) => {
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   const url = new URL(request.url);
   const { column, value } = parseFilter(url.searchParams.get("filter"));
-  const token = url.searchParams.get("token") || "";
+  const token = parseBearerToken(request);
   const actor = await getActor(token);
   const scope: RealtimeScope = {
     table: url.searchParams.get("table"),

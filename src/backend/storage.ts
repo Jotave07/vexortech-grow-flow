@@ -1,14 +1,13 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import { getActor } from "./auth";
 import { parseBearerToken } from "./db";
 import {
+  downloadObjectFromSupabaseStorage,
   getSupabasePublicObjectUrl,
   hasSupabaseAdminConfig,
   uploadObjectToSupabaseStorage,
 } from "./supabase";
 
-const rootDir = () => path.resolve(process.env.STORAGE_DIR || path.join(process.cwd(), ".data", "storage"));
 const publicBuckets = new Set(["store-assets", "logos", "banners", "products"]);
 const privateBuckets = new Set(["documents", "receipts", "internal-attachments"]);
 const allowedTypes = new Map([
@@ -28,6 +27,10 @@ const safePart = (value: string) => {
 };
 
 export const uploadStorageFile = async (form: FormData, token?: string) => {
+  if (!hasSupabaseAdminConfig()) {
+    return { data: null, error: { message: "Supabase Storage nao configurado no servidor." } };
+  }
+
   const actor = await getActor(token);
   if (!actor) return { data: null, error: { message: "Nao autorizado." } };
 
@@ -56,75 +59,41 @@ export const uploadStorageFile = async (form: FormData, token?: string) => {
     return { data: null, error: { message: "Arquivo fora do escopo da loja." } };
   }
 
-  if (hasSupabaseAdminConfig()) {
-    await uploadObjectToSupabaseStorage({
-      bucket,
-      path: objectPath,
-      bytes,
-      contentType: expectedType,
-      upsert,
-    });
-    return { data: { path: objectPath, fullPath: `${bucket}/${objectPath}` }, error: null };
-  }
-
-  const target = path.resolve(rootDir(), bucket, objectPath);
-  if (!target.startsWith(path.resolve(rootDir()))) throw new Error("Caminho fora do armazenamento.");
-  await fs.mkdir(path.dirname(target), { recursive: true });
-
-  if (!upsert) {
-    try {
-      await fs.access(target);
-      return { data: null, error: { message: "Arquivo ja existe." } };
-    } catch {
-      // File does not exist; continue.
-    }
-  }
-
-  await fs.writeFile(target, bytes);
+  await uploadObjectToSupabaseStorage({
+    bucket,
+    path: objectPath,
+    bytes,
+    contentType: expectedType,
+    upsert,
+  });
   return { data: { path: objectPath, fullPath: `${bucket}/${objectPath}` }, error: null };
 };
 
 export const serveStorageFile = async (bucket: string, objectPath: string, request?: Request) => {
+  if (!hasSupabaseAdminConfig()) return new Response("Supabase Storage not configured", { status: 503 });
+
   const safeBucket = safePart(bucket);
   const safeObjectPath = safePart(objectPath);
-  if (!publicBuckets.has(safeBucket)) {
-    if (!privateBuckets.has(safeBucket)) return new Response("Not found", { status: 404 });
-    const actor = await getActor(request ? parseBearerToken(request) : "");
-    const [pathStoreId] = safeObjectPath.split("/");
-    if (!actor || (!actor.admin && pathStoreId && !actor.ownedStoreIds.includes(pathStoreId))) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-  }
-  if (hasSupabaseAdminConfig() && publicBuckets.has(safeBucket)) {
+  if (!publicBuckets.has(safeBucket) && !privateBuckets.has(safeBucket)) return new Response("Not found", { status: 404 });
+
+  if (publicBuckets.has(safeBucket)) {
     const publicUrl = getSupabasePublicObjectUrl(safeBucket, safeObjectPath);
     return Response.redirect(publicUrl, 302);
   }
 
-  const target = path.resolve(rootDir(), safeBucket, safeObjectPath);
-  if (!target.startsWith(path.resolve(rootDir()))) return new Response("Not found", { status: 404 });
-
-  try {
-    const type = contentType(target);
-    if (type === "application/octet-stream") return new Response("Not found", { status: 404 });
-    const bytes = await fs.readFile(target);
-    return new Response(bytes, {
-      headers: {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Type": type,
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  } catch {
-    return new Response("Not found", { status: 404 });
+  const actor = await getActor(request ? parseBearerToken(request) : "");
+  const [pathStoreId] = safeObjectPath.split("/");
+  if (!actor || (!actor.admin && pathStoreId && !actor.ownedStoreIds.includes(pathStoreId))) {
+    return new Response("Unauthorized", { status: 401 });
   }
-};
 
-const contentType = (filePath: string) => {
-  const ext = path.extname(filePath).toLowerCase();
-  if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  if (ext === ".pdf") return "application/pdf";
-  return "application/octet-stream";
+  const object = await downloadObjectFromSupabaseStorage(safeBucket, safeObjectPath);
+  if (!object || object.contentType === "application/octet-stream") return new Response("Not found", { status: 404 });
+  return new Response(object.bytes, {
+    headers: {
+      "Cache-Control": "private, max-age=300",
+      "Content-Type": object.contentType,
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 };

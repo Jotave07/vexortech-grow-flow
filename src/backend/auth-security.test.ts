@@ -59,6 +59,12 @@ describe("backend authorization hardening", () => {
     expect(() => assertSafePatchForNonAdmin("orders", "update", { is_seen: true })).not.toThrow();
   });
 
+  it("blocks non-admin subscription exemption changes", () => {
+    expect(() => assertSafePatchForNonAdmin("profiles", "update", { is_exempt: true })).toThrow(
+      "Isencao de assinatura",
+    );
+  });
+
   it("blocks owner updates to platform-controlled store fields", () => {
     expect(() => assertSafePatchForNonAdmin("stores", "update", { plan_id: "11111111-1111-4111-8111-111111111111" })).toThrow(
       "Campo de loja protegido",

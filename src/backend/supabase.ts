@@ -89,6 +89,103 @@ export const createSupabaseAuthUser = async (
   return payload;
 };
 
+export const updateSupabaseAuthUser = async (
+  userId: string,
+  input: { password?: string; user_metadata?: Record<string, unknown> },
+) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.secretKey) {
+    throw new Error("SUPABASE_SECRET_KEY obrigatorio para atualizar usuarios pelo servidor.");
+  }
+
+  const body: Record<string, unknown> = {};
+  if (input.password) body.password = input.password;
+  if (input.user_metadata) body.user_metadata = input.user_metadata;
+
+  const response = await fetch(`${config.url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: config.secretKey,
+      Authorization: `Bearer ${config.secretKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.msg || payload?.message || "Erro ao atualizar usuario no Supabase Auth.");
+  }
+  return payload;
+};
+
+export const deleteSupabaseAuthUser = async (userId: string) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.secretKey) {
+    throw new Error("SUPABASE_SECRET_KEY obrigatorio para remover usuarios pelo servidor.");
+  }
+
+  const response = await fetch(`${config.url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    headers: {
+      apikey: config.secretKey,
+      Authorization: `Bearer ${config.secretKey}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.msg || payload?.message || "Erro ao remover usuario no Supabase Auth.");
+  }
+  return payload;
+};
+
+export const listSupabaseAuthUsers = async () => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.secretKey) {
+    throw new Error("SUPABASE_SECRET_KEY obrigatorio para listar usuarios pelo servidor.");
+  }
+
+  const response = await fetch(`${config.url}/auth/v1/admin/users?per_page=1000`, {
+    headers: {
+      apikey: config.secretKey,
+      Authorization: `Bearer ${config.secretKey}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.msg || payload?.message || "Erro ao listar usuarios no Supabase Auth.");
+  }
+  return Array.isArray(payload?.users) ? payload.users : [];
+};
+
+export const sendSupabasePasswordRecoveryEmail = async (email: string, redirectTo?: string) => {
+  const config = getSupabaseServerConfig();
+  const apiKey = config.publishableKey || config.secretKey;
+  if (!config.url || !apiKey) {
+    throw new Error("Supabase Auth nao configurado para recuperacao de senha.");
+  }
+
+  const url = new URL(`${config.url}/auth/v1/recover`);
+  if (redirectTo) url.searchParams.set("redirect_to", redirectTo);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: apiKey,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.msg || payload?.message || "Erro ao enviar recuperacao de senha pelo Supabase.");
+  }
+  return payload;
+};
+
 export const uploadObjectToSupabaseStorage = async (input: {
   bucket: string;
   path: string;
@@ -127,6 +224,35 @@ export const uploadObjectToSupabaseStorage = async (input: {
     throw new Error(payload?.message || payload?.error || "Falha ao enviar arquivo para o Supabase Storage.");
   }
   return payload;
+};
+
+export const downloadObjectFromSupabaseStorage = async (bucket: string, objectPath: string) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.secretKey) {
+    throw new Error("SUPABASE_SECRET_KEY obrigatorio para ler arquivos privados.");
+  }
+
+  const cleanPath = objectPath
+    .replace(/^\/+/, "")
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+
+  const response = await fetch(
+    `${config.url}/storage/v1/object/${encodeURIComponent(bucket)}/${cleanPath}`,
+    {
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+      },
+    },
+  );
+
+  if (!response.ok) return null;
+  return {
+    bytes: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get("content-type") || "application/octet-stream",
+  };
 };
 
 export const getSupabasePublicObjectUrl = (bucket: string, objectPath: string) => {
