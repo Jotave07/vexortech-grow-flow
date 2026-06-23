@@ -244,12 +244,12 @@ const createOrUpdateCustomer = async (client: DbClient, input: CheckoutInput, ac
   if (existingRows[0]) {
     const { rows } = await client.query(
       `UPDATE public.customers
-       SET full_name = $3, name = $3, phone = $4, document = $5, street = $6,
-           number = $7, neighborhood = $8, city = $9, state = $10, zip_code = $11,
-           complement = $12, registration_completed = true
-       WHERE id = $13
+       SET full_name = $1, name = $1, phone = $2, document = $3, street = $4,
+           number = $5, neighborhood = $6, city = $7, state = $8, zip_code = $9,
+           complement = $10, registration_completed = true
+       WHERE id = $11
        RETURNING *`,
-      [...values, existingRows[0].id],
+      [...values.slice(2), existingRows[0].id],
     );
     return rows[0];
   }

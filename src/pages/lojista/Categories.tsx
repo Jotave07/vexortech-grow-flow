@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ type Category = { id: string; name: string; description: string | null; is_activ
 
 const Categories = () => {
   const { store } = useOutletContext<{ store: any }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -35,6 +36,14 @@ const Categories = () => {
 
   const openNew = () => { setEditing(null); setForm({ name: "", description: "", sort_order: items.length }); setOpen(true); };
   const openEdit = (c: Category) => { setEditing(c); setForm({ name: c.name, description: c.description ?? "", sort_order: c.sort_order }); setOpen(true); };
+
+  useEffect(() => {
+    if (loading || searchParams.get("nova") !== "1") return;
+    setEditing(null);
+    setForm({ name: "", description: "", sort_order: items.length });
+    setOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [items.length, loading, searchParams, setSearchParams]);
 
   const save = async () => {
     if (!form.name.trim()) return toast.error("Nome obrigatório");

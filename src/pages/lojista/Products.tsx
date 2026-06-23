@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,13 +38,14 @@ type Category = { id: string; name: string };
 
 const Products = () => {
   const { store } = useOutletContext<{ store: any }>();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [optionsFor, setOptionsFor] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState<any>({ name: "", description: "", price: "", promo_price: "", category_id: "", prep_time_minutes: "", image_url: "", is_featured: false, is_available: true });
+  const [form, setForm] = useState<any>({ name: "", description: "", price: "", promo_price: "", category_id: "", prep_time_minutes: "", image_url: "", is_featured: false, is_available: true, configure_options_after_save: false });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -120,7 +121,7 @@ const Products = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: "", promo_price: "", category_id: categories[0]?.id ?? "", prep_time_minutes: "", image_url: "", is_featured: false, is_available: true });
+    setForm({ name: "", description: "", price: "", promo_price: "", category_id: categories[0]?.id ?? "", prep_time_minutes: "", image_url: "", is_featured: false, is_available: true, configure_options_after_save: false });
     setOpen(true);
   };
   const openEdit = (p: Product) => {
@@ -128,7 +129,7 @@ const Products = () => {
     setForm({
       name: p.name, description: p.description ?? "", price: String(p.price), promo_price: p.promo_price ? String(p.promo_price) : "",
       category_id: p.category_id ?? "", prep_time_minutes: p.prep_time_minutes ? String(p.prep_time_minutes) : "",
-      image_url: p.image_url ?? "", is_featured: p.is_featured, is_available: p.is_available ?? true,
+      image_url: p.image_url ?? "", is_featured: p.is_featured, is_available: p.is_available ?? true, configure_options_after_save: false,
     });
     setOpen(true);
   };
@@ -164,13 +165,17 @@ const Products = () => {
       is_featured: form.is_featured,
       is_available: form.is_available,
     };
-    const { error } = editing
-      ? await backend.from("products").update(payload).eq("id", editing.id)
-      : await backend.from("products").insert({ ...payload, sort_order: items.length });
+    const result = editing
+      ? await backend.from("products").update(payload).eq("id", editing.id).select("*").maybeSingle()
+      : await backend.from("products").insert({ ...payload, sort_order: items.length }).select("*").maybeSingle();
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (result.error) return toast.error(result.error.message);
     toast.success(editing ? "Produto atualizado" : "Produto criado");
-    setOpen(false); load();
+    setOpen(false);
+    await load();
+    if (form.configure_options_after_save) {
+      setOptionsFor((result.data as Product) || editing);
+    }
   };
 
   const toggle = async (p: Product, field: "is_active" | "is_available") => {
@@ -185,7 +190,7 @@ const Products = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Cabeçalho */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
@@ -226,7 +231,7 @@ const Products = () => {
                 <Button
                   variant="hero"
                   className="mb-3 w-full justify-center font-black uppercase tracking-widest text-xs"
-                  onClick={openNew}
+                  onClick={() => navigate("/lojista/categorias?nova=1")}
                 >
                   <Plus className="h-4 w-4" /> Nova categoria
                 </Button>
@@ -289,7 +294,15 @@ const Products = () => {
                     ? "Crie uma categoria antes de adicionar produtos ao seu cardápio."
                     : 'Clique em "Novo produto" para montar o seu cardápio.'
                 }
-                action={<Button variant="hero" onClick={openNew} className="font-black uppercase tracking-widest text-xs"><Plus className="h-4 w-4" /> Novo produto</Button>}
+                action={categories.length === 0 ? (
+                  <Button variant="hero" onClick={() => navigate("/lojista/categorias?nova=1")} className="font-black uppercase tracking-widest text-xs">
+                    <Plus className="h-4 w-4" /> Nova categoria
+                  </Button>
+                ) : (
+                  <Button variant="hero" onClick={openNew} className="font-black uppercase tracking-widest text-xs">
+                    <Plus className="h-4 w-4" /> Novo produto
+                  </Button>
+                )}
               />
             ) : filteredProducts.length === 0 ? (
               <EmptyState
@@ -323,7 +336,7 @@ const Products = () => {
             <div>
               <Label>Imagem</Label>
               <div className="flex items-center gap-3 mt-2">
-                <div className="w-20 h-20 rounded-none bg-muted overflow-hidden flex items-center justify-center">
+                <div className="w-20 h-20 rounded-md bg-muted overflow-hidden flex items-center justify-center">
                   {form.image_url ? <img src={form.image_url} alt={form.name || 'Preview do produto'} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" /> : <ImagePlus className="h-5 w-5 text-muted-foreground" />}
                 </div>
                 <label className="cursor-pointer">
@@ -358,6 +371,18 @@ const Products = () => {
                 <Label>Disponível</Label>
               </div>
             </div>
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label>Opcoes obrigatorias</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Abrir grupos de opcoes com minimo e maximo ao salvar.</p>
+                </div>
+                <Switch
+                  checked={!!form.configure_options_after_save}
+                  onCheckedChange={(v) => setForm({ ...form, configure_options_after_save: v })}
+                />
+              </div>
+            </div>
             <Button variant="hero" className="w-full" onClick={save} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
@@ -383,14 +408,14 @@ const MenuStat = ({
   detail: string;
   tone?: "default" | "warning";
 }) => (
-  <Card className="rounded-none border-border p-4 shadow-sm">
+  <Card className="rounded-md border-border p-4 shadow-sm">
     <div className="flex items-center justify-between gap-3">
       <div>
         <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</div>
         <div className="mt-1 text-2xl font-black tracking-tight">{value}</div>
         <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
       </div>
-      <div className={tone === "warning" ? "rounded-none bg-amber-100 p-3 text-amber-700" : "rounded-none bg-primary/15 p-3 text-foreground"}>
+      <div className={tone === "warning" ? "rounded-md bg-amber-100 p-3 text-amber-700" : "rounded-md bg-primary/15 p-3 text-foreground"}>
         <Icon className="h-5 w-5" />
       </div>
     </div>
@@ -412,7 +437,7 @@ const CategoryRow = ({
 }) => (
   <div
     className={cn(
-      "group flex items-center gap-2 rounded-none border px-2 py-2 transition-smooth",
+      "group flex items-center gap-2 rounded-md border px-2 py-2 transition-smooth",
       active
         ? "border-primary bg-primary/15"
         : "border-transparent hover:border-border hover:bg-muted/40",
@@ -436,7 +461,7 @@ const CategoryRow = ({
       <span className={cn("truncate text-sm font-bold", active ? "text-foreground" : "text-foreground/80")}>{label}</span>
       <span
         className={cn(
-          "ml-auto shrink-0 rounded-none px-2 py-0.5 text-[10px] font-black tracking-widest",
+          "ml-auto shrink-0 rounded-md px-2 py-0.5 text-[10px] font-black tracking-widest",
           active ? "bg-primary/20 text-foreground" : "bg-muted text-muted-foreground",
         )}
       >
@@ -487,19 +512,19 @@ const ProductCard = ({
           <button
             type="button"
             onClick={onEdit}
-            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-none bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white opacity-0 transition-opacity group-hover:opacity-100"
           >
             <ImagePlus className="h-3 w-3" /> Imagem
           </button>
           {/* Badges sobre a imagem */}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
             {p.is_featured && (
-              <Badge className="rounded-none bg-amber-400 text-[10px] font-black uppercase tracking-widest text-black hover:bg-amber-400">
+              <Badge className="rounded-md bg-amber-400 text-[10px] font-black uppercase tracking-widest text-black hover:bg-amber-400">
                 Mais vendido
               </Badge>
             )}
             {unavailable && (
-              <Badge variant="destructive" className="rounded-none text-[10px] font-black uppercase tracking-widest">
+              <Badge variant="destructive" className="rounded-md text-[10px] font-black uppercase tracking-widest">
                 Indisponível
               </Badge>
             )}
@@ -512,7 +537,7 @@ const ProductCard = ({
             <div className="flex items-start gap-2">
               <h3 className="min-w-0 flex-1 truncate text-sm font-black uppercase tracking-tight">{p.name}</h3>
               {p.categories?.name && (
-                <Badge variant="secondary" className="shrink-0 rounded-none text-[9px] font-black uppercase tracking-widest">
+                <Badge variant="secondary" className="shrink-0 rounded-md text-[9px] font-black uppercase tracking-widest">
                   {p.categories.name}
                 </Badge>
               )}
@@ -537,7 +562,7 @@ const ProductCard = ({
           {/* Tempo de preparo */}
           {p.prep_time_minutes ? (
             <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-none border border-border bg-muted px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+              <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
                 {p.prep_time_minutes} min
               </span>
             </div>
@@ -577,7 +602,7 @@ const EmptyState = ({
   action?: ReactNode;
 }) => (
   <Card className="flex flex-col items-center justify-center gap-3 p-12 text-center">
-    <div className="rounded-none bg-primary/15 p-4 text-foreground">
+    <div className="rounded-md bg-primary/15 p-4 text-foreground">
       <Sparkles className="h-7 w-7" />
     </div>
     <div>

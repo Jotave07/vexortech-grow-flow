@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -27,6 +28,7 @@ const Categories = lazy(() => import("./pages/lojista/Categories"));
 const Products = lazy(() => import("./pages/lojista/Products"));
 const Coupons = lazy(() => import("./pages/lojista/Coupons"));
 const Zones = lazy(() => import("./pages/lojista/Zones"));
+const Drivers = lazy(() => import("./pages/lojista/Drivers"));
 const Settings = lazy(() => import("./pages/lojista/Settings"));
 const Orders = lazy(() => import("./pages/lojista/Orders"));
 const Customers = lazy(() => import("./pages/lojista/Customers"));
@@ -45,7 +47,6 @@ const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminParceiros = lazy(() => import("./pages/admin/AdminParceiros"));
 const CustomerDashboard = lazy(() => import("./pages/cliente/Dashboard"));
-const CustomerSubscription = lazy(() => import("./pages/cliente/Subscription"));
 const CustomerLayout = lazy(() => import("./pages/cliente/CustomerLayout"));
 const StoresList = lazy(() => import("./pages/public/StoresList"));
 const PartnerLanding = lazy(() => import("./pages/Index"));
@@ -66,14 +67,15 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <CartProvider>
-              <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-                <Routes>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <CartProvider>
+                <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                  <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<DomainHome />} />
                 <Route path="/vendas" element={<PartnerLanding />} />
@@ -108,7 +110,7 @@ const App = () => {
                 {/* Painel do Consumidor */}
                 <Route path="/cliente" element={<ProtectedRoute requiredRole="customer"><CustomerLayout /></ProtectedRoute>}>
                   <Route index element={<CustomerDashboard />} />
-                  <Route path="assinatura" element={<CustomerSubscription />} />
+                  <Route path="assinatura" element={<Navigate to="/cliente" replace />} />
                 </Route>
 
                 {/* Painel do Lojista */}
@@ -122,6 +124,7 @@ const App = () => {
                     <Route path="clientes" element={<Customers />} />
                     <Route path="cupons" element={<Coupons />} />
                     <Route path="entregas" element={<Zones />} />
+                    <Route path="entregadores" element={<Drivers />} />
                     <Route path="relatorios" element={<Reports />} />
                     <Route path="configuracoes" element={<Settings />} />
                     <Route path="usuarios" element={<Users />} />
@@ -138,12 +141,13 @@ const App = () => {
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </CartProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+                  </Routes>
+                </Suspense>
+              </CartProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

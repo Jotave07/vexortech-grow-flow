@@ -3,15 +3,14 @@ import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
 import { useCart, type CartItem } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ArrowLeft, CheckCircle2, Search, MapPin, Truck, ShoppingBag, CreditCard, Wallet, Copy, QrCode, AlertTriangle, Clock } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatBRL, onlyDigits, formatCEP, formatPhone, formatDoc } from "@/lib/format";
 import { isStoreOpen } from "@/lib/opening-hours";
@@ -61,15 +60,12 @@ const getAvailablePaymentMethods = (settings: any): PaymentMethod[] => {
   return methods;
 };
 
-const isMissingColumnError = (error: any, column: string) =>
-  Boolean(error?.message?.toLowerCase().includes(column.toLowerCase()));
-
 const PublicCheckout = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { items, itemSubtotal, subtotal, clear, setStoreSlug } = useCart();
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
 
   const [store, setStore] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -131,21 +127,20 @@ const PublicCheckout = () => {
       setState((profile as any).state || "");
     }
   }, [profile]);
-  
-  // Real-time payment verification while modal is open
+
   useEffect(() => {
     if (!showPixModal || !createdOrder?.id || isPaid) return;
-    
+
     const interval = setInterval(async () => {
       try {
-        const result = await syncPaymentStatusFn({ 
-          data: { 
-            orderId: createdOrder.id, 
+        const result = await syncPaymentStatusFn({
+          data: {
+            orderId: createdOrder.id,
             storeId: store.id,
             publicToken: createdOrder.public_token,
-          } 
+          }
         });
-        
+
         if (result.status === "paid") {
           setIsPaid(true);
           toast.success("Pagamento confirmado!");
@@ -157,8 +152,8 @@ const PublicCheckout = () => {
       } catch (e) {
         console.error("Error syncing payment:", e);
       }
-    }, 4000); // Check every 4s
-    
+    }, 4000);
+
     return () => clearInterval(interval);
   }, [showPixModal, createdOrder, store?.id, isPaid, navigate, syncPaymentStatusFn]);
 
@@ -261,7 +256,7 @@ const PublicCheckout = () => {
       const coords = addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : null;
       setCustomerCoordinates(coords);
       setLastResolvedCep(cleanCep);
-      
+
       if (addr.localidade && addr.uf) {
         await updateDeliveryQuote(cleanCep, addr.bairro || "", addr.localidade, addr.uf, coords, {
           street: addr.logradouro || "",
@@ -309,13 +304,13 @@ const PublicCheckout = () => {
   }, [handleCepLookup, lastResolvedCep, orderType, zipCode]);
 
   const zone = deliveryQuote?.region;
-  
+
   const discount = useMemo(() => {
     if (!coupon) return 0;
     if (coupon.discount_type === "percentual") return (subtotal * Number(coupon.discount_value)) / 100;
     return Math.min(Number(coupon.discount_value), subtotal);
   }, [coupon, subtotal]);
-  
+
   const actualDeliveryFee = useMemo(() => {
     if (orderType === "retirada") return 0;
     if (settings?.free_delivery_above && subtotal >= Number(settings.free_delivery_above)) return 0;
@@ -415,7 +410,7 @@ const PublicCheckout = () => {
 
   const submit = async () => {
     if (!store || !settings) return;
-    
+
     if (store.is_suspended) return toast.error("Loja suspensa.");
     if (!isStoreOpen(settings.business_hours, settings.is_open) && !settings.accept_orders_when_closed) {
       return toast.error("Loja fechada.");
@@ -429,7 +424,7 @@ const PublicCheckout = () => {
     if (!getAvailablePaymentMethods(settings).includes(paymentMethod)) {
       return toast.error("Forma de pagamento indisponível.");
     }
-    
+
     let quoteForCheckout = deliveryQuote;
     if (orderType === "entrega") {
       if (onlyDigits(zipCode).length !== 8) return toast.error("Informe um CEP válido.");
@@ -533,65 +528,87 @@ const PublicCheckout = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-muted"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-[var(--hype-green)]" /></div>;
+
+  // Shared card style for dark theme
+  const cardClass = "rounded-xl border border-border bg-card p-5";
+  const headerClass = "mb-5 flex items-center gap-3 border-b border-border pb-4";
+  const sectionIconClass = "flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--hype-green)]/10 text-[var(--hype-green)]";
+  const sectionTitleClass = "text-lg font-bold tracking-tight text-foreground";
+  const inputClass = "rounded-lg border-border bg-secondary/60 text-foreground placeholder:text-foreground/25 focus:border-[var(--hype-green)]/50 h-11 text-sm font-medium";
+  const labelClass = "mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-foreground/40";
 
   return (
-    <div className="min-h-screen bg-[#f6f7f2] pb-32">
-      <header className="sticky top-0 z-20 bg-white text-slate-950 p-4 flex items-center gap-3 border-b border-border shadow-sm">
-        <Button variant="ghost" size="icon" className="text-slate-700 hover:bg-muted" asChild>
-          <Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link>
-        </Button>
-        <h1 className="font-black uppercase tracking-tighter italic">Finalizar Pedido</h1>
+    <div className="min-h-screen bg-background pb-28 text-foreground">
+      {/* Header */}
+      <header className="hype-shell sticky top-0 z-20">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground" asChild>
+            <Link to={`/loja/${slug}`}><ArrowLeft className="h-5 w-5" /></Link>
+          </Button>
+          <h1 className="text-base font-bold tracking-tight text-foreground">Finalizar Pedido</h1>
+          <ThemeToggle className="ml-auto" />
+        </div>
       </header>
 
-      <div className="container max-w-xl mx-auto p-4 space-y-6 mt-4">
+      <div className="container max-w-xl mx-auto p-4 space-y-5 mt-4">
         {/* Identificação */}
-        <Card className="p-6 border border-border shadow-panel bg-white overflow-hidden">
-          <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
-            <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
-              <CheckCircle2 className="h-6 w-6" />
+        <div className={cardClass}>
+          <div className={headerClass}>
+            <div className={sectionIconClass}>
+              <CheckCircle2 className="h-5 w-5" />
             </div>
-            <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Seus dados</h2>
+            <h2 className={sectionTitleClass}>Seus dados</h2>
           </div>
           <div className="space-y-4">
             <div>
-              <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Nome Completo</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="COMO DEVEMOS TE CHAMAR?" />
+              <Label className={labelClass}>Nome Completo</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className={inputClass} placeholder="COMO DEVEMOS TE CHAMAR?" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">CPF ou CNPJ</Label>
-                <Input value={formatDoc(document)} onChange={(e) => setDocument(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" placeholder="000.000.000-00" />
+                <Label className={labelClass}>CPF ou CNPJ</Label>
+                <Input value={formatDoc(document)} onChange={(e) => setDocument(e.target.value)} className={inputClass} placeholder="000.000.000-00" />
               </div>
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">WhatsApp</Label>
-                <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" placeholder="(00) 00000-0000" />
+                <Label className={labelClass}>WhatsApp</Label>
+                <Input value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} className={inputClass} placeholder="(00) 00000-0000" />
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Entrega ou Retirada */}
-        <Card className="p-6 border border-border shadow-panel bg-white">
-          <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
-            <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
-              <Truck className="h-6 w-6" />
+        <div className={cardClass}>
+          <div className={headerClass}>
+            <div className={sectionIconClass}>
+              <Truck className="h-5 w-5" />
             </div>
-            <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Tipo de Entrega</h2>
+            <h2 className={sectionTitleClass}>Tipo de Entrega</h2>
           </div>
-          <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="grid grid-cols-2 gap-4">
+          <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="grid grid-cols-2 gap-3">
             {settings?.allow_delivery && (
-              <div className={cn("relative flex items-center justify-center border p-4 transition-all cursor-pointer", orderType === 'entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
-                <RadioGroupItem value="entrega" id="entrega" className="absolute top-2 right-2" />
-                <Label htmlFor="entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex flex-col items-center gap-2">
+              <div className={cn(
+                "relative flex items-center justify-center rounded-lg border p-4 transition-all cursor-pointer",
+                orderType === "entrega"
+                  ? "border-[var(--hype-green)]/50 bg-[var(--hype-green)]/5 text-[var(--hype-green)]"
+                  : "border-border text-foreground/40 hover:border-primary/40",
+              )}>
+                <RadioGroupItem value="entrega" id="entrega" className="absolute top-2 right-2 border-border" />
+                <Label htmlFor="entrega" className="flex cursor-pointer flex-col items-center gap-2 text-xs font-bold uppercase tracking-wider">
                   <Truck className="h-5 w-5" /> Entrega
                 </Label>
               </div>
             )}
             {settings?.allow_pickup && (
-              <div className={cn("relative flex items-center justify-center border p-4 transition-all cursor-pointer", orderType === 'retirada' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
-                <RadioGroupItem value="retirada" id="retirada" className="absolute top-2 right-2" />
-                <Label htmlFor="retirada" className="font-black uppercase text-xs tracking-widest cursor-pointer flex flex-col items-center gap-2">
+              <div className={cn(
+                "relative flex items-center justify-center rounded-lg border p-4 transition-all cursor-pointer",
+                orderType === "retirada"
+                  ? "border-[var(--hype-green)]/50 bg-[var(--hype-green)]/5 text-[var(--hype-green)]"
+                  : "border-border text-foreground/40 hover:border-primary/40",
+              )}>
+                <RadioGroupItem value="retirada" id="retirada" className="absolute top-2 right-2 border-border" />
+                <Label htmlFor="retirada" className="flex cursor-pointer flex-col items-center gap-2 text-xs font-bold uppercase tracking-wider">
                   <ShoppingBag className="h-5 w-5" /> Retirada
                 </Label>
               </div>
@@ -599,53 +616,58 @@ const PublicCheckout = () => {
           </RadioGroup>
 
           {orderType === "entrega" && (
-            <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="mt-6 space-y-4">
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 w-full border-border bg-white text-primary font-bold uppercase tracking-widest"
+                className="h-11 w-full rounded-lg border-border bg-secondary/60 text-foreground/70 hover:bg-secondary hover:text-foreground text-xs font-semibold"
                 onClick={handleCurrentLocation}
                 disabled={loadingLocation}
               >
-                {loadingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                {loadingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
                 Usar minha localização atual
               </Button>
 
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Seu CEP</Label>
+                <Label className={labelClass}>Seu CEP</Label>
                 <div className="flex gap-2">
-                  <Input value={formatCEP(zipCode)} onChange={(e) => setZipCode(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" placeholder="00000-000" />
-                  <Button onClick={() => void handleCepLookup()} disabled={loadingCep} className="h-12 w-12 shrink-0">
-                    {loadingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                  <Input value={formatCEP(zipCode)} onChange={(e) => setZipCode(e.target.value)} className={inputClass} placeholder="00000-000" />
+                  <Button onClick={() => void handleCepLookup()} disabled={loadingCep} className="h-11 w-11 shrink-0 rounded-lg">
+                    {loadingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
 
               {deliveryQuote && (
-                <div className={cn("p-4 border transition-all", deliveryQuote.available ? "bg-primary/5 border-primary/20" : "bg-red-50 border-red-100")}>
+                <div className={cn(
+                  "rounded-lg border p-4 transition-all",
+                  deliveryQuote.available
+                    ? "border-[var(--hype-green)]/20 bg-[var(--hype-green)]/5"
+                    : "border-red-500/20 bg-red-500/5",
+                )}>
                   {deliveryQuote.available ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Entrega disponível</span>
-                        <div className="flex items-center gap-1 text-primary font-black text-sm">
-                          <Truck className="h-4 w-4" /> {formatBRL(deliveryQuote.fee)}
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--hype-green)]">Entrega disponível</span>
+                        <div className="flex items-center gap-1 text-[var(--hype-green)] font-bold text-sm">
+                          <Truck className="h-4 w-4" /> {actualDeliveryFee > 0 ? formatBRL(actualDeliveryFee) : (settings?.free_delivery_above && subtotal >= Number(settings.free_delivery_above) ? `Grátis (pedido acima de ${formatBRL(Number(settings.free_delivery_above))})` : "Grátis")}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs font-bold text-slate-700">
+                      <div className="flex items-center gap-4 text-xs font-medium text-foreground/50">
                         <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {deliveryQuote.distance_km ? `${deliveryQuote.distance_km.toFixed(1).replace(".", ",")} km` : deliveryQuote.region?.name || deliveryQuote.region?.neighborhood || deliveryQuote.reason}</div>
                         <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {deliveryQuote.estimated_min}-{deliveryQuote.estimated_max} min</div>
                       </div>
                       {deliveryQuote.reason && (
-                        <p className="text-[11px] font-semibold text-slate-600">{deliveryQuote.reason}</p>
+                        <p className="text-[11px] font-medium text-foreground/50">{deliveryQuote.reason}</p>
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-start gap-2 text-red-700">
+                    <div className="flex items-start gap-2 text-red-400">
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                       <div className="space-y-1">
-                        <p className="text-xs font-black uppercase tracking-tight">{deliveryQuote.reason}</p>
+                        <p className="text-xs font-bold uppercase">{deliveryQuote.reason}</p>
                         {deliveryQuote.amount_to_min && (
-                          <p className="text-[10px] font-bold">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mínimo.</p>
+                          <p className="text-[10px]">Faltam {formatBRL(deliveryQuote.amount_to_min)} para atingir o mínimo.</p>
                         )}
                       </div>
                     </div>
@@ -653,77 +675,89 @@ const PublicCheckout = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="md:col-span-3">
-                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Rua / Av</Label>
-                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" />
+                  <Label className={labelClass}>Rua / Av</Label>
+                  <Input value={street} onChange={(e) => setStreet(e.target.value.toUpperCase())} className={inputClass} />
                 </div>
                 <div>
-                  <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Nº</Label>
-                  <Input value={number} onChange={(e) => setNumber(e.target.value)} className="border border-border focus:border-primary h-12 font-bold" />
+                  <Label className={labelClass}>Nº</Label>
+                  <Input value={number} onChange={(e) => setNumber(e.target.value)} className={inputClass} />
                 </div>
               </div>
 
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Complemento (Opcional)</Label>
-                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="APTO, BLOCO, FUNDOS..." />
+                <Label className={labelClass}>Complemento (Opcional)</Label>
+                <Input value={complement} onChange={(e) => setComplement(e.target.value.toUpperCase())} className={inputClass} placeholder="APTO, BLOCO, FUNDOS..." />
               </div>
 
               <div>
-                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Referencia para entrega (Opcional)</Label>
-                <Input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} className="border border-border focus:border-primary h-12 font-bold" placeholder="PORTARIA, PONTO DE REFERENCIA..." />
+                <Label className={labelClass}>Referência para entrega (Opcional)</Label>
+                <Input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} className={inputClass} placeholder="PORTARIA, PONTO DE REFERÊNCIA..." />
               </div>
             </div>
           )}
-        </Card>
+        </div>
 
         {/* Pagamento */}
-        <Card className="p-6 border border-border shadow-panel bg-white">
-          <div className="mb-6 flex items-center gap-3 border-b border-border pb-4">
-            <div className="h-10 w-10 bg-primary/10 flex items-center justify-center text-primary">
-              <CreditCard className="h-6 w-6" />
+        <div className={cardClass}>
+          <div className={headerClass}>
+            <div className={sectionIconClass}>
+              <CreditCard className="h-5 w-5" />
             </div>
-            <h2 className="font-black text-xl uppercase tracking-tight italic text-slate-950">Pagamento</h2>
+            <h2 className={sectionTitleClass}>Pagamento</h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-3">
               {settings?.accept_pix && !hasStorePixKey(settings) && (
-                <div className="relative flex items-start gap-3 border border-red-100 bg-red-50 p-4 text-red-700">
-                  <AlertTriangle className="h-5 w-5 shrink-0" />
+                <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-red-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-xs font-black uppercase tracking-tight">PIX nao habilitado</p>
-                    <p className="text-[11px] font-bold uppercase tracking-tight">A loja ainda nao cadastrou a chave Pix para receber pedidos.</p>
+                    <p className="text-xs font-bold uppercase">PIX não habilitado</p>
+                    <p className="text-[11px]">A loja ainda não cadastrou a chave Pix para receber pedidos.</p>
                   </div>
                 </div>
               )}
               {isPixCheckoutEnabled(settings) && (
-                <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'pix' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
-                  <RadioGroupItem value="pix" id="pix" />
-                  <Label htmlFor="pix" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-none bg-primary/10 flex items-center justify-center text-primary font-black">PIX</div>
-                    PIX (APROVACAO DA LOJA)
+                <div className={cn(
+                  "relative flex items-center gap-3 rounded-lg border p-4 transition-all cursor-pointer",
+                  paymentMethod === "pix" ? "border-[var(--hype-green)]/50 bg-[var(--hype-green)]/5 text-[var(--hype-green)]" : "border-border text-foreground/40 hover:border-primary/40",
+                )}>
+                  <RadioGroupItem value="pix" id="pix" className="border-border" />
+                  <Label htmlFor="pix" className="flex cursor-pointer items-center gap-3 text-xs font-bold uppercase tracking-wider">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--hype-green)]/10 font-bold text-[var(--hype-green)]">PIX</div>
+                    PIX (APROVAÇÃO DA LOJA)
                   </Label>
                 </div>
               )}
               {settings?.accept_cash && (
-                <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'dinheiro' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
-                  <RadioGroupItem value="dinheiro" id="dinheiro" />
-                  <Label htmlFor="dinheiro" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                <div className={cn(
+                  "relative flex items-center gap-3 rounded-lg border p-4 transition-all cursor-pointer",
+                  paymentMethod === "dinheiro" ? "border-[var(--hype-green)]/50 bg-[var(--hype-green)]/5 text-[var(--hype-green)]" : "border-border text-foreground/40 hover:border-primary/40",
+                )}>
+                  <RadioGroupItem value="dinheiro" id="dinheiro" className="border-border" />
+                  <Label htmlFor="dinheiro" className="flex cursor-pointer items-center gap-3 text-xs font-bold uppercase tracking-wider">
                     <Wallet className="h-5 w-5" /> Dinheiro
                   </Label>
                 </div>
               )}
               {settings?.accept_card_on_delivery && (
                 <>
-                  <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_credito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
-                    <RadioGroupItem value="cartao_credito_entrega" id="cartao_credito_entrega" />
-                    <Label htmlFor="cartao_credito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                  <div className={cn(
+                    "relative flex items-center gap-3 rounded-lg border p-4 transition-all cursor-pointer",
+                    paymentMethod === "cartao_credito_entrega" ? "border-[var(--hype-green)]/50 bg-[var(--hype-green)]/5 text-[var(--hype-green)]" : "border-border text-foreground/40 hover:border-primary/40",
+                  )}>
+                    <RadioGroupItem value="cartao_credito_entrega" id="cartao_credito_entrega" className="border-border" />
+                    <Label htmlFor="cartao_credito_entrega" className="flex cursor-pointer items-center gap-3 text-xs font-bold uppercase tracking-wider">
                       <CreditCard className="h-5 w-5" /> Cartão de Crédito (na entrega)
                     </Label>
                   </div>
-                  <div className={cn("relative flex items-center gap-3 border p-4 transition-all cursor-pointer", paymentMethod === 'cartao_debito_entrega' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground')}>
-                    <RadioGroupItem value="cartao_debito_entrega" id="cartao_debito_entrega" />
-                    <Label htmlFor="cartao_debito_entrega" className="font-black uppercase text-xs tracking-widest cursor-pointer flex items-center gap-3">
+                  <div className={cn(
+                    "relative flex items-center gap-3 rounded-lg border p-4 transition-all cursor-pointer",
+                    paymentMethod === "cartao_debito_entrega" ? "border-[var(--hype-green)]/50 bg-[var(--hype-green)]/5 text-[var(--hype-green)]" : "border-border text-foreground/40 hover:border-primary/40",
+                  )}>
+                    <RadioGroupItem value="cartao_debito_entrega" id="cartao_debito_entrega" className="border-border" />
+                    <Label htmlFor="cartao_debito_entrega" className="flex cursor-pointer items-center gap-3 text-xs font-bold uppercase tracking-wider">
                       <CreditCard className="h-5 w-5" /> Cartão de Débito (na entrega)
                     </Label>
                   </div>
@@ -731,34 +765,60 @@ const PublicCheckout = () => {
               )}
             </RadioGroup>
             {paymentMethod === "dinheiro" && (
-              <div className="animate-in slide-in-from-left-4">
-                <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground">Troco para quanto?</Label>
-                <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} type="number" className="border border-border h-12 font-bold" placeholder="EX: 100" />
+              <div className="mt-3">
+                <Label className={labelClass}>Troco para quanto?</Label>
+                <Input value={changeFor} onChange={(e) => setChangeFor(e.target.value)} type="number" className={inputClass} placeholder="EX: 100" />
               </div>
             )}
           </div>
-        </Card>
+        </div>
 
         {/* Observações */}
-        <Card className="p-6 border border-border shadow-panel bg-white">
-          <Label className="uppercase text-[10px] font-black tracking-widest text-muted-foreground mb-2 block">Observações do Pedido</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="border border-border focus:border-primary font-bold min-h-[100px]" placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..." />
-        </Card>
+        <div className={cardClass}>
+          <Label className={labelClass}>Observações do Pedido</Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="mt-1.5 min-h-[80px] rounded-lg border-border bg-secondary/60 text-foreground placeholder:text-foreground/25 focus:border-[var(--hype-green)]/50 text-sm font-medium"
+            placeholder="EX: TIRAR CEBOLA, CAMPAINHA COM DEFEITO..."
+          />
+        </div>
 
         {/* Footer com Total */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-border z-30 shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-xl p-4">
           <div className="container max-w-xl mx-auto flex items-center justify-between gap-4">
-            <div className="text-slate-950">
-              <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1 italic">Total do Pedido</p>
-              <p className="text-2xl font-black tracking-tighter text-slate-950">{formatBRL(total)}</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-foreground/60">
+                <span>Subtotal</span>
+                <span>{formatBRL(subtotal)}</span>
+              </div>
+              {orderType === "entrega" && (
+                <div className="flex items-center gap-2 text-[10px] font-semibold text-foreground/60">
+                  <span>Entrega</span>
+                  <span className={actualDeliveryFee === 0 ? "text-status-emerald" : ""}>{actualDeliveryFee > 0 ? formatBRL(actualDeliveryFee) : "Grátis"}</span>
+                </div>
+              )}
+              {discount > 0 && (
+                <div className="flex items-center gap-2 text-[10px] font-semibold text-status-emerald">
+                  <span>Desconto {coupon?.code ? `(${coupon.code})` : ""}</span>
+                  <span>-{formatBRL(discount)}</span>
+                </div>
+              )}
+              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40 mb-0.5 mt-1">Total do Pedido</p>
+              <p className="text-xl font-bold text-[var(--hype-green)]">{formatBRL(total)}</p>
             </div>
-            <Button onClick={submit} disabled={submitting || items.length === 0} className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 font-black uppercase tracking-tighter text-lg rounded-none shadow-lg transition-transform active:scale-95">
-              {submitting ? <Loader2 className="h-6 w-6 animate-spin" /> : "ENVIAR PEDIDO"}
+            <Button
+              onClick={submit}
+              disabled={submitting || items.length === 0}
+              className="h-12 shrink-0 rounded-xl bg-[var(--hype-green)] px-8 font-bold text-black hover:bg-[var(--hype-green-dark)] transition-all active:scale-95 shadow-lg shadow-[var(--hype-green)]/20"
+            >
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "ENVIAR PEDIDO"}
             </Button>
           </div>
         </div>
       </div>
 
+      {/* PIX Modal */}
       <Dialog open={showPixModal} onOpenChange={(open) => {
         if (!open && !isPaid) return;
         if (!open && createdOrder?.public_token) {
@@ -766,78 +826,66 @@ const PublicCheckout = () => {
         }
         setShowPixModal(open);
       }}>
-        <DialogContent className="max-w-[400px] border border-primary p-0 overflow-hidden bg-white sm:rounded-none shadow-2xl">
-          <div className="bg-primary p-6 text-center border-b border-primary/20">
-            <h2 className="text-xl font-black text-primary-foreground uppercase tracking-tighter italic">Pagamento via Pix</h2>
+        <DialogContent className="max-w-[400px] border-border bg-card p-0 overflow-hidden rounded-xl">
+          <div className="bg-[var(--hype-green)] p-6 text-center">
+            <h2 className="text-xl font-bold text-black uppercase">Pagamento via Pix</h2>
           </div>
-          
-          <div className="p-8 flex flex-col items-center gap-6">
+
+          <div className="p-6 flex flex-col items-center gap-5">
             {isPaid ? (
-              <div className="flex flex-col items-center gap-4 py-8 animate-in zoom-in duration-500">
-                <div className="h-20 w-20 bg-primary/10 text-primary flex items-center justify-center">
-                  <CheckCircle2 className="h-12 w-12" />
+              <div className="flex flex-col items-center gap-4 py-8">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[var(--hype-green)]/20 text-[var(--hype-green)]">
+                  <CheckCircle2 className="h-10 w-10" />
                 </div>
-                <h3 className="text-2xl font-black uppercase text-slate-950 italic">Pago com Sucesso!</h3>
-                <p className="text-sm text-center text-muted-foreground uppercase font-bold">Redirecionando para o acompanhamento...</p>
+                <h3 className="text-xl font-bold uppercase text-foreground">Pago com Sucesso!</h3>
+                <p className="text-sm text-foreground/50">Redirecionando para o acompanhamento...</p>
               </div>
             ) : (
               <>
-                <div className="h-16 w-16 bg-primary/10 flex items-center justify-center text-primary mb-2">
-                  <QrCode className="h-10 w-10" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--hype-green)]/10 text-[var(--hype-green)]">
+                  <QrCode className="h-8 w-8" />
                 </div>
 
-            {pixData?.qrCodeUrl && (
-              <div className="bg-white p-4 border border-border shadow-panel">
-                <img
-                  src={pixData.qrCodeUrl.startsWith('data:') ? pixData.qrCodeUrl : `data:image/png;base64,${pixData.qrCodeUrl}`}
-                  alt="QR Code PIX"
-                  loading="lazy"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  className="w-48 h-48"
-                />
-              </div>
+                {pixData?.qrCodeUrl && (
+                  <div className="rounded-xl border border-border bg-card p-4">
+                    <img
+                      src={pixData.qrCodeUrl.startsWith("data:") ? pixData.qrCodeUrl : `data:image/png;base64,${pixData.qrCodeUrl}`}
+                      alt="QR Code PIX"
+                      loading="lazy"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      className="h-48 w-48"
+                    />
+                  </div>
+                )}
+
+                <div className="w-full space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40 text-center">Pix Copia e Cola</p>
+                  <Input
+                    readOnly
+                    value={pixData?.pixCode || ""}
+                    className="h-12 rounded-lg border-border bg-secondary/60 text-center text-xs text-foreground/70"
+                  />
+                </div>
+
+                <Button
+                  className="w-full h-12 rounded-xl bg-[var(--hype-green)] font-bold text-black hover:bg-[var(--hype-green-dark)] flex items-center justify-center gap-2 transition-all active:scale-95"
+                  onClick={() => {
+                    if (pixData?.pixCode) {
+                      navigator.clipboard.writeText(pixData.pixCode);
+                      toast.success("Código PIX copiado!");
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" /> Copiar Código Pix
+                </Button>
+
+                <p className="text-center text-[11px] font-medium text-foreground/40 leading-tight rounded-lg border border-border/50 bg-secondary/30 p-3">
+                  Aguardando confirmação do pagamento Pix. Após o pagamento, aguarde a confirmação da loja.
+                </p>
+              </>
             )}
-
-            <div className="w-full space-y-3">
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">Pix Copia e Cola</p>
-              <div className="relative group">
-                <Input 
-                  readOnly 
-                  value={pixData?.pixCode || ""} 
-                  className="h-14 border border-border font-bold bg-muted/70 pr-4 focus-visible:ring-primary text-center"
-                />
-              </div>
-            </div>
-
-            <Button 
-              className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-tight rounded-none shadow-panel flex items-center justify-center gap-2 text-lg transition-all active:scale-95"
-              onClick={() => {
-                if (pixData?.pixCode) {
-                  navigator.clipboard.writeText(pixData.pixCode);
-                  toast.success("Código PIX copiado!");
-                }
-              }}
-            >
-              <Copy className="h-5 w-5" /> Copiar Código Pix
-            </Button>
-
-            <p className="text-center text-[11px] font-bold text-muted-foreground leading-tight uppercase tracking-tight opacity-80 bg-muted p-4 border border-border">
-              Aguardando confirmacao do pagamento Pix. Apos o pagamento, aguarde a confirmacao da loja.
-            </p>
-
-            <div className="w-full pt-2">
-              <Button 
-                variant="outline"
-                disabled
-                className="w-full h-14 border border-primary text-primary font-black uppercase tracking-tighter text-sm rounded-none hover:bg-muted transition-all active:scale-95 shadow-panel"
-              >
-                Aguardando confirmacao da loja
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </DialogContent>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

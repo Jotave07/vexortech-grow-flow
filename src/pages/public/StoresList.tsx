@@ -4,13 +4,14 @@ import { backend } from "@/integrations/backend/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, MapPin, ShoppingBag, User, ChevronDown, Filter, Utensils, ShoppingBasket, Wine, Pill, Tag, Star, LocateFixed, Clock, Heart, ShieldCheck, ChevronRight } from "lucide-react";
+import { Loader2, Search, MapPin, ShoppingBag, User, ChevronDown, Filter, Utensils, ShoppingBasket, Wine, Pill, Tag, Star, LocateFixed, Clock, Heart, ShieldCheck, ChevronRight, Bike, Package } from "lucide-react";
 import { Footer } from "@/components/landing/Footer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchAddressByCep, fetchAddressFromCurrentLocation } from "@/services/viacep";
 import { toast } from "sonner";
 import { onlyDigits, formatCEP, formatBRL } from "@/lib/format";
 import { BrandMark } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { detectStoreSegment, getSegmentCover } from "@/lib/store-segments";
@@ -36,6 +37,9 @@ const numberValue = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizeText = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 const getDeliveryFeeLabel = (store: any) => {
   const settings = store.store_settings;
   const fee = numberValue(settings?.delivery_base_fee ?? settings?.delivery_fee ?? store.delivery_fee);
@@ -55,9 +59,14 @@ const getPrepRangeLabel = (store: any) => {
 };
 
 const getStoreRating = (store: any) => ({
-  rating: numberValue(store.rating) || 4.8,
+  rating: numberValue(store.reviews_count) > 0 ? numberValue(store.rating) : 0,
   count: numberValue(store.reviews_count),
 });
+
+const getRatingLabel = (store: any) => {
+  const { rating, count } = getStoreRating(store);
+  return rating > 0 ? `${rating.toFixed(1)} (${count})` : count > 0 ? `Novo (${count})` : "Novo";
+};
 
 export default function StoresList() {
   const [stores, setStores] = useState<any[]>([]);
@@ -159,9 +168,11 @@ export default function StoresList() {
       const storeIds = loadedStores.map((store: any) => store.id).filter(Boolean);
       let categoryMap = new Map<string, string[]>();
       let ratingMap = new Map<string, { sum: number; reviewsCount: number }>();
+      let orderCountMap = new Map<string, number>();
+      let featuredProductMap = new Map<string, boolean>();
 
       if (storeIds.length > 0) {
-        const [{ data: menuCategories }, { data: reviews }] = await Promise.all([
+        const [{ data: menuCategories }, { data: reviews }, { data: orderStats }, { data: productsWithOffers }] = await Promise.all([
           backend
             .from("categories")
             .select("store_id, name")
@@ -169,8 +180,15 @@ export default function StoresList() {
             .eq("is_active", true),
           backend
             .from("store_reviews")
-            .select("store_id, rating")
-            .in("store_id", storeIds),
+            .select("store_id, rating, is_visible")
+            .in("store_id", storeIds)
+            .eq("is_visible", true),
+          backend.rpc("get_public_store_order_counts", { store_ids: storeIds }),
+          backend
+            .from("products")
+            .select("store_id, is_featured, promo_price")
+            .in("store_id", storeIds)
+            .eq("is_active", true),
         ]);
 
         categoryMap = (menuCategories || []).reduce((map: Map<string, string[]>, category: any) => {
@@ -187,6 +205,16 @@ export default function StoresList() {
           });
           return map;
         }, new Map<string, { sum: number; reviewsCount: number }>());
+
+        orderCountMap = (orderStats || []).reduce((map: Map<string, number>, order: any) => {
+          map.set(order.store_id, Number(order.completed_orders_count || 0));
+          return map;
+        }, new Map<string, number>());
+
+        featuredProductMap = (productsWithOffers || []).reduce((map: Map<string, boolean>, product: any) => {
+          if (product.is_featured || Number(product.promo_price || 0) > 0) map.set(product.store_id, true);
+          return map;
+        }, new Map<string, boolean>());
       }
 
       setStores(loadedStores.map((store: any) => {
@@ -194,14 +222,29 @@ export default function StoresList() {
         const menuCategories = categoryMap.get(store.id) || [];
         const rating = ratingMap.get(store.id);
         const verification = getStoreProfileVerification(store, settings);
+        const completedOrders = orderCountMap.get(store.id) || 0;
+        const reviewsCount = rating?.reviewsCount ?? 0;
+        const realRating = reviewsCount ? Number((rating.sum / reviewsCount).toFixed(1)) : 0;
+        const hasOffers = featuredProductMap.get(store.id) || false;
+        const storeIsOpen = settings ? isStoreOpen(settings.business_hours, settings.is_open) : false;
+        const verifiedScore = verification.status === "verified" || verification.status === "complete" ? 30 : 0;
         return {
           ...store,
           store_settings: settings,
           menu_categories: menuCategories,
           delivery_kind: detectStoreSegment(store, menuCategories),
-          store_is_open: settings ? isStoreOpen(settings.business_hours, settings.is_open) : false,
-          rating: rating?.reviewsCount ? Number((rating.sum / rating.reviewsCount).toFixed(1)) : 4.8,
-          reviews_count: rating?.reviewsCount ?? 0,
+          store_is_open: storeIsOpen,
+          rating: realRating,
+          reviews_count: reviewsCount,
+          completed_orders_count: completedOrders,
+          has_offers: hasOffers,
+          featured_score:
+            (storeIsOpen ? 1000 : 0) +
+            completedOrders * 10 +
+            reviewsCount * 3 +
+            realRating * 20 +
+            (hasOffers ? 80 : 0) +
+            verifiedScore,
           profile_verification: verification,
         };
       }));
@@ -221,29 +264,40 @@ export default function StoresList() {
         ...(s.menu_categories || []),
       ].filter(Boolean).join(" ").toLowerCase();
       const matchesSearch = searchable.includes(search.toLowerCase());
+      const normalizedActive = normalizeText(activeCategory);
+      const storeCategories = [s.delivery_kind, ...(s.menu_categories || [])]
+        .filter(Boolean)
+        .map((category: string) => normalizeText(category));
       const matchesCategory =
         activeCategory === "Todos" ||
         activeCategory === "Mais pedidos" ||
-        activeCategory === "Promoções" ||
-        normalizeCategoryName(s.delivery_kind) === normalizeCategoryName(activeCategory);
+        (activeCategory === "Promoções" && s.has_offers) ||
+        storeCategories.includes(normalizedActive);
       
       return matchesSearch && matchesCategory;
     }).sort((a, b) => {
+      if (activeCategory === "Promoções" && a.has_offers !== b.has_offers) return a.has_offers ? -1 : 1;
+      const orderDiff = numberValue(b.completed_orders_count) - numberValue(a.completed_orders_count);
+      if (orderDiff !== 0) return orderDiff;
       if (a.store_is_open && !b.store_is_open) return -1;
       if (!a.store_is_open && b.store_is_open) return 1;
-      return 0;
+      const ratingDiff = numberValue(b.rating) - numberValue(a.rating);
+      if (ratingDiff !== 0) return ratingDiff;
+      return String(a.public_name || a.name).localeCompare(String(b.public_name || b.name), "pt-BR");
     });
   }, [stores, search, activeCategory]);
 
-  // Destaques: lojas abertas com melhor avaliação (apresentação derivada da mesma fonte de dados)
+  // Destaques: regra calculada por loja aberta, pedidos entregues, ofertas, verificacao e avaliacoes reais.
   const featuredStores = useMemo(() => {
-    return [...stores]
+    const ranked = [...stores]
+      .filter((store) => store.store_is_open || store.has_offers || numberValue(store.completed_orders_count) > 0 || numberValue(store.reviews_count) > 0)
       .sort((a, b) => {
-        if (a.store_is_open && !b.store_is_open) return -1;
-        if (!a.store_is_open && b.store_is_open) return 1;
-        return numberValue(b.rating) - numberValue(a.rating);
+        const featuredDiff = numberValue(b.featured_score) - numberValue(a.featured_score);
+        if (featuredDiff !== 0) return featuredDiff;
+        return numberValue(b.completed_orders_count) - numberValue(a.completed_orders_count);
       })
       .slice(0, 8);
+    return ranked.length ? ranked : [...stores].slice(0, 8);
   }, [stores]);
 
   const handleSignOut = async () => {
@@ -252,7 +306,7 @@ export default function StoresList() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--hype-bg,#f6f7f2)] bg-muted/20">
+    <div className="hype-page min-h-screen">
       <div className="hidden">
         {/* SEO Metadata */}
         <title>Marketplace | Hype Delivery</title>
@@ -260,7 +314,7 @@ export default function StoresList() {
       </div>
 
       {/* Header Desktop */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 shadow-sm backdrop-blur-xl">
+      <header className="hype-shell fixed left-0 right-0 top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-8 shrink-0">
             <BrandMark to="/" className="scale-90" />
@@ -275,28 +329,10 @@ export default function StoresList() {
               >
                 Início
               </button>
-              <button
-                onClick={() => setActiveCategory("Restaurantes")}
-                className={cn(
-                  "text-sm font-bold uppercase tracking-widest transition-colors",
-                  activeCategory === "Restaurantes" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Restaurantes
-              </button>
-              <button
-                onClick={() => setActiveCategory("Mercados")}
-                className={cn(
-                  "text-sm font-bold uppercase tracking-widest transition-colors",
-                  activeCategory === "Mercados" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Mercados
-              </button>
             </nav>
           </div>
 
-          <div className="flex-1 max-w-2xl hidden md:flex items-center gap-4 bg-background px-4 h-12 rounded-none border border-border focus-within:border-primary/45 transition-all">
+          <div className="flex-1 max-w-2xl hidden md:flex items-center gap-4 bg-background px-4 h-12 rounded-md border border-border focus-within:border-primary/45 transition-all">
             <Search className="h-5 w-5 text-muted-foreground" />
             <input
               type="text"
@@ -308,9 +344,10 @@ export default function StoresList() {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+            <ThemeToggle className="hidden sm:inline-flex" />
             <button
               onClick={() => setShowAddressModal(true)}
-              className="hidden sm:flex items-center gap-2 px-3 h-12 hover:bg-muted rounded-none transition-colors group"
+              className="hidden sm:flex items-center gap-2 px-3 h-12 hover:bg-muted rounded-md transition-colors group"
             >
               <MapPin className="h-5 w-5 text-primary" />
               <div className="text-left hidden lg:block">
@@ -325,8 +362,8 @@ export default function StoresList() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 p-2 hover:bg-muted rounded-none transition-colors">
-                    <div className="h-9 w-9 bg-muted rounded-none flex items-center justify-center border border-border">
+                  <button className="flex items-center gap-2 p-2 hover:bg-muted rounded-md transition-colors">
+                    <div className="h-9 w-9 bg-muted rounded-md flex items-center justify-center border border-border">
                       <User className="h-5 w-5 text-muted-foreground" />
                     </div>
                   </button>
@@ -351,7 +388,7 @@ export default function StoresList() {
             ) : (
               <button
                 onClick={() => navigate("/entrar")}
-                className="text-sm font-bold text-primary hover:bg-primary/5 px-4 h-12 rounded-none transition-colors"
+                className="text-sm font-bold text-primary hover:bg-primary/5 px-4 h-12 rounded-md transition-colors"
               >
                 Entrar
               </button>
@@ -363,12 +400,12 @@ export default function StoresList() {
                 const slug = localStorage.getItem("vexor_active_store_slug");
                 if (slug) navigate(`/loja/${slug}`);
               }}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 h-12 rounded-none hover:brightness-110 transition-all shadow-lg shadow-primary/20"
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 h-12 rounded-md hover:brightness-110 transition-all shadow-lg shadow-primary/20"
             >
               <div className="relative">
                 <ShoppingBag className="h-5 w-5" />
                 {count > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-foreground text-background text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-none border-2 border-primary">
+                  <span className="absolute -top-2 -right-2 bg-foreground text-background text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-md border-2 border-primary">
                     {count}
                   </span>
                 )}
@@ -392,7 +429,7 @@ export default function StoresList() {
                   key={cat.name}
                   onClick={() => setActiveCategory(cat.name)}
                   className={cn(
-                    "flex items-center gap-2 whitespace-nowrap border rounded-none px-4 py-2 transition-all",
+                    "flex items-center gap-2 whitespace-nowrap border rounded-md px-4 py-2 transition-all",
                     active
                       ? "bg-primary border-primary text-primary-foreground font-bold"
                       : "bg-background border-border text-muted-foreground hover:border-primary/30 font-medium"
@@ -408,10 +445,11 @@ export default function StoresList() {
       </header>
 
       {/* Mobile Header Compact */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border px-4 py-2">
-         <div className="flex items-center justify-between mb-2">
+      <header className="hype-shell fixed left-0 right-0 top-0 z-50 px-4 pt-3 pb-2 md:hidden">
+         <div className="flex items-center justify-between mb-3">
             <BrandMark to="/" className="scale-75 origin-left" />
             <div className="flex items-center gap-2">
+              <ThemeToggle className="h-8 w-8" />
               <button
                 onClick={() => setShowAddressModal(true)}
                 className="flex items-center gap-1 text-xs font-bold text-muted-foreground"
@@ -424,59 +462,44 @@ export default function StoresList() {
               </button>
             </div>
          </div>
-         <div className="relative">
+         <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Busque por restaurante ou item"
-              className="w-full bg-muted border-none rounded-none py-2 pl-9 text-sm outline-none"
+              className="w-full bg-muted border-none rounded-md py-2.5 pl-9 text-sm outline-none"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
          </div>
+         {/* Mobile categories scroll */}
+         <div className="-mx-4 overflow-x-auto no-scrollbar border-t border-border">
+           <div className="flex items-center gap-2 px-4 py-2.5">
+             {categories.map((cat) => {
+               const active = activeCategory === cat.name;
+               return (
+                 <button
+                   key={cat.name}
+                   onClick={() => setActiveCategory(cat.name)}
+                   className={cn(
+                     "shrink-0 whitespace-nowrap rounded-md border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors",
+                     active
+                       ? "border-primary bg-primary text-primary-foreground"
+                       : "border-border bg-background text-muted-foreground hover:border-primary/30"
+                   )}
+                 >
+                   {cat.name}
+                 </button>
+               );
+             })}
+           </div>
+         </div>
       </header>
 
-      <main className="pt-32 md:pt-44 pb-20">
+      <main className="pt-44 md:pt-44 pb-20">
         {/* Hero — banner editável com busca proeminente */}
         <section className="container mx-auto px-4">
           <HeroBanner address={address} search={search} onSearch={setSearch} onOpenAddress={() => setShowAddressModal(true)} />
-        </section>
-
-        {/* Faixa de categorias em círculos */}
-        <section className="container mx-auto px-4 mt-8 md:mt-10">
-          <SectionTitle title="Categorias" hint="Explore por tipo" />
-          <div className="overflow-x-auto no-scrollbar -mx-4 px-4">
-            <div className="flex items-start gap-4 md:gap-5 pb-2">
-              {categories.map((cat) => {
-                const Icon = cat.icon;
-                const active = activeCategory === cat.name;
-                return (
-                  <button
-                    key={cat.name}
-                    onClick={() => setActiveCategory(cat.name)}
-                    className="group flex w-[68px] shrink-0 flex-col items-center gap-2 text-center"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-16 w-16 items-center justify-center rounded-none border transition-all",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                          : "border-border bg-background text-foreground group-hover:border-primary/40 group-hover:-translate-y-0.5"
-                      )}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </span>
-                    <span className={cn(
-                      "text-[11px] font-bold uppercase tracking-wider leading-tight",
-                      active ? "text-foreground" : "text-muted-foreground"
-                    )}>
-                      {cat.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </section>
 
         {/* Destaques / Ofertas — scroll horizontal */}
@@ -515,7 +538,7 @@ export default function StoresList() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{filteredStores.length} Lojas</span>
-              <Button variant="outline" size="sm" className="hidden md:flex gap-2 font-bold uppercase text-[10px] tracking-widest h-9 rounded-none">
+              <Button variant="outline" size="sm" className="hidden md:flex gap-2 font-bold uppercase text-[10px] tracking-widest h-9 rounded-md">
                 <Filter className="h-3 w-3" /> Filtros
               </Button>
             </div>
@@ -524,11 +547,11 @@ export default function StoresList() {
           {loading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="h-44 animate-pulse rounded-none border border-border bg-background" />
+                <div key={i} className="h-44 animate-pulse rounded-md border border-border bg-background" />
               ))}
             </div>
           ) : filteredStores.length === 0 ? (
-            <div className="text-center py-24 bg-muted/40 rounded-none border-2 border-dashed border-border">
+            <div className="text-center py-24 bg-muted/40 rounded-md border-2 border-dashed border-border">
               <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
               <h3 className="text-xl font-black uppercase text-foreground tracking-tight">Nenhum restaurante encontrado</h3>
               <p className="text-muted-foreground font-medium">Tente ajustar sua busca ou mudar sua localização.</p>
@@ -544,7 +567,7 @@ export default function StoresList() {
       </main>
 
       <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
-        <DialogContent className="max-w-md rounded-none border-none p-0 overflow-hidden">
+        <DialogContent className="max-w-md rounded-md border-none p-0 overflow-hidden">
           <div className="bg-background p-8">
             <DialogHeader className="mb-6 text-left">
                <DialogTitle className="text-xl font-black text-foreground uppercase tracking-tight">Onde você quer receber seu pedido?</DialogTitle>
@@ -560,7 +583,7 @@ export default function StoresList() {
                   value={formatCEP(tempCep)}
                   onChange={(e) => setTempCep(e.target.value)}
                   placeholder="Buscar endereço e número (ou CEP)"
-                  className="h-14 pl-12 border-border bg-muted/40 rounded-none font-medium focus:bg-background focus:border-primary transition-all"
+                  className="h-14 pl-12 border-border bg-muted/40 rounded-md font-medium focus:bg-background focus:border-primary transition-all"
                 />
               </div>
 
@@ -588,7 +611,7 @@ export default function StoresList() {
                    <p className="text-sm text-muted-foreground font-medium mb-4 text-balance">
                       Entre para ver seus endereços salvos e pedir mais rápido.
                    </p>
-                   <Button variant="outline" className="w-full h-12 font-bold uppercase tracking-widest rounded-none border-border" onClick={() => navigate("/entrar")}>
+                   <Button variant="outline" className="w-full h-12 font-bold uppercase tracking-widest rounded-md border-border" onClick={() => navigate("/entrar")}>
                       Entrar ou Cadastrar
                    </Button>
                 </div>
@@ -630,73 +653,150 @@ const HeroBanner = ({
     initial={{ opacity: 0, y: 12 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.4 }}
-    className="relative overflow-hidden rounded-none border border-primary/20 bg-[var(--hype-dark,#080808)] bg-foreground text-background shadow-elegant"
+    className="relative overflow-hidden rounded-xl border border-border bg-muted/60 backdrop-blur"
   >
-    {/* Imagem editável (placeholder se vazia) + glow verde */}
-    <div className="pointer-events-none absolute inset-0">
-      <div className="absolute -right-24 -top-24 h-72 w-72 rounded-none bg-primary/25 blur-3xl" />
-      <div className="absolute -bottom-24 -left-10 h-64 w-64 rounded-none bg-primary/10 blur-3xl" />
+    <div aria-hidden className="absolute inset-0 overflow-hidden">
+      <motion.div
+        animate={{ x: ["0%", "-18%", "0%"] }}
+        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-y-0 left-0 w-[150%] bg-[linear-gradient(115deg,transparent_0%,rgba(182,255,0,0.08)_24%,transparent_46%,rgba(255,255,255,0.04)_68%,transparent_100%)]"
+      />
+      <motion.div
+        animate={{ x: ["-12%", "10%", "-12%"] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-y-0 left-0 w-[140%] bg-[repeating-linear-gradient(90deg,transparent_0_90px,rgba(182,255,0,0.035)_90px_92px,transparent_92px_180px)]"
+      />
     </div>
-    <div className="relative grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-10">
-      <div className="max-w-xl">
-        <span className="inline-flex items-center gap-2 rounded-none bg-primary/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
-          <ShoppingBag className="h-3.5 w-3.5" /> Hype Delivery
-        </span>
-        <h1 className="mt-4 text-3xl font-black uppercase leading-tight tracking-tight md:text-4xl">
-          Peça do seu jeito, <span className="text-primary">chega voando</span>
-        </h1>
-        <p className="mt-3 text-sm font-medium text-background/70 md:text-base">
-          Restaurantes, mercados e muito mais perto de você. Escolha, peça e acompanhe em tempo real.
-        </p>
+    {/* Texto + busca */}
+    <div className="relative p-5 md:p-8">
+      {/* Badge Hype */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="mb-3 inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-1 text-[10px] font-black uppercase tracking-widest text-background"
+      >
+        <ShoppingBag className="h-3 w-3" /> Hype Delivery
+      </motion.div>
 
-        {/* Busca proeminente */}
-        <div className="mt-6 flex items-center gap-3 rounded-none border border-background/15 bg-background px-4 h-14 text-foreground">
-          <Search className="h-5 w-5 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="O que você quer comer hoje?"
-            className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
-          />
-          <Button
-            type="button"
-            className="hidden sm:inline-flex h-9 rounded-none bg-primary px-5 font-black uppercase tracking-widest text-xs text-primary-foreground hover:brightness-110"
-          >
-            Buscar
-          </Button>
-        </div>
+      <motion.h1
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="text-2xl font-black uppercase leading-tight tracking-tight text-foreground md:text-3xl"
+      >
+        Peça do seu jeito, <span className="text-primary">chega voando</span>
+      </motion.h1>
 
-        <button
-          onClick={onOpenAddress}
-          className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-background/70 hover:text-primary transition-colors"
+      <motion.p
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="mt-2 text-sm font-medium text-muted-foreground"
+      >
+        Escolha, peça e acompanhe em tempo real.
+      </motion.p>
+
+      {/* Busca */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-background px-4 h-12 text-foreground shadow-sm"
+      >
+        <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="O que você quer comer hoje?"
+          className="flex-1 min-w-0 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/60"
+        />
+        <Button
+          type="button"
+          className="shrink-0 h-8 rounded-md bg-primary px-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground hover:brightness-110"
         >
-          <MapPin className="h-3.5 w-3.5 text-primary" />
-          {address ? `${address.neighborhood}, ${address.city}` : "Definir endereço de entrega"}
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
-      </div>
+          Buscar
+        </Button>
+      </motion.div>
 
-      {/* Bloco visual editável (placeholder) */}
-      <div className="hidden md:block">
-        <div className="flex h-44 w-72 items-center justify-center rounded-none border border-background/15 bg-background/5 text-background/40">
-          <div className="text-center">
-            <ShoppingBag className="mx-auto h-10 w-10 text-primary" />
-            <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-background/50">Banner em destaque</p>
-          </div>
-        </div>
-      </div>
+      {/* Endereço */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        onClick={onOpenAddress}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+      >
+        <MapPin className="h-3.5 w-3.5 text-primary" />
+        {address ? `${address.neighborhood}, ${address.city}` : "Definir endereço de entrega"}
+        <ChevronDown className="h-3.5 w-3.5" />
+      </motion.button>
     </div>
+
+    {/* Faixa de status da entrega — visível em todas as telas */}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.6 }}
+      className="border-t border-border bg-card/40 px-5 py-4 md:px-8"
+    >
+      <div className="flex items-center justify-between gap-2 max-w-xl mx-auto">
+        {/* Logo Hype com pulso */}
+        <motion.div
+          animate={{ scale: [1, 1.04, 1] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          className="shrink-0"
+        >
+          <BrandMark className="scale-75 md:scale-90" inverted={false} />
+        </motion.div>
+
+        {/* Setas + etapas */}
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+          <span className="flex items-center gap-1">
+            <Package className="h-3.5 w-3.5 text-primary" />
+            <span className="hidden sm:inline">Pedido</span>
+          </span>
+          <ChevronRight className="h-3 w-3" />
+          <motion.span
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="flex items-center gap-1"
+          >
+            <Clock className="h-3.5 w-3.5 text-primary" />
+            <span className="hidden sm:inline">Preparo</span>
+          </motion.span>
+          <ChevronRight className="h-3 w-3" />
+          <motion.span
+            animate={{ x: [0, 2, 0, -2, 0] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+            className="flex items-center gap-1"
+          >
+            <Bike className="h-3.5 w-3.5 text-primary" />
+            <span className="hidden sm:inline">Entrega</span>
+          </motion.span>
+        </div>
+
+        {/* Badge de tempo */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 1.0, type: "spring" }}
+          className="shrink-0 flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary"
+        >
+          <Clock className="h-3 w-3" /> 20-35 min
+        </motion.div>
+      </div>
+    </motion.div>
   </motion.div>
 );
 
 const FeaturedCard = ({ store }: { store: any }) => {
   const accent = normalizeHexColor(store.primary_color, "#b6ff00");
   const cover = store.cover_url || store.logo_url || getSegmentCover(store.delivery_kind);
-  const rating = getStoreRating(store);
   return (
     <Link to={`/loja/${store.slug}`} className="group block w-56 shrink-0 sm:w-64">
-      <Card className="overflow-hidden rounded-none border border-border bg-card p-0 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-lg">
+      <Card className="overflow-hidden rounded-md border border-border bg-card p-0 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-lg">
         <div className="relative h-32 overflow-hidden bg-muted">
           {cover ? (
             <img src={cover} alt={store.public_name || store.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -707,17 +807,17 @@ const FeaturedCard = ({ store }: { store: any }) => {
           )}
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
           {/* Badge promo (pink) */}
-          <span className="absolute left-3 top-3 rounded-none bg-[#ff2d55] px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-sm">
+          <span className="absolute left-3 top-3 rounded-md bg-destructive px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-foreground shadow-sm">
             Oferta
           </span>
           <span className={cn(
-            "absolute right-3 top-3 rounded-none px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
-            store.store_is_open ? "bg-primary text-primary-foreground" : "bg-stone-700 text-white"
+            "absolute right-3 top-3 rounded-md px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
+            store.store_is_open ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
           )}>
             {store.store_is_open ? "Aberto" : "Fechado"}
           </span>
           <div
-            className="absolute -bottom-5 left-3 h-12 w-12 overflow-hidden rounded-none border-4 border-card bg-card shadow-md"
+            className="absolute -bottom-5 left-3 h-12 w-12 overflow-hidden rounded-md border-4 border-card bg-card shadow-md"
             style={{ borderColor: accent }}
           >
             {store.logo_url ? (
@@ -736,10 +836,10 @@ const FeaturedCard = ({ store }: { store: any }) => {
           <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">{store.delivery_kind}</p>
           <div className="mt-2 flex items-center justify-between text-xs font-bold">
             <span className="inline-flex items-center gap-1 text-foreground">
-              <Star className="h-3.5 w-3.5 fill-[#ffc857] text-[#ffc857]" />
-              {rating.rating.toFixed(1)}
+              <Star className="h-3.5 w-3.5 fill-accent text-accent" />
+              {getRatingLabel(store)}
             </span>
-            <span className={getDeliveryFeeLabel(store) === "Gratis" ? "text-emerald-600" : "text-muted-foreground"}>
+            <span className={getDeliveryFeeLabel(store) === "Gratis" ? "text-status-emerald" : "text-muted-foreground"}>
               Entrega {getDeliveryFeeLabel(store)}
             </span>
           </div>
@@ -763,11 +863,11 @@ const PartnerCard = ({ store, index }: { store: any; index: number }) => {
       transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
     >
       <Link to={`/loja/${store.slug}`} className="group block h-full">
-        <Card className="flex h-full flex-col gap-4 rounded-none border border-border bg-card p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-lg">
+        <Card className="flex h-full flex-col gap-4 rounded-md border border-border bg-card p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-lg">
           <div className="flex items-start gap-4">
             {/* Logo padronizado */}
             <div
-              className="h-16 w-16 shrink-0 overflow-hidden rounded-none border bg-background shadow-sm"
+              className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-background shadow-sm"
               style={{ borderColor: accent }}
             >
               {logo ? (
@@ -785,18 +885,18 @@ const PartnerCard = ({ store, index }: { store: any; index: number }) => {
                   {store.public_name || store.name}
                 </h2>
                 <span className={cn(
-                  "shrink-0 rounded-none px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
+                  "shrink-0 rounded-md px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
                   store.store_is_open ? "bg-primary/15 text-foreground" : "bg-muted text-muted-foreground"
                 )}>
                   {store.store_is_open ? "Aberto" : "Fechado"}
                 </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-none bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   {store.delivery_kind}
                 </span>
                 {verified && (
-                  <span className="inline-flex items-center gap-1 rounded-none bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-foreground">
                     <ShieldCheck className="h-3 w-3 text-primary" />
                     {verification.label}
                   </span>
@@ -812,8 +912,8 @@ const PartnerCard = ({ store, index }: { store: any; index: number }) => {
           {/* Metadados: avaliação, tempo, taxa */}
           <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border pt-3 text-xs font-bold text-foreground">
             <span className="inline-flex items-center gap-1">
-              <Star className="h-3.5 w-3.5 fill-[#ffc857] text-[#ffc857]" />
-              {rating.rating.toFixed(1)}
+              <Star className="h-3.5 w-3.5 fill-accent text-accent" />
+              {getRatingLabel(store)}
               <span className="font-medium text-muted-foreground">{rating.count ? `(${rating.count})` : "Novo"}</span>
             </span>
             <span className="text-border">•</span>
@@ -822,7 +922,7 @@ const PartnerCard = ({ store, index }: { store: any; index: number }) => {
               {getPrepRangeLabel(store)}
             </span>
             <span className="text-border">•</span>
-            <span className={getDeliveryFeeLabel(store) === "Gratis" ? "text-emerald-600" : "text-muted-foreground"}>
+            <span className={getDeliveryFeeLabel(store) === "Gratis" ? "text-status-emerald" : "text-muted-foreground"}>
               {getDeliveryFeeLabel(store)}
             </span>
             <span className="ml-auto inline-flex items-center gap-1 text-foreground group-hover:text-primary">

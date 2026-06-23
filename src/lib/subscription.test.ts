@@ -68,6 +68,18 @@ describe("subscription access state", () => {
     expect(plan?.limits.products).toBeNull();
   });
 
+  it("uses the monthly order limit from the plan catalog when present", () => {
+    const plan = normalizePlan({
+      id: "plan_custom_order_limit",
+      slug: "profissional",
+      name: "Profissional personalizado",
+      price_monthly: 99,
+      max_orders_per_month: 850,
+    });
+
+    expect(plan?.limits.monthlyOrders).toBe(850);
+  });
+
   it("does not recalculate limits from presets after a plan is already normalized", () => {
     const plan = normalizePlan({
       id: "plan_custom_limit",

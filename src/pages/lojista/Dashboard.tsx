@@ -106,7 +106,7 @@ const Dashboard = () => {
   if (accessState !== "active") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
-        <div className="bg-amber-50 text-amber-600 p-4 rounded-none border-2 border-amber-200">
+        <div className="bg-amber-50 text-amber-600 p-4 rounded-xl border-2 border-amber-200">
           <AlertTriangle className="h-12 w-12" />
         </div>
         <div className="max-w-md">
@@ -125,7 +125,7 @@ const Dashboard = () => {
   const activeOrders = stats.pending + stats.preparing + stats.delivering;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
@@ -133,7 +133,7 @@ const Dashboard = () => {
           <p className="font-medium text-muted-foreground">Performance do seu delivery em tempo real.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-none border border-border bg-muted/40 px-3 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
             <Clock className="h-3.5 w-3.5 text-primary" /> Atualizado agora
           </div>
           <Button variant="hero" className="h-10 font-black uppercase tracking-widest text-xs" asChild>
@@ -160,7 +160,7 @@ const Dashboard = () => {
           <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
             <ShoppingBag className="h-4 w-4 text-primary" /> Pedidos por status
           </h2>
-          <span className="rounded-none bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
+          <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
             {activeOrders} ativos
           </span>
         </div>
@@ -200,12 +200,12 @@ const Dashboard = () => {
                   <div key={p.name} className="group relative">
                     <div className="mb-1 flex items-center justify-between">
                       <span className="truncate pr-10 text-sm font-bold">
-                        <span className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-none bg-primary/15 text-[10px] font-black text-foreground">{i + 1}</span>
+                        <span className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-black text-foreground">{i + 1}</span>
                         {p.name}
                       </span>
                       <span className="text-sm font-black">{p.qty} un.</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-none border border-border bg-muted">
+                    <div className="h-2 w-full overflow-hidden rounded-full border border-border bg-muted">
                       <div
                         className="h-full bg-primary transition-all duration-1000 ease-out"
                         style={{ width: `${(p.qty / (topProducts[0]?.qty || 1)) * 100}%` }}
@@ -231,12 +231,12 @@ const Dashboard = () => {
           </Card>
 
           {/* Loja online */}
-          <Card className="flex flex-col items-center justify-center border-primary/20 bg-[var(--hype-dark)] p-6 text-center text-white shadow-elegant">
-            <div className="mb-4 rounded-none bg-primary/20 p-4">
+          <Card className="flex flex-col items-center justify-center border-primary/20 bg-background p-6 text-center text-foreground shadow-elegant">
+            <div className="mb-4 rounded-xl bg-primary/20 p-4">
               <ShoppingBag className="h-8 w-8 text-primary" />
             </div>
             <h3 className="mb-2 text-lg font-black uppercase tracking-tight">Sua loja está online</h3>
-            <p className="mb-6 text-sm text-white/80">Continue oferecendo o melhor serviço para seus clientes.</p>
+            <p className="mb-6 text-sm text-foreground/80">Continue oferecendo o melhor serviço para seus clientes.</p>
             <Button
               variant="outline"
               className="w-full border-primary bg-primary text-primary-foreground font-bold uppercase tracking-widest text-xs hover:bg-[var(--hype-green-dark)]"
@@ -276,7 +276,7 @@ const StatCard = ({
 }) => (
   <Card className="group p-5 transition-smooth hover:border-primary">
     <div className="mb-3 flex items-center justify-between">
-      <div className={cn("rounded-none p-2 transition-smooth", TONES[tone])}>
+      <div className={cn("rounded-xl p-2 transition-smooth", TONES[tone])}>
         <Icon className="h-5 w-5" />
       </div>
       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{hint}</span>
@@ -287,9 +287,9 @@ const StatCard = ({
 );
 
 const StatusColumn = ({ label, value, accent }: { label: string; value: number; accent: string }) => (
-  <div className="rounded-none border border-border bg-card p-4">
+  <div className="rounded-xl border border-border bg-card p-4">
     <div className="mb-3 flex items-center gap-2">
-      <span className={cn("h-2.5 w-2.5 rounded-none", accent)} />
+      <span className={cn("h-2.5 w-2.5 rounded-full", accent)} />
       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
     </div>
     <div className="text-3xl font-black tracking-tighter">{value}</div>
@@ -299,7 +299,7 @@ const StatusColumn = ({ label, value, accent }: { label: string; value: number; 
 const QuickAction = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => (
   <Link
     to={to}
-    className="flex flex-col items-center justify-center gap-2 rounded-none border border-border bg-muted/30 p-4 text-center transition-smooth hover:border-primary hover:bg-primary/10"
+    className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-muted/30 p-4 text-center transition-smooth hover:border-primary hover:bg-primary/10"
   >
     <Icon className="h-5 w-5 text-primary" />
     <span className="text-[11px] font-black uppercase tracking-widest">{label}</span>

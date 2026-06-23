@@ -35,7 +35,7 @@ const reserveManualPixPayment = async (
   const { rows: orders } = await client.query(
     `SELECT o.*, ss.pix_key, ss.pix_key_type, ss.payment_instructions, st.name AS store_name, st.city AS store_city
      FROM public.orders o
-     JOIN public.store_settings ss ON ss.store_id = o.store_id
+     LEFT JOIN public.store_settings ss ON ss.store_id = o.store_id
      JOIN public.stores st ON st.id = o.store_id
      WHERE o.id = $1
        AND o.store_id = $2
@@ -51,10 +51,12 @@ const reserveManualPixPayment = async (
 
   const pixPayload = order.pix_payload || createPixCopyPastePayload({
     pixKey: order.pix_key,
+    pixKeyType: order.pix_key_type,
     amount: Number(order.total || 0),
     merchantName: order.store_name || "Hype Delivery",
     merchantCity: order.store_city || "BRASIL",
-    txid: String(order.order_number || order.id).replace(/\W/g, "").slice(0, 25) || "PEDIDO",
+    txid: `PEDIDO${String(order.order_number || order.id).replace(/\W/g, "").slice(0, 19)}`.slice(0, 25) || "PEDIDO",
+    description: `Pedido #${order.order_number || order.id} - ${order.customer_name || "Cliente"}`,
   });
 
   const { rows: paymentRows } = await client.query(

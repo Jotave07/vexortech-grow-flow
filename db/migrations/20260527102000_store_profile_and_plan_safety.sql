@@ -29,8 +29,7 @@ ALTER TABLE public.plans
   ADD COLUMN IF NOT EXISTS sort_order integer DEFAULT 0,
   ADD COLUMN IF NOT EXISTS allows_coupons boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS allows_advanced_reports boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS allows_custom_branding boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS allows_custom_domain boolean DEFAULT false;
+  ADD COLUMN IF NOT EXISTS allows_custom_branding boolean DEFAULT false;
 
 UPDATE public.plans
 SET slug = COALESCE(NULLIF(btrim(slug), ''), lower(regexp_replace(name, '[^a-zA-Z0-9]+', '_', 'g'))),

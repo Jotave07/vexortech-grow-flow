@@ -14,7 +14,6 @@ export type SubscriptionFeature =
   | "coupons"
   | "advancedReports"
   | "customBranding"
-  | "customDomain"
   | "advancedDelivery"
   | "automations"
   | "paymentIntegrations"
@@ -64,7 +63,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: false,
       advancedReports: false,
       customBranding: false,
-      customDomain: false,
       advancedDelivery: false,
       automations: false,
       paymentIntegrations: false,
@@ -83,7 +81,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: false,
       advancedReports: false,
       customBranding: false,
-      customDomain: false,
       advancedDelivery: false,
       automations: false,
       paymentIntegrations: false,
@@ -102,7 +99,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: true,
       advancedReports: false,
       customBranding: true,
-      customDomain: false,
       advancedDelivery: true,
       automations: false,
       paymentIntegrations: false,
@@ -121,7 +117,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: true,
       advancedReports: true,
       customBranding: true,
-      customDomain: false,
       advancedDelivery: true,
       automations: true,
       paymentIntegrations: true,
@@ -140,7 +135,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: true,
       advancedReports: true,
       customBranding: true,
-      customDomain: false,
       advancedDelivery: true,
       automations: true,
       paymentIntegrations: true,
@@ -159,7 +153,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: true,
       advancedReports: true,
       customBranding: true,
-      customDomain: true,
       advancedDelivery: true,
       automations: true,
       paymentIntegrations: true,
@@ -178,7 +171,6 @@ const PLAN_PRESETS: Record<string, PlanPreset> = {
       coupons: true,
       advancedReports: true,
       customBranding: true,
-      customDomain: true,
       advancedDelivery: true,
       automations: true,
       paymentIntegrations: true,
@@ -201,7 +193,6 @@ const DEFAULT_CAPABILITIES: PlanCapabilities = {
   coupons: false,
   advancedReports: false,
   customBranding: false,
-  customDomain: false,
   advancedDelivery: false,
   automations: false,
   paymentIntegrations: false,
@@ -213,7 +204,6 @@ const FEATURE_LABELS: Record<SubscriptionFeature, string> = {
   coupons: "Cupons de desconto",
   advancedReports: "Relatorios avancados",
   customBranding: "Marca personalizada",
-  customDomain: "Dominio proprio",
   advancedDelivery: "Configuracoes avancadas de entrega",
   automations: "Automacoes operacionais",
   paymentIntegrations: "Integracoes de pagamento",
@@ -272,11 +262,16 @@ export const normalizePlan = (plan: Partial<PlanRecord> | NormalizedPlan | null 
   const productsLimit = hasProductsLimit
     ? (plan.max_products ?? null)
     : (preset.limits.products ?? DEFAULT_LIMITS.products);
+  const hasMonthlyOrdersLimit = Object.prototype.hasOwnProperty.call(plan, "max_orders_per_month");
+  const monthlyOrdersLimit = hasMonthlyOrdersLimit
+    ? (plan.max_orders_per_month ?? null)
+    : (preset.limits.monthlyOrders ?? DEFAULT_LIMITS.monthlyOrders);
 
   const limits: PlanLimits = {
     ...DEFAULT_LIMITS,
     ...preset.limits,
     products: productsLimit,
+    monthlyOrders: monthlyOrdersLimit,
   };
 
   const capabilities: PlanCapabilities = {
@@ -285,7 +280,6 @@ export const normalizePlan = (plan: Partial<PlanRecord> | NormalizedPlan | null 
     coupons: plan.allows_coupons ?? preset.capabilities.coupons ?? DEFAULT_CAPABILITIES.coupons,
     advancedReports: plan.allows_advanced_reports ?? preset.capabilities.advancedReports ?? DEFAULT_CAPABILITIES.advancedReports,
     customBranding: plan.allows_custom_branding ?? preset.capabilities.customBranding ?? DEFAULT_CAPABILITIES.customBranding,
-    customDomain: plan.allows_custom_domain ?? preset.capabilities.customDomain ?? DEFAULT_CAPABILITIES.customDomain,
   };
 
   return {

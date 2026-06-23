@@ -269,15 +269,181 @@ const checks = [
     ]],
   },
   {
+    label: "store settings runtime columns",
+    sql: `
+      SELECT count(*) = 3 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'store_settings'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["address", "next_opening_time", "payment_methods"]],
+  },
+  {
+    label: "products runtime columns",
+    sql: `
+      SELECT count(*) = 2 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'products'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["is_featured", "prep_time_minutes"]],
+  },
+  {
+    label: "profiles admin subscription columns",
+    sql: `
+      SELECT count(*) = 2 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'profiles'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["avatar_url", "is_exempt"]],
+  },
+  {
+    label: "subscriptions trial column",
+    sql: `
+      SELECT count(*) = 1 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'subscriptions'
+        AND column_name = 'trial_ends_at'
+    `,
+  },
+  {
+    label: "orders scheduling/cancellation columns",
+    sql: `
+      SELECT count(*) = 9 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'orders'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [[
+      "cancel_reason",
+      "delivery_city",
+      "delivery_neighborhood",
+      "delivery_state",
+      "delivery_zip_code",
+      "estimated_delivery_at",
+      "estimated_ready_at",
+      "refused_reason",
+      "scheduled_at",
+    ]],
+  },
+  {
+    label: "delivery zones internal notes column",
+    sql: `
+      SELECT count(*) = 1 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'delivery_zones'
+        AND column_name = 'internal_notes'
+    `,
+  },
+  {
+    label: "delivery drivers table",
+    sql: `
+      SELECT
+        to_regclass('public.delivery_drivers') IS NOT NULL
+        AND to_regclass('public.delivery_drivers_store_id_idx') IS NOT NULL
+        AND (
+          SELECT count(*) = 8
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'delivery_drivers'
+            AND column_name = ANY($1::text[])
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public'
+            AND c.relname = 'delivery_drivers'
+            AND c.relrowsecurity IS TRUE
+        ) AS ok
+    `,
+    params: [["id", "store_id", "name", "phone", "vehicle_type", "is_active", "created_at", "updated_at"]],
+  },
+  {
+    label: "customer account tables",
+    sql: `
+      SELECT
+        to_regclass('public.customer_addresses') IS NOT NULL
+        AND to_regclass('public.customer_favorites') IS NOT NULL
+        AND (
+          SELECT count(*) = 15
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'customer_addresses'
+            AND column_name = ANY($1::text[])
+        )
+        AND (
+          SELECT count(*) = 4
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'customer_favorites'
+            AND column_name = ANY($2::text[])
+        ) AS ok
+    `,
+    params: [
+      [
+        "id",
+        "user_id",
+        "label",
+        "street",
+        "number",
+        "complement",
+        "neighborhood",
+        "city",
+        "state",
+        "zip_code",
+        "latitude",
+        "longitude",
+        "is_default",
+        "created_at",
+        "updated_at",
+      ],
+      ["id", "user_id", "store_id", "created_at"],
+    ],
+  },
+  {
+    label: "audit log table",
+    sql: `
+      SELECT
+        to_regclass('public.audit_logs') IS NOT NULL
+        AND (
+          SELECT count(*) = 8
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'audit_logs'
+            AND column_name = ANY($1::text[])
+        ) AS ok
+    `,
+    params: [["id", "actor_user_id", "store_id", "action", "entity_type", "entity_id", "metadata", "created_at"]],
+  },
+  {
+    label: "store reviews runtime columns",
+    sql: `
+      SELECT count(*) = 9 AS ok
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'store_reviews'
+        AND column_name = ANY($1::text[])
+    `,
+    params: [["id", "store_id", "user_id", "order_id", "rating", "comment", "is_visible", "created_at", "updated_at"]],
+  },
+  {
     label: "plan catalog safety columns",
     sql: `
-      SELECT count(*) = 5 AS ok
+      SELECT count(*) = 6 AS ok
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = 'plans'
         AND column_name = ANY($1::text[])
     `,
-    params: [["slug", "features", "max_products", "sort_order", "allows_custom_branding"]],
+    params: [["slug", "features", "max_products", "max_orders_per_month", "sort_order", "allows_custom_branding"]],
   },
   {
     label: "supabase auth profile trigger",
@@ -298,6 +464,20 @@ const checks = [
   {
     label: "user role uniqueness",
     sql: "SELECT to_regclass('public.user_roles_user_role_store_unique') IS NOT NULL AS ok",
+  },
+  {
+    label: "store owners have resolvable profiles",
+    sql: `
+      SELECT count(*) = 0 AS ok
+      FROM public.stores s
+      WHERE s.owner_user_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.profiles p
+          WHERE p.user_id = s.owner_user_id
+             OR p.store_id = s.id
+        )
+    `,
   },
   {
     label: "public tables do not expose Data API privileges to anon/authenticated",

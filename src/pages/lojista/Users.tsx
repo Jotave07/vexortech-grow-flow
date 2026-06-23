@@ -73,7 +73,7 @@ const Users = () => {
           const isMe = m.user_id === user?.id;
           return (
             <Card key={m.id} className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-none bg-primary/10 flex items-center justify-center text-primary font-bold">
+              <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary font-bold">
                 {(m.full_name ?? m.email ?? "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">

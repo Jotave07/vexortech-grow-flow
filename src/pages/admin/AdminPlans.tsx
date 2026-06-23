@@ -49,6 +49,7 @@ const AdminPlans = () => {
       ...p,
       price_monthly: String(p.price_monthly),
       max_products: p.max_products ?? "",
+      max_orders_per_month: p.max_orders_per_month ?? "",
       sort_order: p.sort_order ?? 0,
       featuresText: stringifyFeatures(p.features),
     });
@@ -62,12 +63,12 @@ const AdminPlans = () => {
       description: "",
       price_monthly: "0",
       max_products: "",
+      max_orders_per_month: "",
       featuresText: "",
       is_active: true,
       allows_coupons: false,
       allows_advanced_reports: false,
       allows_custom_branding: false,
-      allows_custom_domain: false,
       sort_order: plans.length,
     });
     setOpen(true);
@@ -80,11 +81,12 @@ const AdminPlans = () => {
       name: form.name, slug: form.slug, description: form.description || null,
       price_monthly: Number(form.price_monthly) || 0,
       max_products: form.max_products ? Number(form.max_products) : null,
+      max_orders_per_month: form.max_orders_per_month === "" || form.max_orders_per_month == null ? null : Number(form.max_orders_per_month),
       features: parseFeatures(form.featuresText),
       sort_order: Number(form.sort_order) || 0,
       is_active: form.is_active,
       allows_coupons: form.allows_coupons, allows_advanced_reports: form.allows_advanced_reports,
-      allows_custom_branding: form.allows_custom_branding, allows_custom_domain: form.allows_custom_domain,
+      allows_custom_branding: form.allows_custom_branding,
     };
     const { error } = editing
       ? await backend.from("plans").update(payload).eq("id", editing.id)
@@ -140,7 +142,7 @@ const AdminPlans = () => {
         : `${formatBRL(minPrice)} – ${formatBRL(maxPrice)}`;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
@@ -166,7 +168,7 @@ const AdminPlans = () => {
           <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
             <Layers className="h-4 w-4 text-primary" /> Catálogo de planos
           </h2>
-          <span className="rounded-none bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
+          <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
             {plans.length} planos
           </span>
         </div>
@@ -183,7 +185,6 @@ const AdminPlans = () => {
                 p.allows_coupons ? "Cupons" : "",
                 p.allows_advanced_reports ? "Relatorios avancados" : "",
                 p.allows_custom_branding ? "Personalizacao visual" : "",
-                p.allows_custom_domain ? "Dominio proprio" : "",
               ].filter(Boolean);
               const isFree = Number(p.price_monthly) <= 0;
 
@@ -241,27 +242,27 @@ const AdminPlans = () => {
                         <span className="pb-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">/mês</span>
                       </div>
                       {isFree && (
-                        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-none bg-primary/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
+                        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
                           <Sparkles className="h-3 w-3" /> Sem cobrança
                         </span>
                       )}
 
                       <ul className="mt-4 space-y-2 text-xs font-medium text-muted-foreground">
                         <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-none bg-primary" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                           {normalized?.limits.products ? `${normalized.limits.products} produtos` : "Produtos ilimitados"}
                         </li>
                         <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-none bg-primary" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                           {normalized?.limits.monthlyOrders ? `${normalized.limits.monthlyOrders} pedidos/mes` : "Pedidos ilimitados"}
                         </li>
                         <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-none bg-primary" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                           {normalized?.limits.internalUsers ? `${normalized.limits.internalUsers} usuario(s)` : "Usuarios ilimitados"}
                         </li>
                         {features.slice(0, 4).map((feature) => (
                           <li key={feature} className="flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 rounded-none bg-primary/50" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary/50" />
                             {feature}
                           </li>
                         ))}
@@ -291,7 +292,6 @@ const AdminPlans = () => {
               {p.allows_coupons && <li>✓ Cupons</li>}
               {p.allows_advanced_reports && <li>✓ Relatórios avançados</li>}
               {p.allows_custom_branding && <li>✓ Marca personalizada</li>}
-              {p.allows_custom_domain && <li>✓ Domínio próprio</li>}
             </ul>
           </Card>
         ))}
@@ -304,11 +304,13 @@ const AdminPlans = () => {
             <div><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
             <div><Label>Descrição</Label><Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <div><Label>Preço/mês</Label><Input type="number" step="0.01" value={form.price_monthly} onChange={(e) => setForm({ ...form, price_monthly: e.target.value })} /></div>
               <div><Label>Máx. produtos</Label><Input type="number" value={form.max_products} onChange={(e) => setForm({ ...form, max_products: e.target.value })} placeholder="∞" /></div>
+              <div><Label>Max. pedidos/mes</Label><Input type="number" value={form.max_orders_per_month} onChange={(e) => setForm({ ...form, max_orders_per_month: e.target.value })} placeholder="Ilimitado" /></div>
             </div>
-            {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["allows_custom_domain", "Domínio próprio"], ["is_active", "Público"]].map(([k, l]) => (
+            <p className="text-[10px] text-muted-foreground mt-1">Limite de pedidos que a loja pode receber por mes. Deixe vazio para ilimitado.</p>
+            {[["allows_coupons", "Cupons"], ["allows_advanced_reports", "Relatórios avançados"], ["allows_custom_branding", "Marca personalizada"], ["is_active", "Público"]].map(([k, l]) => (
               <div key={k} className="flex items-center justify-between"><Label>{l}</Label><Switch checked={!!form[k]} onCheckedChange={(v) => setForm({ ...form, [k]: v })} /></div>
             ))}
             <div><Label>Ordem</Label><Input type="number" value={form.sort_order ?? 0} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
@@ -322,7 +324,7 @@ const AdminPlans = () => {
               />
             </div>
             <div className="pt-2">
-              <div className="mb-3 flex gap-2 rounded-none border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <div className="mb-3 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 Alterar preco ou recursos nao mexe em cobrancas ja emitidas. O fluxo de assinatura usa o valor do plano selecionado no momento da assinatura.
               </div>
@@ -358,7 +360,7 @@ const StatTile = ({
 }) => (
   <Card className="group p-5 transition-smooth hover:border-primary">
     <div className="mb-3 flex items-center justify-between">
-      <div className={cn("rounded-none p-2 transition-smooth", TONES[tone])}>
+      <div className={cn("rounded-xl p-2 transition-smooth", TONES[tone])}>
         <Icon className="h-5 w-5" />
       </div>
       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{hint}</span>

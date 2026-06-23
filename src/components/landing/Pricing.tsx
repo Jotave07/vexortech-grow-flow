@@ -11,6 +11,8 @@ const buildFeatures = (plan: any) => {
 
   if (plan.max_products) features.push(`${plan.max_products} produtos`);
   else features.push("Produtos ilimitados");
+  if (plan.max_orders_per_month) features.push(`${plan.max_orders_per_month} pedidos/mes`);
+  else features.push("Pedidos ilimitados");
 
   features.push("Link público");
   features.push("Gestão de produtos");
@@ -18,7 +20,6 @@ const buildFeatures = (plan: any) => {
   if (plan.allows_coupons) features.push("Cupons");
   if (plan.allows_advanced_reports) features.push("Relatórios completos");
   if (plan.allows_custom_branding) features.push("Personalização visual");
-  if (plan.allows_custom_domain) features.push("Domínio próprio");
 
   return features;
 };
@@ -90,10 +91,10 @@ export const Pricing = () => {
               key={plan.id} 
               variants={itemVariants}
               whileHover={{ y: -8, transition: { duration: 0.3 } }}
-              className={`vexor-panel relative flex flex-col rounded-none border bg-card p-7 shadow-card transition-colors ${plan.highlight ? "border-primary shadow-elegant" : "border-border hover:border-primary/40"}`}
+              className={`vexor-panel relative flex flex-col border bg-card p-7 shadow-card transition-colors ${plan.highlight ? "border-primary shadow-elegant" : "border-border hover:border-primary/40"}`}
             >
               {plan.highlight && (
-                <div className="absolute -top-3 left-5 rounded-none border border-primary bg-primary px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-primary-foreground">
+                <div className="absolute -top-3 left-5 rounded-full border border-primary bg-primary px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-primary-foreground">
                   Mais escolhido
                 </div>
               )}

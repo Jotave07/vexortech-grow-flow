@@ -388,6 +388,47 @@ export type Database = {
           },
         ]
       }
+      delivery_drivers: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          store_id: string
+          updated_at: string | null
+          vehicle_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          store_id: string
+          updated_at?: string | null
+          vehicle_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          store_id?: string
+          updated_at?: string | null
+          vehicle_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_drivers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_item_options: {
         Row: {
           created_at: string | null
@@ -809,12 +850,12 @@ export type Database = {
           allows_advanced_reports: boolean | null
           allows_coupons: boolean | null
           allows_custom_branding: boolean | null
-          allows_custom_domain: boolean | null
           created_at: string | null
           description: string | null
           features: Json | null
           id: string
           is_active: boolean | null
+          max_orders_per_month: number | null
           max_products: number | null
           name: string
           price_monthly: number
@@ -825,12 +866,12 @@ export type Database = {
           allows_advanced_reports?: boolean | null
           allows_coupons?: boolean | null
           allows_custom_branding?: boolean | null
-          allows_custom_domain?: boolean | null
           created_at?: string | null
           description?: string | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
+          max_orders_per_month?: number | null
           max_products?: number | null
           name: string
           price_monthly: number
@@ -841,12 +882,12 @@ export type Database = {
           allows_advanced_reports?: boolean | null
           allows_coupons?: boolean | null
           allows_custom_branding?: boolean | null
-          allows_custom_domain?: boolean | null
           created_at?: string | null
           description?: string | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
+          max_orders_per_month?: number | null
           max_products?: number | null
           name?: string
           price_monthly?: number

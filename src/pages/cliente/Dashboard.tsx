@@ -9,10 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, LogOut, Search, ShieldCheck } from "lucide-react";
-import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone, formatDoc, formatDeliveryAddressLines } from "@/lib/format";
+import { Loader2, Package, MapPin, User, ShoppingBag, MessageSquare, ExternalLink, Save, Search, Store } from "lucide-react";
+import { formatBRL, formatDateTime, STATUS_COLORS, STATUS_LABELS, buildWhatsAppLink, formatPhone, formatDeliveryAddressLines } from "@/lib/format";
 import { toast } from "sonner";
-import { getUserProfileVerification } from "@/lib/profile-verification";
+
+const PRODUCTION_STATUSES = new Set(["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "pronto_para_retirada"]);
+const DELIVERED_STATUSES = new Set(["entregue"]);
 
 const CustomerDashboard = () => {
   const { user, profile, loading: authLoading, refreshProfile, signOut } = useAuth();
@@ -43,8 +45,6 @@ const CustomerDashboard = () => {
     profile?.neighborhood && 
     profile?.city && 
     profile?.state;
-  const profileVerification = getUserProfileVerification(profile, user);
-
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -169,20 +169,87 @@ const CustomerDashboard = () => {
     }
   };
 
+  const productionOrders = orders.filter((order) => PRODUCTION_STATUSES.has(order.status));
+  const deliveredOrders = orders.filter((order) => DELIVERED_STATUSES.has(order.status));
+
+  const renderOrders = (items: any[], emptyTitle: string, emptyDescription: string) => (
+    items.length === 0 ? (
+      <Card className="p-10 text-center border-2 border-dashed border-border bg-card md:p-16">
+        <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground/35 mb-4" />
+        <h3 className="font-black uppercase tracking-tight text-xl">{emptyTitle}</h3>
+        <p className="text-muted-foreground text-sm">{emptyDescription}</p>
+        <Button className="mt-6 font-black uppercase" variant="hero" asChild>
+          <Link to="/lojas">Ver lojas disponíveis</Link>
+        </Button>
+      </Card>
+    ) : (
+      items.map((order) => (
+        <Card key={order.id} className="p-6 border border-border rounded-md bg-card shadow-elegant hover:shadow-elegant transition-all">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-border/50 pb-4">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Pedido #{order.order_number}</div>
+              <h3 className="text-lg font-black uppercase tracking-tight italic">{order.stores?.name || "Loja"}</h3>
+              <div className="text-xs font-bold text-muted-foreground">{formatDateTime(order.created_at)}</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge className={`rounded-md border border-border uppercase font-black text-[10px] px-3 py-1 ${STATUS_COLORS[order.status] || ""}`}>
+                {STATUS_LABELS[order.status] || order.status}
+              </Badge>
+              <Button variant="outline" size="sm" className="rounded-md border-border h-8 text-[10px] font-black uppercase" asChild>
+                <a href={`/pedido/${order.public_token}`}>
+                  <ExternalLink className="h-3 w-3 mr-1" /> Rastrear
+                </a>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
+                <MapPin className="h-3 w-3" /> Endereço de entrega
+              </div>
+              <div className="space-y-0.5 font-medium text-xs leading-relaxed">
+                {formatDeliveryAddressLines(order).map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
+                <Package className="h-3 w-3" /> Resumo do valor
+              </div>
+              <p className="font-black text-lg text-primary">{formatBRL(order.total)}</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 border-t-2 border-border/40 pt-4 mt-4">
+            {order.stores?.whatsapp && (
+              <Button variant="outline" size="sm" className="flex-1 rounded-md border-border bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366] hover:text-foreground font-black uppercase text-[10px] h-10 transition-colors" asChild>
+                <a href={buildWhatsAppLink(order.stores.whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
+                  <MessageSquare className="h-4 w-4 mr-2" /> WhatsApp da Loja
+                </a>
+              </Button>
+            )}
+          </div>
+        </Card>
+      ))
+    )
+  );
+
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
-      <header className="bg-[var(--hype-dark)] text-white p-8 border-b-4 border-primary">
+      <header className="bg-background text-foreground p-8 border-b-4 border-primary">
         <div className="container max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter italic">Meu Painel</h1>
-            <p className="text-white/62 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
+            <p className="text-foreground/62 text-sm font-bold uppercase tracking-widest mt-1">Bem-vindo, {profile?.full_name || 'Cliente'}</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-none bg-primary/15 border-2 border-primary flex items-center justify-center">
+            <div className="h-12 w-12 rounded-md bg-primary/15 border-2 border-primary flex items-center justify-center">
               <User className="h-6 w-6 text-primary" />
             </div>
           </div>
@@ -190,147 +257,49 @@ const CustomerDashboard = () => {
       </header>
 
       <main className="container max-w-4xl mx-auto p-4 -mt-6">
-        <Tabs defaultValue="pedidos" className="space-y-6">
-          <TabsList className="w-full bg-white border border-border rounded-none h-14 p-1 shadow-panel">
-            <TabsTrigger value="pedidos" className="flex-1 rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
-              <Package className="h-4 w-4 mr-2" /> Meus Pedidos
+        <Tabs defaultValue="producao" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Button variant="outline" className="h-14 justify-start rounded-md border-border bg-card font-black uppercase" asChild>
+              <Link to="/lojas">
+                <Store className="h-4 w-4 mr-2 text-primary" /> Lojas disponiveis
+              </Link>
+            </Button>
+            <Button variant="hero" className="h-14 justify-start rounded-md font-black uppercase" asChild>
+              <Link to="/lojas">
+                <ShoppingBag className="h-4 w-4 mr-2" /> Fazer pedido
+              </Link>
+            </Button>
+          </div>
+
+          <TabsList className="w-full bg-card border border-border rounded-md h-14 p-1 shadow-panel">
+            <TabsTrigger value="producao" className="flex-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
+              <Package className="h-4 w-4 mr-2" /> Em producao
             </TabsTrigger>
-            <TabsTrigger value="perfil" className="flex-1 rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
-              <User className="h-4 w-4 mr-2" /> Meu Perfil
+            <TabsTrigger value="entregues" className="flex-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-black uppercase text-xs tracking-widest h-full">
+              <ShoppingBag className="h-4 w-4 mr-2" /> Entregues
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pedidos" className="space-y-4">
-            {orders.length === 0 ? (
-              <Card className="p-20 text-center border-2 border-dashed border-border bg-white">
-                <ShoppingBag className="h-12 w-12 mx-auto text-black/10 mb-4" />
-                <h3 className="font-black uppercase tracking-tight text-xl">Nenhum pedido ainda</h3>
-                <p className="text-muted-foreground text-sm">Seus pedidos aparecerão aqui assim que você realizar sua primeira compra.</p>
-                <Button className="mt-6 font-black uppercase" variant="hero" asChild>
-                  <Link to="/">Ver lojas disponíveis</Link>
-                </Button>
-              </Card>
-            ) : (
-              orders.map((order) => (
-                <Card key={order.id} className="p-6 border border-border rounded-none bg-white shadow-elegant hover:shadow-elegant transition-all">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-border/5 pb-4">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Pedido #{order.order_number}</div>
-                      <h3 className="text-lg font-black uppercase tracking-tight italic">{order.stores?.name || 'Loja'}</h3>
-                      <div className="text-xs font-bold text-muted-foreground">{formatDateTime(order.created_at)}</div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge className={`rounded-none border border-border uppercase font-black text-[10px] px-3 py-1 ${STATUS_COLORS[order.status] || ''}`}>
-                        {STATUS_LABELS[order.status] || order.status}
-                      </Badge>
-                      <Button variant="outline" size="sm" className="rounded-none border-border h-8 text-[10px] font-black uppercase" asChild>
-                        <a href={`/pedido/${order.public_token}`}>
-                          <ExternalLink className="h-3 w-3 mr-1" /> Rastrear
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
-                        <MapPin className="h-3 w-3" /> Endereço de entrega
-                      </div>
-                      <div className="space-y-0.5 font-medium text-xs leading-relaxed">
-                        {formatDeliveryAddressLines(order).map((line) => (
-                          <p key={line}>{line}</p>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest text-muted-foreground">
-                        <Package className="h-3 w-3" /> Resumo do valor
-                      </div>
-                      <p className="font-black text-lg text-primary">{formatBRL(order.total)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 border-t-2 border-border/5 pt-4 mt-4">
-                    {order.stores?.whatsapp && (
-                      <Button variant="outline" size="sm" className="flex-1 rounded-none border-border bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366] hover:text-white font-black uppercase text-[10px] h-10 transition-colors" asChild>
-                        <a href={buildWhatsAppLink(order.stores.whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
-                          <MessageSquare className="h-4 w-4 mr-2" /> WhatsApp da Loja
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              ))
+          <TabsContent value="producao" className="space-y-4">
+            {renderOrders(
+              productionOrders,
+              "Nenhum pedido em producao",
+              "Pedidos aguardando pagamento, em preparo ou em rota aparecem aqui.",
             )}
           </TabsContent>
 
-          <TabsContent value="perfil" className="space-y-6">
-            <Card className="p-6 border border-border rounded-none bg-white shadow-elegant">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-none bg-primary/15 p-3">
-                    <ShieldCheck className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black uppercase tracking-tight">{profileVerification.label}</h2>
-                    <p className="text-sm text-muted-foreground">{profileVerification.detail}</p>
-                  </div>
-                </div>
-                <Badge className="w-fit rounded-none bg-primary px-3 py-1 text-primary-foreground">
-                  {profileVerification.score}% completo
-                </Badge>
-              </div>
-              <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                {profileVerification.checks.map((check) => (
-                  <div key={check.key} className="flex items-center justify-between rounded-none border border-border bg-muted/40 px-3 py-2 text-sm">
-                    <span>{check.label}</span>
-                    <Badge variant={check.ok ? "default" : "secondary"}>{check.ok ? "OK" : "Pendente"}</Badge>
-                  </div>
-                ))}
-              </div>
-            </Card>
-            <Card className="p-8 border border-border rounded-none bg-white shadow-elegant">
-              <h2 className="text-xl font-black uppercase tracking-tight mb-6 italic border-b border-border pb-2">Informações Pessoais</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome Completo</label>
-                  <p className="font-bold text-lg">{profile?.full_name || 'Não informado'}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">CPF / CNPJ</label>
-                  <p className="font-bold text-lg">{profile?.document ? formatDoc(profile.document) : 'Não informado'}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">E-mail</label>
-                  <p className="font-bold text-lg">{user?.email || 'Não informado'}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">WhatsApp</label>
-                  <p className="font-bold text-lg">{profile?.phone ? formatPhone(profile.phone) : 'Não informado'}</p>
-                </div>
-                <div className="col-span-full space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Endereço Principal</label>
-                  <p className="font-bold text-sm">
-                    {profile?.street ? (
-                      `${profile.street}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} | ${profile.neighborhood} - ${profile.city}/${profile.state}`
-                    ) : 'Endereço não cadastrado'}
-                  </p>
-                </div>
-              </div>
-              <Button 
-                className="mt-8 font-black uppercase" 
-                variant="hero" 
-                onClick={() => setEditModalOpen(true)}
-              >
-                Editar Perfil
-              </Button>
-            </Card>
+          <TabsContent value="entregues" className="space-y-4">
+            {renderOrders(
+              deliveredOrders,
+              "Nenhum pedido entregue",
+              "Quando uma entrega for concluida, ela aparece neste historico.",
+            )}
           </TabsContent>
         </Tabs>
       </main>
 
       <Dialog open={editModalOpen} onOpenChange={isProfileComplete ? setEditModalOpen : () => {}}>
-        <DialogContent className="border border-border rounded-none max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="border border-border rounded-md max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">
               {!isProfileComplete ? "Complete seu Cadastro" : "Editar Perfil"}
@@ -349,7 +318,7 @@ const CustomerDashboard = () => {
                   id="full_name" 
                   value={formData.full_name} 
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -360,7 +329,7 @@ const CustomerDashboard = () => {
                   value={formData.document} 
                   onChange={(e) => setFormData({ ...formData, document: e.target.value })}
                   placeholder="000.000.000-00"
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -371,7 +340,7 @@ const CustomerDashboard = () => {
                   value={formData.phone} 
                   onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                   placeholder="(00) 00000-0000"
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -383,14 +352,14 @@ const CustomerDashboard = () => {
                     value={formData.zip_code} 
                     onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
                     placeholder="00000-000"
-                    className="border border-border rounded-none h-11 font-bold flex-1"
+                    className="border border-border rounded-md h-11 font-bold flex-1"
                     required
                   />
                   <Button 
                     type="button" 
                     size="icon" 
                     variant="outline" 
-                    className="border border-border rounded-none h-11 w-11 shrink-0"
+                    className="border border-border rounded-md h-11 w-11 shrink-0"
                     onClick={async () => {
                       const cep = formData.zip_code.replace(/\D/g, "");
                       if (cep.length !== 8) return toast.error("CEP inválido");
@@ -423,7 +392,7 @@ const CustomerDashboard = () => {
                   id="street" 
                   value={formData.street} 
                   onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -433,7 +402,7 @@ const CustomerDashboard = () => {
                   id="number" 
                   value={formData.number} 
                   onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -446,7 +415,7 @@ const CustomerDashboard = () => {
                   id="complement" 
                   value={formData.complement} 
                   onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                 />
               </div>
               <div className="space-y-2">
@@ -455,7 +424,7 @@ const CustomerDashboard = () => {
                   id="neighborhood" 
                   value={formData.neighborhood} 
                   onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -468,7 +437,7 @@ const CustomerDashboard = () => {
                   id="city" 
                   value={formData.city} 
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -479,7 +448,7 @@ const CustomerDashboard = () => {
                   value={formData.state} 
                   onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
                   maxLength={2}
-                  className="border border-border rounded-none h-11 font-bold"
+                  className="border border-border rounded-md h-11 font-bold"
                   required
                 />
               </div>
@@ -491,7 +460,7 @@ const CustomerDashboard = () => {
                   type="button" 
                   variant="outline" 
                   onClick={() => setEditModalOpen(false)}
-                  className="border border-border rounded-none font-black uppercase tracking-widest text-xs h-12"
+                  className="border border-border rounded-md font-black uppercase tracking-widest text-xs h-12"
                 >
                   Cancelar
                 </Button>
@@ -514,4 +483,5 @@ const CustomerDashboard = () => {
 };
 
 export default CustomerDashboard;
+
 

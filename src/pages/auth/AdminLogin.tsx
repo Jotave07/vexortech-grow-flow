@@ -43,28 +43,28 @@ const AdminLogin = () => {
     <AuthShell theme="admin" title="Terminal Admin" subtitle="Acesso restrito a administradores do sistema">
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-zinc-400">E-mail Administrativo</Label>
+          <Label htmlFor="email">E-mail Administrativo</Label>
           <Input 
             id="email" 
             type="email" 
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 
-            className="bg-zinc-800 border-zinc-700 text-white focus:border-red-500 focus:ring-red-500"
+            className="border-border focus:border-primary focus:ring-primary"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-zinc-400">Chave de Acesso</Label>
+          <Label htmlFor="password">Chave de Acesso</Label>
           <Input 
             id="password" 
             type="password" 
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
             required 
-            className="bg-zinc-800 border-zinc-700 text-white focus:border-red-500 focus:ring-red-500"
+            className="border-border focus:border-primary focus:ring-primary"
           />
         </div>
-        <Button type="submit" className="w-full bg-red-700 hover:bg-red-800 text-white font-black uppercase h-12 shadow-[0_0_15px_rgba(185,28,28,0.3)]" disabled={loading}>
+        <Button type="submit" className="h-12 w-full font-black uppercase" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />} 
           Validar Credenciais
         </Button>

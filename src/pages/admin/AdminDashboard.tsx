@@ -30,7 +30,7 @@ const AdminDashboard = () => {
   if (loading) return <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin inline text-primary" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Visao geral Hype</h1>
         <p className="text-muted-foreground">Métricas globais da plataforma.</p>

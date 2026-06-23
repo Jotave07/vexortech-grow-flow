@@ -29,39 +29,11 @@ type StoreSettingsRow = Tables<"store_settings">;
 type PlanRow = Tables<"plans">;
 type SubscriptionRow = Tables<"subscriptions"> & { plans?: PlanRow | null };
 
-type BusinessDay = {
-  enabled: boolean;
-  open: string;
-  close: string;
-};
-
-type BusinessHours = Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", BusinessDay>;
-
-type StoreStatusValue = "open" | "closed" | "paused";
+type StoreStatusValue = "open" | "closed";
 
 type CepLookupState = {
   status: "idle" | "loading" | "success" | "error";
   message?: string;
-};
-
-const WEEKDAYS: Array<{ key: keyof BusinessHours; label: string }> = [
-  { key: "mon", label: "Segunda" },
-  { key: "tue", label: "Terca" },
-  { key: "wed", label: "Quarta" },
-  { key: "thu", label: "Quinta" },
-  { key: "fri", label: "Sexta" },
-  { key: "sat", label: "Sabado" },
-  { key: "sun", label: "Domingo" },
-];
-
-const DEFAULT_BUSINESS_HOURS: BusinessHours = {
-  mon: { enabled: true, open: "18:00", close: "23:00" },
-  tue: { enabled: true, open: "18:00", close: "23:00" },
-  wed: { enabled: true, open: "18:00", close: "23:00" },
-  thu: { enabled: true, open: "18:00", close: "23:00" },
-  fri: { enabled: true, open: "18:00", close: "23:30" },
-  sat: { enabled: true, open: "18:00", close: "23:30" },
-  sun: { enabled: true, open: "18:00", close: "23:00" },
 };
 
 const STORE_TYPE_LABELS: Record<string, string> = {
@@ -82,7 +54,6 @@ const Settings = () => {
   const [storeSettings, setStoreSettings] = useState<StoreSettingsRow | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [plans, setPlans] = useState<PlanRow[]>([]);
-  const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -134,7 +105,6 @@ const Settings = () => {
     setStoreSettings(buildStoreSettings(settingsRow));
     setSubscription((subscriptionRes.data as SubscriptionRow | null) ?? null);
     setPlans((plansRes.data as PlanRow[]) ?? []);
-    setBusinessHours(parseBusinessHours(settingsRow?.business_hours));
     setLoading(false);
   }, [store?.id]);
 
@@ -291,7 +261,6 @@ const Settings = () => {
       payment_instructions: nullableText((storeSettings as any).payment_instructions),
       asaas_api_key: null,
       asaas_wallet_id: null,
-      business_hours: businessHours as unknown as Json,
     };
     const extendedSettingsPayload = {
       payment_gateway_provider: null,
@@ -392,7 +361,7 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="general" className="space-y-5">
-        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none bg-secondary/80 p-1">
+        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-md bg-secondary/80 p-1">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="address">Endereço</TabsTrigger>
           <TabsTrigger value="delivery">Entrega</TabsTrigger>
@@ -471,10 +440,10 @@ const Settings = () => {
             />
 
             <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-              <div className="rounded-none border border-border bg-background/70 p-4">
+              <div className="rounded-md border border-border bg-background/70 p-4">
                 <div className="text-sm text-muted-foreground">Pontuacao do perfil</div>
                 <div className="mt-2 text-3xl font-bold text-foreground">{storeVerification.score}%</div>
-                <Badge className="mt-3 rounded-none bg-primary/15 text-foreground hover:bg-primary/15">
+                <Badge className="mt-3 rounded-md bg-primary/15 text-foreground hover:bg-primary/15">
                   <ShieldCheck className="mr-1 h-3.5 w-3.5 text-primary" />
                   {storeVerification.label}
                 </Badge>
@@ -483,7 +452,7 @@ const Settings = () => {
 
               <div className="grid gap-2 sm:grid-cols-2">
                 {storeVerification.checks.map((check) => (
-                  <div key={check.key} className="flex items-center justify-between gap-3 rounded-none border border-border bg-background/70 px-3 py-2 text-sm">
+                  <div key={check.key} className="flex items-center justify-between gap-3 rounded-md border border-border bg-background/70 px-3 py-2 text-sm">
                     <span>{check.label}</span>
                     <Badge variant={check.ok ? "default" : "secondary"}>{check.ok ? "OK" : "Pendente"}</Badge>
                   </div>
@@ -496,61 +465,37 @@ const Settings = () => {
             <SectionHeader
               icon={Settings2}
               title="Operacao da loja"
-              description="Status operacional e horario de funcionamento usando a estrutura atual do projeto."
+              description="Controle manual simples: aberta para receber pedidos ou fechada para pausar o checkout."
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 items-start">
-              <Field>
-                <Label>Status da loja</Label>
-                <Select value={getStoreStatusValue(storeSettings)} onValueChange={(value: StoreStatusValue) => setStoreSettings(applyStoreStatus(storeSettings, value))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Aberta agora</SelectItem>
-                    <SelectItem value="closed">Fechada</SelectItem>
-                    <SelectItem value="paused">Pausa temporária</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <div className="rounded-none border border-border bg-secondary/35 p-4 text-sm text-muted-foreground">
-                {getStoreStatusValue(storeSettings) === "open" && "A loja fica visivel e aceita pedidos normalmente."}
-                {getStoreStatusValue(storeSettings) === "closed" && "A loja continua publicada, mas o checkout não deve aceitar novos pedidos."}
-                {getStoreStatusValue(storeSettings) === "paused" && "A operação fica em pausa, com a base pronta para comportamento diferenciado em fluxos futuros."}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {WEEKDAYS.map((day) => (
-                <div key={day.key} className="rounded-none border border-border bg-background/65 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{day.label}</span>
-                    <Switch
-                      checked={businessHours[day.key].enabled}
-                      onCheckedChange={(enabled) => setBusinessHours({ ...businessHours, [day.key]: { ...businessHours[day.key], enabled } })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field>
-                      <Label>Abertura</Label>
-                      <Input
-                        type="time"
-                        value={businessHours[day.key].open}
-                        disabled={!businessHours[day.key].enabled}
-                        onChange={(e) => setBusinessHours({ ...businessHours, [day.key]: { ...businessHours[day.key], open: e.target.value } })}
-                      />
-                    </Field>
-                    <Field>
-                      <Label>Fechamento</Label>
-                      <Input
-                        type="time"
-                        value={businessHours[day.key].close}
-                        disabled={!businessHours[day.key].enabled}
-                        onChange={(e) => setBusinessHours({ ...businessHours, [day.key]: { ...businessHours[day.key], close: e.target.value } })}
-                      />
-                    </Field>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <div className="rounded-lg border border-border bg-background/70 p-5">
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-full border ${storeSettings.is_open ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary text-muted-foreground"}`}>
+                    <Activity className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-black uppercase text-muted-foreground">Status atual</p>
+                    <h3 className="text-xl font-black uppercase">
+                      {storeSettings.is_open ? "Loja aberta" : "Loja fechada"}
+                    </h3>
                   </div>
                 </div>
-              ))}
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {storeSettings.is_open
+                    ? "Clientes conseguem acessar o cardapio e concluir pedidos normalmente."
+                    : "A loja continua visivel, mas o checkout bloqueia novos pedidos ate voce abrir novamente."}
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant={storeSettings.is_open ? "outline" : "hero"}
+                className="h-14 min-w-[13rem] rounded-full text-sm uppercase"
+                onClick={() => setStoreSettings(applyStoreStatus(storeSettings, storeSettings.is_open ? "closed" : "open"))}
+              >
+                {storeSettings.is_open ? "Marcar fechada" : "Abrir loja"}
+              </Button>
             </div>
           </Card>
         </TabsContent>
@@ -582,7 +527,7 @@ const Settings = () => {
             </div>
 
             {cepLookup.message && (
-              <div className={`rounded-none border px-4 py-3 text-sm ${
+              <div className={`rounded-md border px-4 py-3 text-sm ${
                 cepLookup.status === "error"
                   ? "border-destructive/25 bg-destructive/5 text-destructive"
                   : cepLookup.status === "success"
@@ -620,7 +565,7 @@ const Settings = () => {
               </Field>
             </div>
 
-            <div className="rounded-none border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
+            <div className="rounded-md border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
               <div className="font-medium text-foreground">Endereço consolidado</div>
               <div>{buildAddressLabel({
                 street: storeForm.address ?? "",
@@ -646,7 +591,7 @@ const Settings = () => {
               description="Controle disponibilidade, localizacao da loja e raio maximo. Os valores de frete sao configurados na aba Entregas."
             />
 
-            <div className="rounded-none border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
+            <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-foreground">
               Os valores de frete sao configurados na aba Entregas.
             </div>
 
@@ -678,7 +623,7 @@ const Settings = () => {
               </Field>
             </div>
 
-            <div className="rounded-none border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
+            <div className="rounded-md border border-border bg-secondary/35 p-4 text-sm text-muted-foreground space-y-2">
               <div className="font-medium text-foreground">Resumo atual</div>
               <div>
                 Raio maximo configurado: {toNullableNumber(storeSettings.delivery_radius_km)
@@ -693,7 +638,7 @@ const Settings = () => {
             </div>
 
             {!deliveryValidation.valid && (
-              <div className="rounded-none border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive space-y-1">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive space-y-1">
                 {deliveryValidation.issues.map((issue) => (
                   <div key={`${issue.field}-${issue.message}`}>{issue.message}</div>
                 ))}
@@ -715,22 +660,77 @@ const Settings = () => {
                 <Wallet className="h-4 w-4" /> Pix da loja
               </h3>
               
-              <div className="grid gap-4 rounded-none border border-primary/20 bg-primary/5 p-4">
+              <div className="grid gap-4 rounded-md border border-primary/20 bg-primary/5 p-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pix-key-type" className="text-xs font-black uppercase tracking-widest">
+                    Tipo de chave
+                  </Label>
+                  <Select
+                    value={storeSettings.pix_key_type || "key"}
+                    onValueChange={(val) => {
+                      // When changing key type, clean the existing key value
+                      const raw = (storeSettings.pix_key ?? "").trim();
+                      let cleaned = raw;
+                      if (val === "cpf") cleaned = raw.replace(/\D/g, "").slice(0, 11);
+                      else if (val === "cnpj") cleaned = raw.replace(/\D/g, "").slice(0, 14);
+                      else if (val === "phone") cleaned = raw.replace(/\D/g, "");
+                      else if (val === "email") cleaned = raw.toLowerCase().trim();
+                      setStoreSettings({ ...storeSettings, pix_key_type: val, pix_key: cleaned } as any);
+                    }}
+                  >
+                    <SelectTrigger id="pix-key-type" className="h-11 rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cpf">CPF</SelectItem>
+                      <SelectItem value="cnpj">CNPJP</SelectItem>
+                      <SelectItem value="phone">Celular</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="evp">Chave aleatoria (EVP)</SelectItem>
+                      <SelectItem value="copy_paste">Pix Copia e Cola</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="store-pix-key" className="text-xs font-black uppercase tracking-widest">
-                    Chave Pix ou Pix copia e cola
+                    Chave Pix
                   </Label>
-                  <Textarea
-                    id="store-pix-key"
-                    placeholder="Informe a chave Pix recebedora da loja ou um Pix copia e cola"
-                    value={storeSettings.pix_key ?? ""}
-                    onChange={(event) => setStoreSettings({
-                      ...storeSettings,
-                      pix_key: event.target.value,
-                      pix_key_type: event.target.value.trim().startsWith("000201") ? "copy_paste" : "key",
-                    } as any)}
-                    className="min-h-[96px] rounded-none border border-border bg-white font-mono text-sm"
-                  />
+                  {storeSettings.pix_key_type === "copy_paste" ? (
+                    <Textarea
+                      id="store-pix-key"
+                      placeholder="Cole o codigo Pix Copia e Cola completo"
+                      value={storeSettings.pix_key ?? ""}
+                      onChange={(event) => setStoreSettings({
+                        ...storeSettings,
+                        pix_key: event.target.value,
+                        pix_key_type: event.target.value.trim().startsWith("000201") ? "copy_paste" : "key",
+                      } as any)}
+                      className="min-h-[96px] rounded-md border border-border bg-card font-mono text-sm"
+                    />
+                  ) : (
+                    <Input
+                      id="store-pix-key"
+                      type="text"
+                      placeholder={
+                        storeSettings.pix_key_type === "cpf" ? "000.000.000-00" :
+                        storeSettings.pix_key_type === "cnpj" ? "00.000.000/0000-00" :
+                        storeSettings.pix_key_type === "phone" ? "(11) 99999-9999" :
+                        storeSettings.pix_key_type === "email" ? "loja@email.com" :
+                        "Sua chave Pix"
+                      }
+                      value={storeSettings.pix_key ?? ""}
+                      onChange={(event) => {
+                        let val = event.target.value;
+                        const type = storeSettings.pix_key_type;
+                        if (type === "cpf") val = val.replace(/\D/g, "").slice(0, 11);
+                        else if (type === "cnpj") val = val.replace(/\D/g, "").slice(0, 14);
+                        else if (type === "phone") val = val.replace(/\D/g, "");
+                        setStoreSettings({ ...storeSettings, pix_key: val } as any);
+                      }}
+                      className="h-11 rounded-md border border-border bg-card font-mono text-sm"
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -745,7 +745,7 @@ const Settings = () => {
                       ...storeSettings,
                       payment_instructions: event.target.value,
                     } as any)}
-                    className="min-h-[76px] rounded-none border border-border bg-white text-sm"
+                    className="min-h-[76px] rounded-md border border-border bg-card text-sm"
                   />
                 </div>
 
@@ -784,12 +784,12 @@ const Settings = () => {
                     <Input 
                       value="Confirmacao manual pelo painel de pedidos"
                       readOnly 
-                      className="rounded-none border border-border bg-white font-mono text-[10px]" 
+                      className="rounded-md border border-border bg-card font-mono text-[10px]" 
                     />
                     <Button 
                       variant="outline" 
                       size="icon" 
-                      className="shrink-0 rounded-none border border-border"
+                      className="shrink-0 rounded-md border border-border"
                       onClick={() => {
                         navigator.clipboard.writeText("Confirmacao manual pelo painel de pedidos");
                         toast.success("Link copiado!");
@@ -817,7 +817,7 @@ const Settings = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
               <div className="space-y-4">
-                <div className="rounded-none border border-border bg-background/70 p-5">
+                <div className="rounded-md border border-border bg-background/70 p-5">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-sm text-muted-foreground">Assinatura atual</div>
@@ -841,11 +841,11 @@ const Settings = () => {
                     </div>
 
                     {activePlan.marketingFeatures.length > 0 && (
-                      <div className="rounded-none border border-border bg-secondary/30 p-4">
+                      <div className="rounded-md border border-border bg-secondary/30 p-4">
                         <div className="text-sm font-medium">Recursos cadastrados no plano</div>
                         <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                           {activePlan.marketingFeatures.slice(0, 6).map((feature) => (
-                            <div key={feature} className="rounded-none bg-background/70 px-3 py-2">{feature}</div>
+                            <div key={feature} className="rounded-md bg-background/70 px-3 py-2">{feature}</div>
                           ))}
                         </div>
                       </div>
@@ -854,13 +854,13 @@ const Settings = () => {
                 )}
               </div>
 
-              <div className="rounded-none border border-border bg-secondary/35 p-4 flex flex-col justify-between gap-4">
+              <div className="rounded-md border border-border bg-secondary/35 p-4 flex flex-col justify-between gap-4">
                 <div className="space-y-3">
                   <div>
                     <div className="text-sm text-muted-foreground">Mensalidade</div>
                     <div className="text-2xl font-bold">{formatBRL(activePlan?.priceMonthly ?? 0)}</div>
                   </div>
-                  <div className="rounded-none border border-border bg-background/70 p-3 text-xs text-muted-foreground">
+                  <div className="rounded-md border border-border bg-background/70 p-3 text-xs text-muted-foreground">
                     Dados de cartao nao aparecem aqui. Para evitar alteracoes acidentais, troca de plano e pagamento ficam na tela segura de assinatura.
                   </div>
                 </div>
@@ -908,12 +908,12 @@ const Settings = () => {
               </Field>
             </div>
 
-            <div className="rounded-none border border-border bg-secondary/35 p-4">
+            <div className="rounded-md border border-border bg-secondary/35 p-4">
               <div className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Previa da loja</div>
-              <div style={getStoreThemeStyle(storeForm)} className="overflow-hidden rounded-none border border-border bg-white">
+              <div style={getStoreThemeStyle(storeForm)} className="overflow-hidden rounded-md border border-border bg-card">
                 <div className="h-20 bg-[linear-gradient(135deg,var(--primary),var(--accent))]" />
                 <div className="grid gap-3 p-4 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center">
-                  <div className="-mt-10 h-20 w-20 overflow-hidden rounded-none border-4 border-white bg-white shadow-sm">
+                  <div className="-mt-10 h-20 w-20 overflow-hidden rounded-md border-4 border-card bg-card shadow-sm">
                     {storeForm.logo_url ? (
                       <img src={storeForm.logo_url} alt={storeForm.public_name || storeForm.name || 'Logo da loja'} onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover" />
                     ) : (
@@ -949,7 +949,7 @@ const SectionHeader = ({
   description: string;
 }) => (
   <div className="flex items-start gap-3">
-    <div className="rounded-none border border-border bg-secondary/45 p-2.5">
+    <div className="rounded-md border border-border bg-secondary/45 p-2.5">
       <Icon className="h-4 w-4 text-primary" />
     </div>
     <div>
@@ -970,7 +970,7 @@ const SwitchRow = ({
   checked: boolean;
   onCheckedChange: (value: boolean) => void;
 }) => (
-  <div className="rounded-none border border-border bg-background/65 p-4">
+  <div className="rounded-md border border-border bg-background/65 p-4">
     <div className="flex items-start justify-between gap-4">
       <div>
         <div className="font-medium">{label}</div>
@@ -994,10 +994,10 @@ const UploadField = ({
   emptyIcon: React.ReactNode;
   onFileSelect: (file: File) => void;
 }) => (
-  <div className="rounded-none border border-border bg-background/65 p-4 space-y-3">
+  <div className="rounded-md border border-border bg-background/65 p-4 space-y-3">
     <Label>{label}</Label>
     <div className="flex items-center gap-3">
-      <div className={`${previewClassName} rounded-none border border-border bg-white overflow-hidden flex items-center justify-center shrink-0`}>
+      <div className={`${previewClassName} rounded-md border border-border bg-card overflow-hidden flex items-center justify-center shrink-0`}>
         {imageUrl ? <img src={imageUrl} alt={label} onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-contain" /> : emptyIcon}
       </div>
       <label className="cursor-pointer">
@@ -1009,7 +1009,7 @@ const UploadField = ({
 );
 
 const MiniStat = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-none border border-border bg-background/70 p-4">
+  <div className="rounded-md border border-border bg-background/70 p-4">
     <div className="text-sm text-muted-foreground">{label}</div>
     <div className="mt-1 text-lg font-semibold">{value}</div>
   </div>
@@ -1017,26 +1017,6 @@ const MiniStat = ({ label, value }: { label: string; value: string }) => (
 
 const formatLimitValue = (value: number | null | undefined) =>
   value === null || value === undefined ? "Ilimitado" : String(value);
-
-const parseBusinessHours = (value: Json | undefined): BusinessHours => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return DEFAULT_BUSINESS_HOURS;
-
-  const source = value as Record<string, unknown>;
-  const result = { ...DEFAULT_BUSINESS_HOURS };
-
-  for (const day of WEEKDAYS) {
-    const current = source[day.key];
-    if (!current || typeof current !== "object" || Array.isArray(current)) continue;
-    const item = current as Record<string, unknown>;
-    result[day.key] = {
-      enabled: typeof item.enabled === "boolean" ? item.enabled : DEFAULT_BUSINESS_HOURS[day.key].enabled,
-      open: typeof item.open === "string" ? item.open : DEFAULT_BUSINESS_HOURS[day.key].open,
-      close: typeof item.close === "string" ? item.close : DEFAULT_BUSINESS_HOURS[day.key].close,
-    };
-  }
-
-  return result;
-};
 
 const buildStoreForm = (store: StoreFormRow): StoreFormRow => ({
   ...store,
@@ -1068,7 +1048,6 @@ const buildStoreSettings = (settings: any): any => ({
   pix_key: settings?.pix_key ?? null,
   pix_key_type: settings?.pix_key_type ?? null,
   payment_instructions: settings?.payment_instructions ?? null,
-  business_hours: settings?.business_hours ?? DEFAULT_BUSINESS_HOURS,
   delivery_radius_km: settings?.delivery_radius_km ?? 0,
   delivery_base_fee: settings?.delivery_base_fee ?? 0,
   delivery_distance_rules: settings?.delivery_distance_rules ?? [],
@@ -1082,18 +1061,9 @@ const buildStoreSettings = (settings: any): any => ({
   payment_gateway_config: settings?.payment_gateway_config ?? {},
 });
 
-const getStoreStatusValue = (settings: StoreSettingsRow): StoreStatusValue => {
-  if (settings.is_open) return "open";
-  if (settings.accept_orders_when_closed) return "paused";
-  return "closed";
-};
-
 const applyStoreStatus = (settings: StoreSettingsRow, status: StoreStatusValue): StoreSettingsRow => {
   if (status === "open") {
     return { ...settings, is_open: true, accept_orders_when_closed: false };
-  }
-  if (status === "paused") {
-    return { ...settings, is_open: false, accept_orders_when_closed: true };
   }
   return { ...settings, is_open: false, accept_orders_when_closed: false };
 };
@@ -1122,3 +1092,4 @@ const shouldRetryWithLegacySchema = (error: { message?: string } | null) =>
   ));
 
 export default Settings;
+

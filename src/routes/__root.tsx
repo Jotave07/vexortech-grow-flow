@@ -14,7 +14,7 @@ function NotFoundComponent() {
         <div className="mt-6">
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-none bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Voltar ao início
           </Link>
@@ -30,7 +30,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Hype Delivery" },
-      { name: "theme-color", content: "#000000" },
+      { name: "theme-color", content: "#5f6967" },
       { name: "description", content: "Hype Delivery conecta lojas parceiras, cardápios, checkout, pagamentos, pedidos e acompanhamento em tempo real." },
       { name: "author", content: "Hype Delivery" },
       { property: "og:title", content: "Hype Delivery" },
@@ -46,6 +46,15 @@ export const Route = createRootRoute({
         rel: "stylesheet",
         href: appCss,
       },
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/brand/hype-icon.svg",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: "/brand/hype-icon.svg",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -55,11 +64,11 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="antialiased">
+      <body className="bg-background text-foreground antialiased">
         {children}
         <Scripts />
       </body>

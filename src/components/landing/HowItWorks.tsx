@@ -55,7 +55,7 @@ export const HowItWorks = () => {
               key={step.n} 
               variants={itemVariants}
               whileHover={{ scale: 1.02 }}
-              className="rounded-none border border-border bg-card p-5 shadow-card transition-all hover:border-primary/30"
+              className="rounded-xl border border-border bg-card p-5 shadow-card transition-all hover:border-primary/30"
             >
               <div className="mb-5 text-sm font-semibold text-accent">{step.n}</div>
               <h3 className="mb-2 text-base font-semibold">{step.t}</h3>

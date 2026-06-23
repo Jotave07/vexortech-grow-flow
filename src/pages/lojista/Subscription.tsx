@@ -99,7 +99,6 @@ const COMPARABLE_FEATURES: SubscriptionFeature[] = [
   "coupons",
   "advancedReports",
   "customBranding",
-  "customDomain",
   "advancedDelivery",
   "automations",
   "paymentIntegrations",
@@ -455,11 +454,11 @@ const Subscription = () => {
   const paymentConfirmed = formatPaymentStatus((subscription as any)?.last_payment_status) === "Confirmado";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-none border border-border bg-muted/40 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Assinatura da plataforma
           </div>
           <div>
@@ -484,23 +483,23 @@ const Subscription = () => {
       {/* Plano atual em destaque */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
         <Card className="overflow-hidden p-0">
-          <div className="flex flex-col gap-6 border-b border-border bg-[var(--hype-dark)] p-6 text-white md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-6 border-b border-border bg-background p-6 text-foreground md:flex-row md:items-center md:justify-between">
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-foreground/70">
                 <Crown className="h-3.5 w-3.5 text-primary" /> {showUpgradeOptions ? "Plano em analise" : "Plano atual"}
               </div>
               <div>
                 <div className="text-3xl font-black uppercase tracking-tight">{summaryPlan?.name ?? "Nenhum plano escolhido"}</div>
-                <div className="mt-1 text-sm font-medium text-white/70">{message}</div>
+                <div className="mt-1 text-sm font-medium text-foreground/70">{message}</div>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-black tracking-tighter text-primary">{formatBRL(summaryPlan?.priceMonthly ?? 0)}</span>
-                <span className="text-xs font-bold uppercase tracking-widest text-white/60">/ mes</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-foreground/60">/ mes</span>
               </div>
             </div>
             <div className="flex flex-col items-start gap-3 md:items-end">
               <StatusPill meta={subscriptionMeta} />
-              <div className="flex items-center gap-2 rounded-none border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold">
+              <div className="flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold">
                 {paymentConfirmed ? (
                   <>
                     <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -509,7 +508,7 @@ const Subscription = () => {
                 ) : (
                   <>
                     <Loader2 className={cn("h-4 w-4 text-amber-400", syncing && "animate-spin")} />
-                    <span className="text-white/80">{formatPaymentStatus((subscription as any)?.last_payment_status)}</span>
+                    <span className="text-foreground/80">{formatPaymentStatus((subscription as any)?.last_payment_status)}</span>
                   </>
                 )}
               </div>
@@ -528,11 +527,11 @@ const Subscription = () => {
           </div>
 
           <div className="space-y-3 p-6">
-            <div className="rounded-none border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
               {getStateSummary(accessParam)}
             </div>
             {(subscription as any)?.status === "cancelada" && (
-              <div className="flex items-start gap-3 rounded-none border border-[#ff2d55]/25 bg-[#ff2d55]/5 p-4 text-sm font-semibold text-[#ff2d55]">
+              <div className="flex items-start gap-3 rounded-md border border-destructive/25 bg-destructive/5 p-4 text-sm font-semibold text-destructive">
                 <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
                   Sua assinatura foi cancelada, mas sua loja permanecera ativa ate {formatDate((subscription as any)?.cancellation_effective_at || (subscription as any)?.current_period_end)}.
@@ -564,7 +563,7 @@ const Subscription = () => {
               {subscription && (subscription as any).status !== "cancelada" && (
                 <Button
                   variant="outline"
-                  className="h-10 border-[#ff2d55]/40 font-black uppercase tracking-widest text-xs text-[#ff2d55] hover:bg-[#ff2d55]/10"
+                  className="h-10 border-destructive/40 font-black uppercase tracking-widest text-xs text-destructive hover:bg-destructive/10"
                   onClick={() => void cancelCurrentSubscription()}
                   disabled={canceling || submittingPlanId !== null}
                 >
@@ -595,7 +594,7 @@ const Subscription = () => {
               {showPlanCatalog ? (showUpgradeOptions ? "Planos para upgrade" : "Escolha um plano pago") : "Assinatura protegida"}
             </h2>
             {showUpgradeOptions && (
-              <span className="rounded-none bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
+              <span className="rounded-md bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">
                 Upgrade
               </span>
             )}
@@ -609,9 +608,9 @@ const Subscription = () => {
             </p>
 
             {!showPlanCatalog ? (
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-5">
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-5">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-none bg-background p-2.5">
+                  <div className="rounded-md bg-background p-2.5">
                     <LockKeyhole className="h-5 w-5 text-primary" />
                   </div>
                   <div className="space-y-2">
@@ -623,12 +622,12 @@ const Subscription = () => {
                 </div>
               </div>
             ) : plansLoading ? (
-              <div className="rounded-none border border-border bg-muted/30 p-5 text-sm font-medium text-muted-foreground">
+              <div className="rounded-md border border-border bg-muted/30 p-5 text-sm font-medium text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                 Carregando planos...
               </div>
             ) : visiblePlans.length === 0 ? (
-              <div className="rounded-none border border-[#ff2d55]/20 bg-[#ff2d55]/5 p-5 text-sm font-semibold text-[#ff2d55]">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-5 text-sm font-semibold text-destructive">
                 {showUpgradeOptions
                   ? "Nenhum plano superior esta disponivel no momento."
                   : "Nenhum plano pago esta disponivel no momento. Revise a tabela de planos antes de liberar novos cadastros."}
@@ -646,12 +645,12 @@ const Subscription = () => {
                     <label
                       key={item.id}
                       className={cn(
-                        "relative flex cursor-pointer items-start gap-3 rounded-none border-2 p-5 transition-smooth",
+                        "relative flex cursor-pointer items-start gap-3 rounded-md border-2 p-5 transition-smooth",
                         isSelected ? "border-primary bg-primary/5 shadow-glow" : "border-border hover:border-primary/40",
                       )}
                     >
                       {isRecommended && (
-                        <span className="absolute -top-2.5 left-5 rounded-none bg-primary px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-glow">
+                        <span className="absolute -top-2.5 left-5 rounded-md bg-primary px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-glow">
                           Recomendado
                         </span>
                       )}
@@ -682,7 +681,7 @@ const Subscription = () => {
                           </div>
                         )}
                         {showUpgradeOptions && upgradeHighlights.length > 0 && (
-                          <div className="rounded-none border border-primary/15 bg-primary/5 p-4">
+                          <div className="rounded-md border border-primary/15 bg-primary/5 p-4">
                             <div className="mb-2.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
                               <ArrowUpRight className="h-3.5 w-3.5" />
                               Evolucao sobre o plano atual
@@ -717,7 +716,7 @@ const Subscription = () => {
               </RadioGroup>
             )}
 
-            <div className="rounded-none border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+            <div className="rounded-md border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
               O pagamento da mensalidade abre aqui no painel, com validacao segura pelo Asaas. A cobranca entra na conta administradora da plataforma, sem expor token do administrador ao lojista.
             </div>
 
@@ -733,7 +732,7 @@ const Subscription = () => {
               </Button>
             )}
 
-            <div className="flex items-start gap-3 rounded-none border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
+            <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-4 text-sm font-medium text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>
                 Os dados do cartao sao enviados apenas para validacao no gateway e nao sao armazenados pela plataforma. A ativacao da assinatura acontece pelo retorno do Asaas e pelo webhook configurado no painel administrativo.
@@ -743,7 +742,7 @@ const Subscription = () => {
         </Card>
 
         {/* Lateral: resumo + consumo */}
-        <div className="space-y-8">
+        <div className="space-y-6">
           <Card className="overflow-hidden p-0">
             <div className="flex items-center gap-2 border-b border-border bg-muted/30 p-4">
               <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
@@ -751,7 +750,7 @@ const Subscription = () => {
               </h2>
             </div>
             <div className="space-y-4 p-6">
-              <div className="rounded-none border border-border bg-muted/30 p-4">
+              <div className="rounded-md border border-border bg-muted/30 p-4">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                   {showUpgradeOptions ? "Plano em analise" : "Plano atual"}
                 </div>
@@ -759,7 +758,7 @@ const Subscription = () => {
                 <div className="mt-1 text-sm font-medium text-muted-foreground">{subscriptionMeta.detail}</div>
               </div>
 
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Mensalidade</div>
                 <div className="mt-1 text-3xl font-black tracking-tighter">{formatBRL(summaryPlan?.priceMonthly ?? 0)}</div>
                 <div className="mt-1 text-xs font-medium text-muted-foreground">
@@ -977,13 +976,13 @@ const StatusPill = ({ meta }: { meta: ReturnType<typeof getStatusMeta> }) => {
     tone === "default"
       ? "bg-primary/20 text-primary border-primary/30"
       : tone === "secondary"
-        ? "bg-[#ffc857]/15 text-[#ffc857] border-[#ffc857]/30"
+        ? "bg-accent/15 text-accent border-accent/30"
         : tone === "destructive"
-          ? "bg-[#ff2d55]/15 text-[#ff2d55] border-[#ff2d55]/30"
-          : "bg-white/10 text-white border-white/20";
+          ? "bg-destructive/15 text-destructive border-destructive/30"
+          : "bg-white/10 text-foreground border-white/20";
 
   return (
-    <span className={cn("inline-flex items-center gap-2 rounded-none border px-3 py-1.5 text-xs font-black uppercase tracking-widest", styles)}>
+    <span className={cn("inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-black uppercase tracking-widest", styles)}>
       {meta.label}
     </span>
   );

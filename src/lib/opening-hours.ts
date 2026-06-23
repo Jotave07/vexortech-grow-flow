@@ -42,6 +42,7 @@ const isWithinRange = (current: number, open: number, close: number) => {
 };
 
 export function isStoreOpen(businessHours: BusinessHours, manualStatus?: boolean): boolean {
+  if (manualStatus === true) return true;
   if (manualStatus === false) return false;
   if (!businessHours) return false;
 

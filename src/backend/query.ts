@@ -87,6 +87,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
   store_settings: {
     id: "uuid",
     store_id: "uuid",
+    address: "text",
     asaas_api_key: "text",
     payment_gateway_provider: "text",
     payment_gateway_api_key: "text",
@@ -113,6 +114,8 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     free_delivery_above: "numeric",
     avg_prep_time_minutes: "integer",
     business_hours: "jsonb",
+    next_opening_time: "text",
+    payment_methods: "jsonb",
     whatsapp_number: "text",
     payment_instructions: "text",
     updated_at: "timestamptz",
@@ -122,11 +125,17 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     store_id: "uuid",
     category_id: "uuid",
     name: "text",
+    description: "text",
+    image_url: "text",
     is_active: "boolean",
     is_available: "boolean",
+    is_featured: "boolean",
     price: "numeric",
     promo_price: "numeric",
+    prep_time_minutes: "integer",
     sort_order: "integer",
+    created_at: "timestamptz",
+    updated_at: "timestamptz",
   },
   product_options: {
     id: "uuid",
@@ -171,6 +180,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     delivery_region_id: "uuid",
     coupon_id: "uuid",
     status: "text",
+    cancel_reason: "text",
     payment_status: "text",
     payment_method: "text",
     public_token: "text",
@@ -183,7 +193,11 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     customer_document: "text",
     customer_email: "text",
     delivery_address: "text",
+    delivery_city: "text",
+    delivery_neighborhood: "text",
     delivery_reference: "text",
+    delivery_state: "text",
+    delivery_zip_code: "text",
     zip_code: "text",
     neighborhood: "text",
     city: "text",
@@ -200,7 +214,11 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     distance_km: "numeric",
     estimated_min: "integer",
     estimated_max: "integer",
+    estimated_delivery_at: "timestamptz",
+    estimated_ready_at: "timestamptz",
     is_seen: "boolean",
+    refused_reason: "text",
+    scheduled_at: "timestamptz",
     created_at: "timestamptz",
     updated_at: "timestamptz",
   },
@@ -253,6 +271,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     max_radius_km: "numeric",
     fee: "numeric",
     fee_per_km: "numeric",
+    internal_notes: "text",
     min_fee: "numeric",
     max_fee: "numeric",
     min_order: "numeric",
@@ -260,6 +279,16 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     minutes_per_km: "numeric",
     additional_region_time: "integer",
     priority: "integer",
+  },
+  delivery_drivers: {
+    id: "uuid",
+    store_id: "uuid",
+    name: "text",
+    phone: "text",
+    vehicle_type: "text",
+    is_active: "boolean",
+    created_at: "timestamptz",
+    updated_at: "timestamptz",
   },
   coupons: {
     id: "uuid",
@@ -280,6 +309,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     billing_type: "text",
     canceled_at: "timestamptz",
     cancellation_effective_at: "timestamptz",
+    trial_ends_at: "timestamptz",
   },
   plans: {
     id: "uuid",
@@ -291,6 +321,7 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
     user_id: "uuid",
     store_id: "uuid",
     role: "text",
+    avatar_url: "text",
     is_exempt: "boolean",
   },
   user_roles: {
@@ -309,8 +340,19 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
   customer_addresses: {
     id: "uuid",
     user_id: "uuid",
+    label: "text",
+    street: "text",
+    number: "text",
+    complement: "text",
+    neighborhood: "text",
     city: "text",
     state: "text",
+    zip_code: "text",
+    latitude: "numeric",
+    longitude: "numeric",
+    is_default: "boolean",
+    created_at: "timestamptz",
+    updated_at: "timestamptz",
   },
   customer_favorites: {
     id: "uuid",
@@ -324,7 +366,23 @@ export const columnTypes: Record<string, Record<string, PgScalarType>> = {
   store_reviews: {
     id: "uuid",
     store_id: "uuid",
+    user_id: "uuid",
+    order_id: "uuid",
     rating: "integer",
+    comment: "text",
+    is_visible: "boolean",
+    created_at: "timestamptz",
+    updated_at: "timestamptz",
+  },
+  audit_logs: {
+    id: "uuid",
+    actor_user_id: "uuid",
+    store_id: "uuid",
+    action: "text",
+    entity_type: "text",
+    entity_id: "text",
+    metadata: "jsonb",
+    created_at: "timestamptz",
   },
 };
 
@@ -462,6 +520,7 @@ const storeIdTables = new Set([
   "categories",
   "products",
   "delivery_zones",
+  "delivery_drivers",
   "coupons",
   "customers",
   "orders",
@@ -502,6 +561,7 @@ const accessSql = async (table: string, operation: QueryPayload["operation"], ct
       if (["categories", "products", "product_option_items", "delivery_zones", "coupons", "plans"].includes(table)) {
         return `COALESCE(${quoteIdent("is_active")}, true) IS TRUE`;
       }
+      if (table === "store_reviews") return `COALESCE(${quoteIdent("is_visible")}, true) IS TRUE`;
       return "TRUE";
     }
     throw new Error("Nao autorizado.");
@@ -533,6 +593,10 @@ const accessSql = async (table: string, operation: QueryPayload["operation"], ct
   if (table === "profiles") return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
   if (table === "user_roles") return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
   if (table === "customer_addresses" || table === "customer_favorites") return `${quoteIdent("user_id")} = ${userSql()}`;
+  if (table === "store_reviews") {
+    if (!mutating) return `COALESCE(${quoteIdent("is_visible")}, true) IS TRUE`;
+    return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
+  }
   if (storeIdTables.has(table)) {
     if (!mutating && publicReadable.has(table)) return "TRUE";
     if (table === "customers") return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
@@ -650,6 +714,27 @@ const ensureMutationRowsAllowed = async (table: string, operation: QueryPayload[
     if (table === "customers") {
       if (String(row.user_id || "") === actor.user.id || ownsStore(row.store_id)) continue;
       throw new Error("Cliente fora do escopo do usuario.");
+    }
+    if (table === "store_reviews") {
+      if (operation !== "insert" && operation !== "upsert") throw new Error("Avaliacao nao pode ser alterada por este usuario.");
+      const rating = Number(row.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error("Avaliacao deve estar entre 1 e 5.");
+      if (!row.order_id || !row.store_id) throw new Error("Pedido e loja sao obrigatorios para avaliar.");
+      row.user_id = actor.user.id;
+      row.is_visible = row.is_visible ?? true;
+      const { rows: orders } = await query(
+        `SELECT o.id
+         FROM public.orders o
+         JOIN public.customers c ON c.id = o.customer_id
+         WHERE o.id = $1
+           AND o.store_id = $2
+           AND c.user_id = $3
+           AND o.status = 'entregue'
+         LIMIT 1`,
+        [row.order_id, row.store_id, actor.user.id],
+      );
+      if (orders[0]) continue;
+      throw new Error("Avaliacao permitida apenas apos entrega do seu pedido.");
     }
     if (storeIdTables.has(table) && ownsStore(row.store_id)) continue;
     if (table === "orders" || table === "order_items" || table === "payments") {

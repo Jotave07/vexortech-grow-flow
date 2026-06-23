@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 export const CTA = () => {
   return (
-    <section className="relative overflow-hidden bg-[var(--hype-dark)] py-20 text-white md:py-24">
+    <section className="relative overflow-hidden bg-background py-20 text-foreground md:py-24">
       <motion.div 
         animate={{ 
           opacity: [0.08, 0.18, 0.08],

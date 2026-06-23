@@ -48,14 +48,24 @@ def connect():
     log(f"Conectando em {USER}@{HOST}:{PORT}...")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(HOST, port=PORT, username=USER, password=PASS, timeout=30)
+    ssh.connect(
+        HOST,
+        port=PORT,
+        username=USER,
+        password=PASS,
+        timeout=60,
+        banner_timeout=60,
+        auth_timeout=60,
+        look_for_keys=False,
+        allow_agent=False,
+    )
     sftp = ssh.open_sftp()
     log("Conexao SSH estabelecida.")
 
 
 def run_remote(cmd, show_output=True):
     """Executa comando remoto e retorna stdout/stderr."""
-    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=120)
+    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=600)
     out = stdout.read().decode("utf-8", errors="replace")
     err = stderr.read().decode("utf-8", errors="replace")
     if show_output and out.strip():
@@ -68,8 +78,8 @@ def run_remote(cmd, show_output=True):
 
 
 def package_build():
-    """Empacota .output em tar.gz em memoria."""
-    step("Empacotando build (.output -> tar.gz)")
+    """Empacota build, scripts de banco e manifesto npm em tar.gz em memoria."""
+    step("Empacotando build (.output + runtime -> tar.gz)")
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for root, dirs, files in os.walk(OUTPUT_DIR):
@@ -77,6 +87,21 @@ def package_build():
                 fpath = os.path.join(root, fname)
                 arcname = os.path.relpath(fpath, OUTPUT_DIR)
                 tar.add(fpath, arcname=arcname)
+        for rel in ("package.json", "package-lock.json"):
+            fpath = PROJECT_DIR / rel
+            if fpath.exists():
+                tar.add(fpath, arcname=rel)
+        for rel in ("scripts/migrate.mjs", "scripts/check-schema.mjs"):
+            fpath = PROJECT_DIR / rel
+            if fpath.exists():
+                tar.add(fpath, arcname=rel)
+        migrations_dir = PROJECT_DIR / "db" / "migrations"
+        if migrations_dir.exists():
+            for root, dirs, files in os.walk(migrations_dir):
+                for fname in files:
+                    fpath = Path(root) / fname
+                    arcname = fpath.relative_to(PROJECT_DIR)
+                    tar.add(fpath, arcname=str(arcname).replace("\\", "/"))
     buf.seek(0)
     size_mb = len(buf.getvalue()) / (1024 * 1024)
     log(f"Pacote criado: {size_mb:.1f} MB")
@@ -114,6 +139,29 @@ def upload_and_extract(tar_buf):
     if "index.mjs" not in out:
         log("ERRO: server/index.mjs nao encontrado apos extracao!")
         return False
+
+    log("Instalando dependencias de producao...")
+    out, _ = run_remote(
+        f"cd {DEPLOY_DIR} && npm ci --omit=dev --no-audit --no-fund && echo __NPM_CI_OK__",
+        show_output=True,
+    )
+    if "__NPM_CI_OK__" not in out:
+        log("ERRO: npm ci de producao falhou.")
+        return False
+
+    log("Aplicando migracoes e validando schema...")
+    out, _ = run_remote(
+        f"cd {DEPLOY_DIR} && "
+        "set -a && . /etc/vexortech/vexortech.env && set +a && "
+        "mkdir -p /var/backups/vexortech && "
+        "pg_dump \"$DATABASE_URL\" > /var/backups/vexortech/backup-before-$(date +%Y%m%d-%H%M%S)-deploy.dump && "
+        "npm run db:migrate && npm run db:check && echo __DB_CHECK_OK__",
+        show_output=True,
+    )
+    if "__DB_CHECK_OK__" not in out:
+        log("ERRO: migracao ou check de schema falhou.")
+        return False
+
     log("Build extraido com sucesso.")
     return True
 
@@ -126,8 +174,8 @@ def setup_service():
     run_remote("mkdir -p /etc/vexortech", show_output=False)
 
     # Verifica se o arquivo .env existe
-    out, _ = run_remote("cat /etc/vexortech/vexortech.env 2>&1 | head -5")
-    if "cat:" in out or "No such" in out:
+    out, _ = run_remote("test -s /etc/vexortech/vexortech.env && echo ENV_OK || echo ENV_MISSING")
+    if "ENV_OK" not in out:
         log("AVISO: /etc/vexortech/vexortech.env nao encontrado na VPS!")
         log("Crie o arquivo com as variaveis de ambiente necessarias.")
         log("  Veja .env.example e deploy/VPS_BACKEND.md")

@@ -1,27 +1,28 @@
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { backend } from "@/integrations/backend/client";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check, Bike, ChefHat, PackageCheck, Wallet } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, MapPin, Clock, CheckCircle2, Circle, MessageSquare, Copy, QrCode, Check, Bike, ChefHat, PackageCheck, Wallet, Star, X } from "lucide-react";
 import { formatBRL, STATUS_LABELS, PAYMENT_METHOD_LABELS, buildWhatsAppLink, formatDeliveryAddressLines } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getOrderPaymentInfo, syncPaymentStatus } from "@/functions/asaas";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 const STEPS = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "saiu_para_entrega", "entregue"] as const;
 const STEPS_PICKUP = ["aguardando_pagamento", "novo", "confirmado", "em_preparo", "pronto_para_retirada", "entregue"] as const;
 
 const TRACKING_STEPS = [
-  { id: 'payment', label: 'Pagamento', icon: Wallet, statuses: ['aguardando_pagamento'] },
-  { id: 'preparing', label: 'Na Cozinha', icon: ChefHat, statuses: ['novo', 'confirmado', 'em_preparo'] },
-  { id: 'route', label: 'Em Rota', icon: Bike, statuses: ['saiu_para_entrega', 'pronto_para_retirada'] },
-  { id: 'delivered', label: 'Entregue', icon: PackageCheck, statuses: ['entregue'] },
+  { id: "payment", label: "Pagamento", icon: Wallet, statuses: ["aguardando_pagamento"] },
+  { id: "preparing", label: "Na Cozinha", icon: ChefHat, statuses: ["novo", "confirmado", "em_preparo"] },
+  { id: "route", label: "Em Rota", icon: Bike, statuses: ["saiu_para_entrega", "pronto_para_retirada"] },
+  { id: "delivered", label: "Entregue", icon: PackageCheck, statuses: ["entregue"] },
 ];
-
 
 const OrderTracking = () => {
   const { token } = useParams();
@@ -34,6 +35,15 @@ const OrderTracking = () => {
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
   const lastStatus = useRef<string | null>(null);
   const pixInfoRef = useRef<any>(null);
+
+  // Review dialog state
+  const [showReview, setShowReview] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const reviewShownRef = useRef(false);
+  const { user } = useAuth();
   const getOrderPaymentInfoFn = useServerFn(getOrderPaymentInfo);
   const syncPaymentStatusFn = useServerFn(syncPaymentStatus);
 
@@ -43,7 +53,7 @@ const OrderTracking = () => {
 
   const load = useCallback(async (isAutoRefresh = false) => {
     if (!token || token === "undefined") return;
-    
+
     try {
       const { data: o, error: oErr } = await backend.rpc("get_public_order", { _token: token });
       if (oErr) {
@@ -59,24 +69,20 @@ const OrderTracking = () => {
         return;
       }
 
-      // Check if status changed from aguardando_pagamento to something else
       if (lastStatus.current === "aguardando_pagamento" && orderData.status !== "aguardando_pagamento") {
         setIsPaidSuccess(true);
         confetti({
           particleCount: 150,
           spread: 70,
           origin: { y: 0.6 },
-          colors: ['#10b981', '#059669', '#34d399']
+          colors: ["#10b981", "#059669", "#34d399"],
         });
-        
-        // After 5 seconds, clear the success overlay to show the tracking
         setTimeout(() => setIsPaidSuccess(false), 5000);
       }
-      
+
       lastStatus.current = orderData.status;
       setOrder(orderData);
 
-      // Fetch other data in parallel
       const [{ data: it }, { data: h }] = await Promise.all([
         backend.rpc("get_public_order_items", { _token: token }),
         backend.rpc("get_public_order_status_history", { _token: token }),
@@ -84,7 +90,24 @@ const OrderTracking = () => {
 
       setItems(it ?? []);
       setHistory(h ?? []);
-      
+
+      if (orderData.status === "entregue") {
+        const { data: existingReview } = await backend
+          .from("store_reviews" as any)
+          .select("id, rating, comment")
+          .eq("order_id", orderData.id)
+          .maybeSingle();
+
+        if (existingReview) {
+          setReviewSubmitted(true);
+          setReviewRating(Number((existingReview as any).rating || 0));
+          setReviewComment(String((existingReview as any).comment || ""));
+        } else if (!reviewShownRef.current) {
+          setShowReview(true);
+          reviewShownRef.current = true;
+        }
+      }
+
       if (orderData.payment_method === "pix" && orderData.status === "aguardando_pagamento" && !pixInfoRef.current) {
         try {
           const info = await getOrderPaymentInfoFn({ data: { orderId: orderData.id, storeId: orderData.store_id, publicToken: token } });
@@ -107,7 +130,6 @@ const OrderTracking = () => {
     if (!token) return;
     void load();
 
-    // Subscribe to real-time updates for this order
     const channel = backend
       .channel(`order-tracking-${token}`)
       .on(
@@ -122,43 +144,38 @@ const OrderTracking = () => {
           if (import.meta.env.DEV) console.debug("Order updated:", payload.new);
           const newOrder = payload.new as any;
           setOrder((prev: any) => ({ ...prev, ...newOrder }));
-          
+
           if (newOrder.status === "novo" || newOrder.payment_status === "pago") {
             toast.success("Pagamento confirmado!");
           }
-          
-          // Refresh everything to be sure
+
           void load();
-        }
+        },
       )
       .subscribe();
 
-    // Fallback polling (every 30s instead of 15s since we have realtime)
     const interval = setInterval(load, 30000);
-    
+
     return () => {
       void backend.removeChannel(channel);
       clearInterval(interval);
     };
   }, [token, load]);
 
-  // Specific effect for sync payment status if still pending
   useEffect(() => {
     if (order?.status !== "aguardando_pagamento" || !order?.id) return;
-    
+
     const interval = setInterval(async () => {
       try {
         const result = await syncPaymentStatusFn({ data: { orderId: order.id, storeId: order.store_id, publicToken: token } });
         if (result.status === "paid") {
-          // The realtime listener above will catch the DB update and call load()
-          // But we can call load() here too for faster feedback
           void load();
         }
       } catch (e) {
         if (import.meta.env.DEV) console.warn("Sync error:", e);
       }
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, [order?.status, order?.id, order?.store_id, syncPaymentStatusFn, load, token]);
 
@@ -169,21 +186,64 @@ const OrderTracking = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  
+  const submitReview = async () => {
+    if (!order || order.status !== "entregue") return;
+    if (!user) {
+      toast.info("Entre com a conta usada no pedido para avaliar.");
+      navigate(`/entrar?redirect=/pedido/${token}`);
+      return;
+    }
+    if (reviewRating < 1 || reviewRating > 5) {
+      toast.error("Escolha uma nota de 1 a 5.");
+      return;
+    }
+
+    setReviewSubmitting(true);
+    const { error } = await backend
+      .from("store_reviews" as any)
+      .upsert({
+        store_id: order.store_id,
+        order_id: order.id,
+        rating: reviewRating,
+        comment: reviewComment.trim() || null,
+        is_visible: true,
+      }, { onConflict: "order_id" })
+      .select("id")
+      .maybeSingle();
+    setReviewSubmitting(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setReviewSubmitted(true);
+    setShowReview(false);
+    toast.success("Avaliacao enviada. Obrigado!");
+  };
+
+  // Shared dark card style
+  const cardClass = "rounded-xl border border-border bg-card p-5";
+
+  if (loading) return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-[var(--hype-green)]" />
+    </div>
+  );
+
   if (!order || !token || token === "undefined") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4">
-        <div className="h-20 w-20 bg-muted rounded-none flex items-center justify-center text-muted-foreground mb-4">
-          <Circle className="h-10 w-10 opacity-20" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-secondary/60">
+          <Circle className="h-8 w-8 text-foreground/20" />
         </div>
-        <h1 className="font-black text-2xl uppercase tracking-tighter italic">Pedido não encontrado</h1>
-        <p className="text-muted-foreground max-w-xs text-sm">
-          {!token || token === "undefined" 
+        <h1 className="text-xl font-bold uppercase text-foreground">Pedido não encontrado</h1>
+        <p className="mt-2 max-w-xs text-sm text-foreground/40">
+          {!token || token === "undefined"
             ? "O link do pedido parece estar incompleto. Por favor, feche esta aba e tente novamente pelo checkout."
             : "Não conseguimos localizar as informações deste pedido. Verifique o link ou entre em contato com a loja."}
         </p>
-        <Button variant="outline" onClick={() => window.location.reload()} className="border border-border rounded-none font-bold uppercase">
+        <Button variant="outline" onClick={() => window.location.reload()} className="mt-4 rounded-lg border-border text-foreground/70 hover:bg-secondary hover:text-foreground">
           Tentar Novamente
         </Button>
       </div>
@@ -196,71 +256,76 @@ const OrderTracking = () => {
 
   return (
     <div className="min-h-screen bg-background pb-10">
+      {/* Payment success overlay */}
       {isPaidSuccess && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
-          <div className="text-center space-y-4 p-6 max-w-sm">
-            <div className="mx-auto w-20 h-20 bg-primary/15 text-primary rounded-none flex items-center justify-center shadow-lg animate-bounce">
-              <Check className="h-10 w-10 stroke-[3px]" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm">
+          <div className="max-w-sm space-y-4 p-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-[var(--hype-green)]/20 text-[var(--hype-green)] shadow-lg">
+              <Check className="h-8 w-8 stroke-[3px]" />
             </div>
-            <h2 className="text-3xl font-black uppercase tracking-tight italic text-foreground">Pagamento Confirmado!</h2>
-            <p className="text-muted-foreground font-medium uppercase text-xs tracking-widest">Seu pedido já foi enviado para a cozinha.</p>
-            <div className="pt-4">
-              <Button onClick={() => setIsPaidSuccess(false)} variant="hero" className="w-full">
-                Acompanhar Preparo
-              </Button>
-            </div>
+            <h2 className="text-2xl font-bold uppercase text-foreground">Pagamento Confirmado!</h2>
+            <p className="text-sm font-medium text-foreground/50">Seu pedido já foi enviado para a cozinha.</p>
+            <Button onClick={() => setIsPaidSuccess(false)} variant="hero" className="w-full rounded-xl">
+              Acompanhar Preparo
+            </Button>
           </div>
         </div>
       )}
 
-      <header className="bg-[var(--hype-dark)] text-white p-8 text-center border-b-4 border-primary relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-2">
-           <Badge variant="outline" className="border-white/40 text-white/60 text-[8px] font-black uppercase tracking-widest">
-             Live Tracking
-           </Badge>
+      {/* Header */}
+      <header className="relative overflow-hidden border-b border-[var(--hype-green)]/30 bg-card p-6 text-center">
+        <div className="absolute right-3 top-3">
+          <Badge variant="outline" className="border-border/80 text-foreground/40 text-[9px] font-bold uppercase tracking-wider">
+            Live Tracking
+          </Badge>
         </div>
-        {order.store_logo_url && <img src={order.store_logo_url} alt={order.store_name} loading="eager" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="w-16 h-16 mx-auto rounded-none mb-3 object-contain bg-white border border-border shadow-panel" />}
-        <h1 className="font-black text-xl uppercase tracking-tighter">{order.store_name}</h1>
-        <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Pedido #{order.order_number}</div>
+        {order.store_logo_url && (
+          <img
+            src={order.store_logo_url}
+            alt={order.store_name}
+            loading="eager"
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+            className="mx-auto mb-3 h-14 w-14 rounded-xl object-contain border border-border bg-secondary/60"
+          />
+        )}
+        <h1 className="text-lg font-bold uppercase text-foreground">{order.store_name}</h1>
+        <div className="text-xs font-medium text-foreground/40 uppercase tracking-wider">Pedido #{order.order_number}</div>
       </header>
 
-      <div className="container max-w-xl mx-auto p-4 space-y-4 -mt-6">
+      <div className="container max-w-xl mx-auto p-4 space-y-4 -mt-4">
+        {/* PIX payment section */}
         {order.payment_method === "pix" && order.status === "aguardando_pagamento" && (
-          <Card className="p-6 border-4 border-primary bg-primary/5 text-center space-y-6 rounded-none shadow-elegant">
+          <div className="rounded-xl border-2 border-[var(--hype-green)]/30 bg-card p-6 text-center space-y-5">
             <div className="flex flex-col items-center gap-2">
-              <div className="h-14 w-14 bg-primary/15 rounded-none flex items-center justify-center text-primary mb-2">
-                <QrCode className="h-8 w-8" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--hype-green)]/10 text-[var(--hype-green)]">
+                <QrCode className="h-7 w-7" />
               </div>
-              <h2 className="font-black uppercase tracking-tight text-xl italic text-foreground">Pague com PIX</h2>
-              <p className="text-[10px] text-foreground font-bold uppercase tracking-widest">Aguardando confirmacao da loja</p>
+              <h2 className="text-lg font-bold uppercase text-foreground">Pague com PIX</h2>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">Aguardando confirmação da loja</p>
             </div>
-            
+
             {!pixInfo ? (
-              <div className="flex flex-col items-center gap-4 py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-xs font-bold uppercase text-foreground">Gerando informações de pagamento...</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => load()} 
-                  className="border-2 border-primary text-primary font-black uppercase rounded-none"
+              <div className="flex flex-col items-center gap-4 py-6">
+                <Loader2 className="h-7 w-7 animate-spin text-[var(--hype-green)]" />
+                <p className="text-xs font-medium text-foreground/40">Gerando informações de pagamento...</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => load()}
+                  className="rounded-lg border-[var(--hype-green)]/30 text-[var(--hype-green)] hover:bg-[var(--hype-green)]/10"
                 >
                   Tentar Carregar Novamente
                 </Button>
               </div>
             ) : pixInfo.error ? (
-              <div className="flex flex-col items-center gap-4 py-8 bg-white border-2 border-red-200 p-4">
-                <p className="text-sm font-bold text-red-600 uppercase">Erro ao carregar Pix: {pixInfo.error}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Tente atualizar a pagina ou entre em contato com a loja.</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    pixInfoRef.current = null;
-                    setPixInfo(null);
-                    void load();
-                  }} 
-                  className="border border-border font-black uppercase rounded-none"
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+                <p className="text-sm font-bold text-red-400">Erro ao carregar Pix: {pixInfo.error}</p>
+                <p className="text-xs text-foreground/40">Tente atualizar a página ou entre em contato com a loja.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { pixInfoRef.current = null; setPixInfo(null); void load(); }}
+                  className="rounded-lg border-border text-foreground/60 hover:bg-secondary"
                 >
                   Tentar Novamente
                 </Button>
@@ -268,55 +333,54 @@ const OrderTracking = () => {
             ) : (
               <>
                 {pixInfo.qrCodeUrl && (
-                  <div className="bg-white p-4 inline-block border-4 border-border rounded-none shadow-xl">
+                  <div className="inline-block rounded-xl border border-border bg-card p-4">
                     <img
-                      src={pixInfo.qrCodeUrl.startsWith('data:') ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`}
+                      src={pixInfo.qrCodeUrl.startsWith("data:") ? pixInfo.qrCodeUrl : `data:image/png;base64,${pixInfo.qrCodeUrl}`}
                       alt="QR Code PIX"
                       loading="lazy"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      className="w-48 h-48"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      className="h-44 w-44"
                     />
                   </div>
                 )}
 
-                <div className="space-y-3 w-full">
-                  <div className="bg-white border-2 border-border p-3 rounded-none font-mono text-[10px] break-all text-center select-all opacity-70">
+                <div className="w-full space-y-3">
+                  <div className="rounded-lg border border-border bg-secondary/40 p-3 font-mono text-[10px] text-foreground/60 break-all text-center select-all">
                     {pixInfo.pixCode}
                   </div>
-                  <Button onClick={copyPix} variant="default" className="w-full h-14 font-black bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground uppercase tracking-tighter text-lg rounded-none border border-border shadow-panel active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
-                    <Copy className="h-5 w-5 mr-2" /> Copiar Código PIX
+                  <Button onClick={copyPix} className="w-full h-12 rounded-xl bg-[var(--hype-green)] font-bold text-black hover:bg-[var(--hype-green-dark)] transition-all active:scale-95">
+                    <Copy className="mr-2 h-4 w-4" /> Copiar Código PIX
                   </Button>
                 </div>
               </>
             )}
-            
-            <div className="p-3 bg-white border-2 border-dashed border-border rounded-none text-[10px] text-foreground font-bold uppercase leading-tight">
-              Apos pagar, aguarde a loja confirmar o recebimento.
+
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-3 text-[10px] font-bold text-foreground/40 uppercase leading-tight">
+              Após pagar, aguarde a loja confirmar o recebimento.
             </div>
-          </Card>
+          </div>
         )}
 
-        <Card className="p-6 border border-border rounded-none overflow-hidden relative">
+        {/* Tracking card */}
+        <div className={cardClass}>
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="font-black uppercase tracking-tighter italic text-lg">Acompanhe seu pedido</h2>
-              <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Atualizações em tempo real</p>
+              <h2 className="text-base font-bold uppercase text-foreground">Acompanhe seu pedido</h2>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">Atualizações em tempo real</p>
             </div>
-            <Badge className={`rounded-none border border-border text-[10px] font-black uppercase px-3 py-1 ${cancelled ? "bg-red-500" : "bg-primary"}`}>
+            <Badge className={`rounded-lg text-[10px] font-bold uppercase px-3 py-1 ${cancelled ? "bg-red-500/20 text-red-400" : "bg-[var(--hype-green)] text-black"}`}>
               {STATUS_LABELS[order.status] ?? order.status}
             </Badge>
           </div>
-          
+
+          {/* Progress bar */}
           <div className="relative pt-2 pb-8">
-            {/* Progress Line Background */}
-            <div className="absolute top-7 left-0 w-full h-1 bg-muted rounded-none" />
-            
-            {/* Progress Line Active */}
-            <motion.div 
-              className="absolute top-7 left-0 h-1 bg-primary rounded-none"
+            <div className="absolute top-7 left-0 w-full h-1 bg-secondary rounded-full" />
+            <motion.div
+              className="absolute top-7 left-0 h-1 bg-[var(--hype-green)] rounded-full"
               initial={{ width: 0 }}
-              animate={{ 
-                width: `${(TRACKING_STEPS.findIndex(s => s.statuses.includes(order.status)) / (TRACKING_STEPS.length - 1)) * 100}%` 
+              animate={{
+                width: `${(TRACKING_STEPS.findIndex(s => s.statuses.includes(order.status)) / (TRACKING_STEPS.length - 1)) * 100}%`,
               }}
               transition={{ duration: 1, ease: "circOut" }}
             />
@@ -327,42 +391,37 @@ const OrderTracking = () => {
                 const isCompleted = idx < stepIdx;
                 const isCurrent = idx === stepIdx;
                 const Icon = step.icon;
-                
-                // Adjust label for pickup
+
                 let label = step.label;
-                if (step.id === 'route' && order.delivery_type === 'retirada') {
-                  label = 'Pronto';
-                }
+                if (step.id === "route" && order.delivery_type === "retirada") label = "Pronto";
 
                 return (
-                  <div key={step.id} className="flex flex-col items-center group">
-                    <motion.div 
+                  <div key={step.id} className="flex flex-col items-center">
+                    <motion.div
                       initial={false}
-                      animate={{ 
-                        scale: isCurrent ? [1, 1.1, 1] : 1,
-                        backgroundColor: isCompleted || isCurrent ? "var(--primary)" : "white",
-                        borderColor: isCompleted || isCurrent ? "black" : "#e2e8f0"
+                      animate={{
+                        scale: isCurrent ? [1, 1.08, 1] : 1,
+                        backgroundColor: isCompleted || isCurrent ? "var(--hype-green)" : "transparent",
+                        borderColor: isCompleted || isCurrent ? "var(--hype-green)" : "rgb(255 255 255 / 0.15)",
                       }}
-                      transition={{ 
-                        scale: isCurrent ? { repeat: Infinity, duration: 2 } : { duration: 0.3 }
+                      transition={{
+                        scale: isCurrent ? { repeat: Infinity, duration: 2 } : { duration: 0.3 },
                       }}
-                      className={`w-14 h-14 rounded-none border-4 flex items-center justify-center z-10 shadow-panel bg-white`}
+                      className="w-12 h-12 rounded-xl border-2 flex items-center justify-center z-10"
                     >
-                      <Icon className={`h-6 w-6 ${isCompleted || isCurrent ? "text-primary-foreground" : "text-muted-foreground"}`} />
-                      
+                      <Icon className={`h-5 w-5 ${isCompleted || isCurrent ? "text-black" : "text-foreground/30"}`} />
                       {isCompleted && (
-                        <motion.div 
+                        <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-none p-0.5 border border-border"
+                          className="absolute -top-1 -right-1 rounded-lg bg-[var(--hype-green)] p-0.5"
                         >
-                          <Check className="h-3 w-3 stroke-[4px]" />
+                          <Check className="h-3 w-3 text-black stroke-[4px]" />
                         </motion.div>
                       )}
                     </motion.div>
-                    
-                    <div className="mt-4 text-center">
-                      <span className={`text-[10px] font-black uppercase tracking-tighter leading-none block ${isCurrent ? "text-primary" : "text-muted-foreground"}`}>
+                    <div className="mt-3 text-center">
+                      <span className={`text-[10px] font-bold uppercase tracking-tight ${isCurrent ? "text-[var(--hype-green)]" : "text-foreground/40"}`}>
                         {label}
                       </span>
                     </div>
@@ -372,68 +431,65 @@ const OrderTracking = () => {
             </div>
           </div>
 
-          {/* Detailed Timeline - Optional but good for transparency */}
-          <div className="mt-6 space-y-3 pt-6 border-t border-dashed border-border/10">
-            <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground">Histórico Detalhado</h4>
-            <div className="space-y-3">
-              <AnimatePresence mode="popLayout">
-                {history.slice(0, 3).map((h, i) => (
-                  <motion.div 
-                    key={h.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="flex items-start gap-3"
-                  >
-                    <div className="mt-1.5 w-1.5 h-1.5 rounded-none bg-primary ring-4 ring-primary/10 flex-shrink-0" />
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-tight">{STATUS_LABELS[h.status] || h.status}</p>
-                      <p className="text-[9px] text-muted-foreground font-medium">{new Date(h.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+          {/* History */}
+          <div className="mt-4 space-y-3 pt-4 border-t border-dashed border-border">
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.2em] text-foreground/30">Histórico Detalhado</h4>
+            {history.slice(0, 3).map((h) => (
+              <motion.div
+                key={h.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex items-start gap-3"
+              >
+                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[var(--hype-green)] ring-4 ring-[var(--hype-green)]/10 shrink-0" />
+                <div>
+                  <p className="text-[11px] font-bold uppercase text-foreground/70">{STATUS_LABELS[h.status] || h.status}</p>
+                  <p className="text-[9px] text-foreground/30">{new Date(h.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+              </motion.div>
+            ))}
           </div>
-        </Card>
+        </div>
 
+        {/* Delivery address */}
         {order.delivery_type === "entrega" && (
-          <Card className="p-5 border border-border rounded-none space-y-3">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              <h3 className="font-black uppercase tracking-tighter italic text-sm">Endereço de Entrega</h3>
+          <div className={cardClass}>
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin className="h-4 w-4 text-[var(--hype-green)]" />
+              <h3 className="text-sm font-bold uppercase text-foreground">Endereço de Entrega</h3>
             </div>
-            <div className="text-xs font-bold leading-relaxed text-muted-foreground">
+            <div className="text-xs font-medium leading-relaxed text-foreground/50">
               {formatDeliveryAddressLines(order).map((line) => (
                 <div key={line}>{line}</div>
               ))}
             </div>
-          </Card>
+          </div>
         )}
 
-
-        <Card className="p-6 border border-border rounded-none space-y-4">
-          <h3 className="font-black uppercase tracking-tighter italic text-sm">Resumo da Compra</h3>
+        {/* Order summary */}
+        <div className={cardClass}>
+          <h3 className="text-sm font-bold uppercase text-foreground mb-4">Resumo da Compra</h3>
           <ul className="space-y-3">
             {items.map((it) => {
               const itemOptionsSum = it.options?.reduce((acc: number, opt: any) => acc + Number(opt.extra_price || 0), 0) || 0;
               const itemUnitTotal = Number(it.unit_price || 0) + itemOptionsSum;
               const itemTotal = Number(it.item_subtotal || 0) > 0 ? Number(it.item_subtotal) : itemUnitTotal * it.quantity;
-              
+
               return (
                 <li key={it.id} className="flex flex-col gap-1 border-b border-dashed border-border pb-2">
                   <div className="flex justify-between gap-4">
                     <div className="flex-1">
-                      <div className="font-bold text-sm uppercase tracking-tight">{it.quantity}× {it.product_name}</div>
-                      <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                      <div className="text-sm font-semibold text-foreground">{it.quantity}× {it.product_name}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-foreground/30">
                         {formatBRL(itemUnitTotal)} cada
                       </div>
-                      {it.notes && <div className="text-[10px] text-muted-foreground italic font-medium leading-tight mt-1">"{it.notes}"</div>}
+                      {it.notes && <div className="mt-1 text-[10px] italic text-foreground/30">"{it.notes}"</div>}
                     </div>
-                    <div className="font-black text-sm">{formatBRL(itemTotal)}</div>
+                    <div className="text-sm font-bold text-foreground">{formatBRL(itemTotal)}</div>
                   </div>
                   {it.options && it.options.length > 0 && (
-                    <ul className="text-[10px] text-muted-foreground uppercase font-medium">
+                    <ul className="text-[10px] font-medium text-foreground/40">
                       {it.options.map((opt: any, idx: number) => (
                         <li key={idx}>+ {opt.name} {Number(opt.extra_price) > 0 && `(${formatBRL(opt.extra_price)})`}</li>
                       ))}
@@ -443,53 +499,118 @@ const OrderTracking = () => {
               );
             })}
           </ul>
-          <div className="pt-2 space-y-1">
-            <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          <div className="mt-4 pt-3 space-y-1.5 border-t border-border">
+            <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-foreground/40">
               <span>Subtotal</span>
               <span>{formatBRL(order.subtotal || 0)}</span>
             </div>
             {order.delivery_type === "entrega" && (
-              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-foreground/40">
                 <span>Entrega</span>
                 <span>{Number(order.delivery_fee || 0) === 0 ? "Grátis" : formatBRL(order.delivery_fee)}</span>
               </div>
             )}
             {Number(order.discount_amount) > 0 && (
-              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-primary">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-[var(--hype-green)]">
                 <span>Desconto</span>
                 <span>-{formatBRL(order.discount_amount)}</span>
               </div>
             )}
             {order.payment_method === "dinheiro" && order.change_for && (
-              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-foreground/40">
                 <span>Troco para</span>
                 <span>{formatBRL(order.change_for)}</span>
               </div>
             )}
-            <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground pt-1">
+            <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-foreground/40 pt-1">
               <span>Pagamento</span>
               <span>{PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}</span>
             </div>
-            <div className="flex justify-between font-black text-xl border-t-2 border-border pt-3 mt-3 uppercase tracking-tighter">
-              <span>Total</span>
-              <span className="text-primary">{formatBRL(order.total || 0)}</span>
+            <div className="flex justify-between items-baseline pt-3 mt-2 border-t border-border">
+              <span className="text-sm font-bold uppercase text-foreground">Total</span>
+              <span className="text-xl font-bold text-[var(--hype-green)]">{formatBRL(order.total || 0)}</span>
             </div>
           </div>
-        </Card>
-
-        <div className="grid grid-cols-1 gap-3">
-          {order.store_whatsapp && (
-            <Button asChild className="w-full h-14 rounded-none border border-border font-black uppercase tracking-tight bg-[#25D366] hover:bg-[#128C7E] text-white shadow-panel">
-              <a href={buildWhatsAppLink(order.store_whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
-                <MessageSquare className="h-5 w-5 mr-2" /> Chamar no WhatsApp
-              </a>
-            </Button>
-          )}
         </div>
+
+        {/* Review */}
+        {order.status === "entregue" && (
+          <div className={cardClass}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold uppercase text-foreground">Avalie sua experiência</h3>
+                <p className="mt-1 text-xs font-medium text-foreground/40">
+                  {reviewSubmitted ? "Sua avaliação já foi registrada." : "Sua nota ajuda outras pessoas a escolherem melhor."}
+                </p>
+              </div>
+              {showReview && !reviewSubmitted && (
+                <button
+                  type="button"
+                  onClick={() => setShowReview(false)}
+                  className="rounded-lg p-1 text-foreground/40 hover:bg-secondary hover:text-foreground"
+                  aria-label="Fechar avaliacao"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={reviewSubmitted}
+                  onClick={() => {
+                    setReviewRating(value);
+                    setShowReview(true);
+                  }}
+                  className="rounded-lg border border-border bg-secondary/40 p-2 text-[var(--hype-green)] disabled:cursor-default"
+                  aria-label={`Nota ${value}`}
+                >
+                  <Star className={cn("h-6 w-6", value <= reviewRating ? "fill-current" : "opacity-30")} />
+                </button>
+              ))}
+            </div>
+
+            {(showReview || reviewSubmitted) && (
+              <div className="mt-4 space-y-3">
+                <Textarea
+                  value={reviewComment}
+                  disabled={reviewSubmitted}
+                  onChange={(event) => setReviewComment(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Conte como foi seu pedido"
+                  className="rounded-lg border-border bg-secondary/40 text-sm"
+                />
+                {!reviewSubmitted && (
+                  <Button
+                    variant="hero"
+                    className="w-full rounded-xl"
+                    onClick={submitReview}
+                    disabled={reviewSubmitting || reviewRating < 1}
+                  >
+                    {reviewSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+                    Enviar avaliacao
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* WhatsApp CTA */}
+        {order.store_whatsapp && (
+          <Button asChild className="w-full h-12 rounded-xl font-bold uppercase bg-[#25D366] hover:bg-[#128C7E] text-foreground shadow-lg">
+            <a href={buildWhatsAppLink(order.store_whatsapp, `Olá! Gostaria de saber sobre meu pedido #${order.order_number}`)} target="_blank" rel="noreferrer">
+              <MessageSquare className="mr-2 h-4 w-4" /> Chamar no WhatsApp
+            </a>
+          </Button>
+        )}
       </div>
     </div>
   );
 };
 
 export default OrderTracking;
-

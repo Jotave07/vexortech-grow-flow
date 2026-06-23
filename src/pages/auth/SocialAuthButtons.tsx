@@ -152,7 +152,7 @@ export const SocialAuthButtons = ({ redirectTo, context }: SocialAuthButtonsProp
               disabled={Boolean(loadingProvider)}
               aria-label={label}
               className={[
-                "flex h-11 w-full items-center justify-center gap-3 rounded-none border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                "flex h-11 w-full items-center justify-center gap-3 rounded-md border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
                 "border-[#dadce0] bg-white text-[#3c4043] hover:bg-[#f8f9fa]",
               ].join(" ")}
             >

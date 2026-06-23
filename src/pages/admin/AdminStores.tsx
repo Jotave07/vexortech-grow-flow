@@ -15,6 +15,40 @@ import { buildDeliveryUrl } from "@/lib/domains";
 import { cn } from "@/lib/utils";
 import { cancelSubscription, updateSubscriptionPlan } from "@/services/subscription-billing";
 
+const loadOwnerProfiles = async (stores: any[]) => {
+  const ownerUserIds = Array.from(new Set(stores.map((store: any) => store.owner_user_id).filter(Boolean)));
+  const storeIds = Array.from(new Set(stores.map((store: any) => store.id).filter(Boolean)));
+  const profileQueries = [];
+
+  if (ownerUserIds.length) {
+    profileQueries.push(
+      backend
+        .from("profiles")
+        .select("id, user_id, store_id, is_exempt, role, email")
+        .in("user_id", ownerUserIds),
+    );
+  }
+
+  if (storeIds.length) {
+    profileQueries.push(
+      backend
+        .from("profiles")
+        .select("id, user_id, store_id, is_exempt, role, email")
+        .in("store_id", storeIds),
+    );
+  }
+
+  const responses = await Promise.all(profileQueries);
+  const byId = new Map<string, any>();
+  responses.forEach((response: any) => {
+    (response.data ?? []).forEach((profile: any) => {
+      if (profile?.id) byId.set(profile.id, profile);
+    });
+  });
+
+  return Array.from(byId.values());
+};
+
 const AdminStores = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
@@ -44,13 +78,7 @@ const AdminStores = () => {
       backend.from("plans").select("*").order("sort_order"),
     ]);
 
-    const ownerUserIds = Array.from(new Set((s ?? []).map((store: any) => store.owner_user_id).filter(Boolean)));
-    const { data: profilesData } = ownerUserIds.length
-      ? await backend
-          .from("profiles")
-          .select("id, user_id, store_id, is_exempt, role, email")
-          .in("user_id", ownerUserIds)
-      : { data: [] as any[] };
+    const profilesData = await loadOwnerProfiles(s ?? []);
     
     // Attach is_exempt from owner profile to store
     const storesWithExempt = (s ?? []).map((store: any) => {
@@ -228,7 +256,7 @@ const AdminStores = () => {
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
@@ -302,7 +330,7 @@ const AdminStores = () => {
           <DialogHeader><DialogTitle className="font-black uppercase tracking-tight">{selected?.name}</DialogTitle></DialogHeader>
           {selected && (
             <div className="space-y-4">
-              <div className="rounded-none border border-border bg-muted/30 p-4 text-xs text-muted-foreground space-y-1.5">
+              <div className="rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground space-y-1.5">
                 <div>Slug: <span className="font-mono text-foreground">/{selected.slug}</span></div>
                 <div>E-mail: <span className="text-foreground">{selected.email ?? "—"}</span></div>
                 <div>Telefone: <span className="text-foreground">{selected.phone ?? "—"}</span></div>
@@ -310,7 +338,7 @@ const AdminStores = () => {
                 <div>Criada em: <span className="text-foreground">{new Date(selected.created_at).toLocaleDateString("pt-BR")}</span></div>
               </div>
 
-              <div className="flex items-center justify-between rounded-none border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
                 <div className="space-y-0.5">
                   <Label htmlFor="exempt-mode" className="text-sm font-bold flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-primary" /> Usuário Isento
@@ -467,7 +495,7 @@ const SummaryTile = ({
 }) => (
   <Card className="group p-5 transition-smooth hover:border-primary">
     <div className="mb-3 flex items-center justify-between">
-      <div className={cn("rounded-none p-2", TONES[tone])}>
+      <div className={cn("rounded-xl p-2", TONES[tone])}>
         <Icon className="h-5 w-5" />
       </div>
     </div>
@@ -503,7 +531,7 @@ const StoreCard = ({
     <Card className="group flex flex-col overflow-hidden p-0 transition-smooth hover:border-primary">
       <div className="flex items-start gap-3 p-4">
         {/* Logo quadrada de tamanho fixo */}
-        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-none border border-border bg-muted">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
           {store.logo_url ? (
             <img src={store.logo_url} alt={store.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover" />
           ) : (

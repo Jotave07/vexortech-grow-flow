@@ -2,15 +2,15 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { LayoutDashboard, CreditCard, User, LogOut, Menu, Home } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, User, LogOut, Menu } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const menu = [
   { to: "/cliente", icon: LayoutDashboard, label: "Meu Painel", end: true },
-  { to: "/cliente/assinatura", icon: CreditCard, label: "Assinatura" },
-  { to: "/", icon: Home, label: "Ir para Início" },
+  { to: "/lojas", icon: ShoppingBag, label: "Lojas Disponíveis" },
 ];
 
 const CustomerLayout = () => {
@@ -24,9 +24,9 @@ const CustomerLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/60">
+    <div className="hype-page flex min-h-screen flex-col">
       {/* Top Navigation Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur-xl">
+      <header className="hype-shell sticky top-0 z-50">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
           {/* Brand */}
           <div className="shrink-0">
@@ -56,13 +56,14 @@ const CustomerLayout = () => {
           {/* User + Sign Out */}
           <div className="hidden md:flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-2 px-3 py-1.5 border border-border bg-muted">
-              <div className="h-7 w-7 bg-primary flex items-center justify-center text-primary-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <User className="h-4 w-4" />
               </div>
               <span className="text-xs font-bold text-foreground uppercase tracking-wider max-w-[120px] truncate">
                 {profile?.full_name?.split(' ')[0] || 'Cliente'}
               </span>
             </div>
+            <ThemeToggle />
             <Button
               variant="ghost"
               className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
@@ -73,19 +74,20 @@ const CustomerLayout = () => {
           </div>
 
           {/* Mobile Menu Trigger */}
+          <ThemeToggle className="ml-auto md:hidden" />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild className="md:hidden ml-auto">
+            <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon" className="text-foreground">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-72 bg-white p-0">
+            <SheetContent side="right" className="w-72 bg-background p-0">
               <div className="flex flex-col h-full">
                 <div className="border-b border-border p-6 flex flex-col items-center">
                   <BrandMark compact />
-                  <div className="w-full mt-4 bg-muted p-4 border border-border">
+                  <div className="mt-4 w-full rounded-md border border-border bg-card p-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-primary flex items-center justify-center text-primary-foreground">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
                         <User className="h-5 w-5" />
                       </div>
                       <div className="flex-1 min-w-0">

@@ -224,9 +224,9 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto rounded-none border-[#e1d7c7] bg-[#f6f7f2] p-0">
-        <DialogHeader className="border-b border-[#e6e8de] bg-white px-6 py-5">
-          <DialogTitle className="text-xl font-black uppercase tracking-tight text-stone-950">
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto rounded-md border-border bg-muted/50 p-0">
+        <DialogHeader className="border-b border-border bg-card px-6 py-5">
+          <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
             Opções do produto: {product.name}
           </DialogTitle>
           <p className="text-sm font-medium text-muted-foreground">
@@ -238,8 +238,8 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
           <div className="py-12 text-center"><Loader2 className="inline h-6 w-6 animate-spin text-primary" /></div>
         ) : (
           <div className="space-y-5 p-5 sm:p-6">
-            <Card className="rounded-none border-[#e1d7c7] bg-white p-4 shadow-sm">
-              <div className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-stone-800">
+            <Card className="rounded-md border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-foreground">
                 <Wand2 className="h-4 w-4 text-primary" />
                 Modelos rápidos
               </div>
@@ -249,7 +249,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                     key={template.name}
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-none border-[#e1d7c7] bg-white text-xs font-bold uppercase tracking-widest"
+                    className="h-10 rounded-md border-border bg-card text-xs font-bold uppercase tracking-widest"
                     onClick={() => void applyTemplate(template)}
                     disabled={saving}
                   >
@@ -259,14 +259,14 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
               </div>
             </Card>
 
-            <Card className="rounded-none border-[#e1d7c7] bg-white p-4 shadow-sm">
+            <Card className="rounded-md border-border bg-card p-4 shadow-sm">
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] md:items-end">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Novo grupo</Label>
                   <Input
                     value={newGroup.name}
                     onChange={(event) => setNewGroup((current) => ({ ...current, name: event.target.value }))}
-                    className="h-11 rounded-none border-[#e1d7c7] font-semibold"
+                    className="h-11 rounded-md border-border font-semibold"
                     placeholder="Ex.: Complementos, Frutas, Coberturas"
                   />
                 </div>
@@ -277,7 +277,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                     min={0}
                     value={newGroup.min_choices}
                     onChange={(event) => setNewGroup((current) => ({ ...current, min_choices: Number(event.target.value) }))}
-                    className="h-11 rounded-none border-[#e1d7c7] font-semibold"
+                    className="h-11 rounded-md border-border font-semibold"
                   />
                 </div>
                 <div className="space-y-2">
@@ -287,22 +287,22 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                     min={1}
                     value={newGroup.max_choices}
                     onChange={(event) => setNewGroup((current) => ({ ...current, max_choices: Number(event.target.value) }))}
-                    className="h-11 rounded-none border-[#e1d7c7] font-semibold"
+                    className="h-11 rounded-md border-border font-semibold"
                   />
                 </div>
                 <div className="flex items-center gap-3 pb-1">
                   <Switch checked={newGroup.is_required} onCheckedChange={(value) => setNewGroup((current) => ({ ...current, is_required: value, min_choices: value ? Math.max(1, current.min_choices) : current.min_choices }))} />
-                  <span className="text-xs font-black uppercase tracking-widest text-stone-700">Obrigatório</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-foreground">Obrigatório</span>
                 </div>
               </div>
-              <Button onClick={addGroup} disabled={saving} className="mt-4 h-11 rounded-none font-black uppercase tracking-widest">
+              <Button onClick={addGroup} disabled={saving} className="mt-4 h-11 rounded-md font-black uppercase tracking-widest">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Criar grupo
               </Button>
             </Card>
 
             {groups.length === 0 && (
-              <Card className="rounded-none border-dashed border-[#e1d7c7] bg-white p-8 text-center text-sm font-medium text-muted-foreground">
+              <Card className="rounded-md border-dashed border-border bg-card p-8 text-center text-sm font-medium text-muted-foreground">
                 Este produto ainda não tem opções. Sem grupos, ele funciona como produto acabado; use um modelo rápido ou crie o primeiro grupo para transformá-lo em produto composto.
               </Card>
             )}
@@ -311,7 +311,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
               {groups.map((g) => {
                 const draft = draftItems[g.id] || { name: "", extra_price: "0" };
                 return (
-                  <Card key={g.id} className="rounded-none border-[#e1d7c7] bg-white p-4 shadow-sm">
+                  <Card key={g.id} className="rounded-md border-border bg-card p-4 shadow-sm">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div className="grid flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_5rem_5rem]">
                         <div className="space-y-2">
@@ -320,7 +320,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                             value={g.name}
                             onChange={(event) => setGroups((prev) => prev.map((x) => x.id === g.id ? { ...x, name: event.target.value } : x))}
                             onBlur={(event) => void updateGroup(g.id, { name: event.target.value })}
-                            className="h-10 rounded-none border-[#e1d7c7] font-semibold"
+                            className="h-10 rounded-md border-border font-semibold"
                           />
                         </div>
                         <div className="space-y-2">
@@ -331,7 +331,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                             value={g.min_choices ?? 0}
                             onChange={(event) => setGroups((prev) => prev.map((x) => x.id === g.id ? { ...x, min_choices: Number(event.target.value) } : x))}
                             onBlur={(event) => void updateGroup(g.id, { min_choices: Number(event.target.value) })}
-                            className="h-10 rounded-none border-[#e1d7c7] font-semibold"
+                            className="h-10 rounded-md border-border font-semibold"
                           />
                         </div>
                         <div className="space-y-2">
@@ -342,33 +342,33 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                             value={g.max_choices ?? 1}
                             onChange={(event) => setGroups((prev) => prev.map((x) => x.id === g.id ? { ...x, max_choices: Number(event.target.value) } : x))}
                             onBlur={(event) => void updateGroup(g.id, { max_choices: Number(event.target.value) })}
-                            className="h-10 rounded-none border-[#e1d7c7] font-semibold"
+                            className="h-10 rounded-md border-border font-semibold"
                           />
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-3 md:pt-7">
-                        <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-stone-700">
+                        <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-foreground">
                           <Switch checked={Boolean(g.is_required)} onCheckedChange={(value) => void updateGroup(g.id, { is_required: value, min_choices: value ? Math.max(1, Number(g.min_choices || 0)) : Number(g.min_choices || 0) })} />
                           Obrigatório
                         </label>
-                        <Button size="icon" variant="ghost" onClick={() => void removeGroup(g.id)} className="h-9 w-9 rounded-none">
+                        <Button size="icon" variant="ghost" onClick={() => void removeGroup(g.id)} className="h-9 w-9 rounded-md">
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge variant={g.is_required ? "default" : "secondary"} className="rounded-none">
+                      <Badge variant={g.is_required ? "default" : "secondary"} className="rounded-md">
                         {g.is_required ? "Obrigatório" : "Opcional"}
                       </Badge>
-                      <Badge variant="outline" className="rounded-none">
+                      <Badge variant="outline" className="rounded-md">
                         Escolha {g.min_choices || 0} a {g.max_choices || 1}
                       </Badge>
                     </div>
 
                     <div className="mt-4 space-y-2">
                       {(items[g.id] ?? []).map((it) => (
-                        <div key={it.id} className="grid gap-2 rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-3 md:grid-cols-[minmax(0,1fr)_8rem_auto_auto] md:items-center">
+                        <div key={it.id} className="grid gap-2 rounded-md border border-border bg-muted/50 p-3 md:grid-cols-[minmax(0,1fr)_8rem_auto_auto] md:items-center">
                           <Input
                             value={it.name}
                             onChange={(event) => setItems((current) => ({
@@ -376,7 +376,7 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                               [g.id]: (current[g.id] || []).map((item) => item.id === it.id ? { ...item, name: event.target.value } : item),
                             }))}
                             onBlur={(event) => void updateItem(it.id, { name: event.target.value })}
-                            className="h-10 rounded-none border-[#e1d7c7] bg-white font-semibold"
+                            className="h-10 rounded-md border-border bg-card font-semibold"
                           />
                           <Input
                             value={String(it.extra_price ?? 0)}
@@ -385,32 +385,32 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
                               [g.id]: (current[g.id] || []).map((item) => item.id === it.id ? { ...item, extra_price: event.target.value } : item),
                             }))}
                             onBlur={(event) => void updateItem(it.id, { extra_price: toMoney(event.target.value) })}
-                            className="h-10 rounded-none border-[#e1d7c7] bg-white font-semibold"
+                            className="h-10 rounded-md border-border bg-card font-semibold"
                           />
                           <span className="text-xs font-bold text-muted-foreground md:text-right">{formatBRL(it.extra_price || 0)}</span>
                           <div className="flex items-center justify-between gap-2">
                             <Switch checked={Boolean(it.is_active)} onCheckedChange={(value) => void updateItem(it.id, { is_active: value })} />
-                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-none" onClick={() => void removeItem(it.id)}>
+                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-md" onClick={() => void removeItem(it.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
                         </div>
                       ))}
 
-                      <div className="grid gap-2 rounded-none border border-dashed border-[#e1d7c7] bg-white p-3 md:grid-cols-[minmax(0,1fr)_8rem_auto] md:items-center">
+                      <div className="grid gap-2 rounded-md border border-dashed border-border bg-card p-3 md:grid-cols-[minmax(0,1fr)_8rem_auto] md:items-center">
                         <Input
                           value={draft.name}
                           onChange={(event) => setDraftItems((current) => ({ ...current, [g.id]: { ...draft, name: event.target.value } }))}
-                          className="h-10 rounded-none border-[#e1d7c7] font-semibold"
+                          className="h-10 rounded-md border-border font-semibold"
                           placeholder="Novo item"
                         />
                         <Input
                           value={draft.extra_price}
                           onChange={(event) => setDraftItems((current) => ({ ...current, [g.id]: { ...draft, extra_price: event.target.value } }))}
-                          className="h-10 rounded-none border-[#e1d7c7] font-semibold"
+                          className="h-10 rounded-md border-border font-semibold"
                           placeholder="Preço extra"
                         />
-                        <Button variant="outline" onClick={() => void addItem(g.id)} className="h-10 rounded-none border-[#e1d7c7] font-black uppercase tracking-widest">
+                        <Button variant="outline" onClick={() => void addItem(g.id)} className="h-10 rounded-md border-border font-black uppercase tracking-widest">
                           <Plus className="h-4 w-4" />
                           Item
                         </Button>
@@ -426,4 +426,5 @@ export const OptionsDialog = ({ product, storeId, onClose }: { product: any; sto
     </Dialog>
   );
 };
+
 

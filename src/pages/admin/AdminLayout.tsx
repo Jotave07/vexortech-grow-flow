@@ -5,6 +5,7 @@ import { getUserRoles } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { BarChart3, Building2, CreditCard, Loader2, LogOut, Menu, ShieldAlert, Users, X, Settings2, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,15 +59,15 @@ const AdminLayout = () => {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
+    <div className="hype-page flex min-h-screen flex-col">
       {/* Top Navigation Header */}
-      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-xl">
+      <header className="hype-shell sticky top-0 z-50">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
           {/* Brand + Badge */}
           <div className="flex items-center gap-3 shrink-0">
-            <BrandMark compact inverted />
-            <Badge className="border-red-600 bg-red-600 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_0_10px_rgba(220,38,38,0.5)]">
-              SYSTEM ADMIN
+            <BrandMark compact />
+            <Badge className="border-primary/35 bg-primary text-[10px] font-black uppercase text-primary-foreground shadow-[var(--shadow-green)]">
+              Portal Admin
             </Badge>
           </div>
 
@@ -80,8 +81,8 @@ const AdminLayout = () => {
                 className={({ isActive }) => cn(
                   "flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-all duration-200",
                   isActive
-                    ? "bg-red-700 text-white shadow-lg shadow-red-900/40"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-green)]"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 )}
               >
                 <item.icon className="h-3.5 w-3.5" />
@@ -92,9 +93,10 @@ const AdminLayout = () => {
 
           {/* Sign Out */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
+            <ThemeToggle />
             <Button
               variant="ghost"
-              className="text-zinc-400 hover:bg-red-900/20 hover:text-red-400 font-bold"
+              className="font-bold text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               onClick={async () => { await signOut(); navigate("/"); }}
             >
               <LogOut className="h-4 w-4 mr-2" /> Sair
@@ -102,18 +104,19 @@ const AdminLayout = () => {
           </div>
 
           {/* Mobile Menu Trigger */}
+          <ThemeToggle className="ml-auto md:hidden" />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild className="md:hidden ml-auto">
-              <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white">
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon" className="text-foreground">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-72 bg-zinc-900 border-zinc-800 text-zinc-100 p-0">
+            <SheetContent side="right" className="w-72 border-border bg-background p-0 text-foreground">
               <div className="flex flex-col h-full">
-                <div className="flex flex-col items-center border-b border-zinc-800 p-6">
-                  <BrandMark compact inverted />
-                  <Badge className="mt-4 border-red-600 bg-red-600 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_0_10px_rgba(220,38,38,0.5)]">
-                    SYSTEM ADMIN
+                <div className="flex flex-col items-center border-b border-border p-6">
+                  <BrandMark compact />
+                  <Badge className="mt-4 border-primary/35 bg-primary text-[10px] font-black uppercase text-primary-foreground shadow-[var(--shadow-green)]">
+                    Portal Admin
                   </Badge>
                 </div>
                 <nav className="flex-1 space-y-1 p-3">
@@ -126,8 +129,8 @@ const AdminLayout = () => {
                       className={({ isActive }) => cn(
                         "flex items-center gap-3 px-4 py-3 text-sm font-bold transition-all duration-200",
                         isActive
-                          ? "bg-red-700 text-white shadow-lg shadow-red-900/40"
-                          : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                          ? "bg-primary text-primary-foreground shadow-[var(--shadow-green)]"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                       )}
                     >
                       <item.icon className="h-4 w-4" />
@@ -135,10 +138,10 @@ const AdminLayout = () => {
                     </NavLink>
                   ))}
                 </nav>
-                <div className="border-t border-zinc-800 p-3">
+                <div className="border-t border-border p-3">
                   <Button
                     variant="ghost"
-                    className="w-full justify-start text-zinc-400 hover:bg-red-900/20 hover:text-red-400 font-bold"
+                    className="w-full justify-start font-bold text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     onClick={async () => { await signOut(); navigate("/"); }}
                   >
                     <LogOut className="h-4 w-4 mr-2" /> Sair do Sistema
@@ -151,7 +154,7 @@ const AdminLayout = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 bg-zinc-950">
+      <main className="flex-1 bg-background">
         <div className="mx-auto w-full max-w-7xl p-4 md:p-8">
           <Outlet />
         </div>

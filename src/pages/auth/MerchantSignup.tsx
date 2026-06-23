@@ -86,7 +86,7 @@ const MerchantSignup = () => {
             <Button variant="outline" className="border-primary/45 text-foreground hover:bg-primary/15 md:hidden" asChild>
               <Link to="/lojista/entrar">Login</Link>
             </Button>
-            <Button className="bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold shadow-[0_4px_12px_rgba(182,255,0,0.28)]" asChild>
+            <Button className="bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold shadow-[0_4px_12px_rgba(178,216,63,0.28)]" asChild>
               <a href="#cadastro">Cadastrar Agora</a>
             </Button>
           </div>
@@ -95,7 +95,7 @@ const MerchantSignup = () => {
 
       <main>
         {/* Hero Section */}
-        <section className="relative overflow-hidden bg-[var(--hype-dark)] py-16 md:py-24">
+        <section className="relative overflow-hidden bg-background py-16 md:py-24">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556742049-139422cb0f5c?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-15 mix-blend-overlay" />
             <div className="absolute inset-0 bg-black/75" />
@@ -104,15 +104,15 @@ const MerchantSignup = () => {
           <div className="container relative z-10 mx-auto px-4">
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
               {/* Headline */}
-              <div className="max-w-2xl text-white">
-                <div className="mb-4 inline-flex items-center rounded-none bg-primary/15 px-3 py-1 text-sm font-bold text-primary ring-1 ring-inset ring-primary/25">
-                  <span className="mr-2 h-2 w-2 rounded-none bg-primary" />
+              <div className="max-w-2xl text-foreground">
+                <div className="mb-4 inline-flex items-center rounded-md bg-primary/15 px-3 py-1 text-sm font-bold text-primary ring-1 ring-inset ring-primary/25">
+                  <span className="mr-2 h-2 w-2 rounded-md bg-primary" />
                   Seja um Parceiro Oficial
                 </div>
                 <h1 className="mb-6 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl italic uppercase">
                   Venda muito mais com a nossa <span className="text-primary">Tecnologia</span>
                 </h1>
-                <p className="mb-8 text-lg text-white/70 md:text-xl">
+                <p className="mb-8 text-lg text-foreground/70 md:text-xl">
                   Leve seu negócio para o próximo nível. Cadastre sua loja hoje e comece a receber pedidos online com taxas reduzidas e gestão simplificada.
                 </p>
                 
@@ -123,7 +123,7 @@ const MerchantSignup = () => {
                     "Suporte prioritário",
                     "Gestão 100% digital"
                   ].map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-white/85 font-medium">
+                    <div key={idx} className="flex items-center gap-2 text-foreground/85 font-medium">
                       <CheckCircle2 className="h-5 w-5 text-primary" />
                       <span>{item}</span>
                     </div>
@@ -190,7 +190,7 @@ const MerchantSignup = () => {
 
                     <Button 
                       type="submit" 
-                      className="w-full bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold h-12 shadow-[0_4px_12px_rgba(182,255,0,0.25)] transition-all active:scale-[0.98]" 
+                      className="w-full bg-primary hover:bg-[var(--hype-green-dark)] text-primary-foreground font-bold h-12 shadow-[0_4px_12px_rgba(178,216,63,0.25)] transition-all active:scale-[0.98]" 
                       disabled={loading}
                     >
                       {loading ? (
@@ -250,7 +250,7 @@ const MerchantSignup = () => {
                 }
               ].map((benefit, idx) => (
                 <Card key={idx} className="group border-0 p-8 shadow-sm transition-all hover:-translate-y-2 hover:shadow-xl">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-none bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-md bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <div className="transition-transform group-hover:scale-110">
                       {benefit.icon}
                     </div>
@@ -273,7 +273,7 @@ const MerchantSignup = () => {
                   alt="Gestão de Negócios"
                   loading="lazy"
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  className="rounded-none shadow-2xl"
+                  className="rounded-md shadow-2xl"
                 />
               </div>
               <div className="lg:w-1/2">
@@ -299,7 +299,7 @@ const MerchantSignup = () => {
                     }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-6">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-none bg-primary text-lg font-black text-primary-foreground italic">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary text-lg font-black text-primary-foreground italic">
                         {item.step}
                       </div>
                       <div>
@@ -315,7 +315,7 @@ const MerchantSignup = () => {
         </section>
 
         {/* Pricing/Mini Section (Optional but good for conversions) */}
-        <section className="bg-[var(--hype-dark)] py-16 text-white">
+        <section className="bg-background py-16 text-foreground">
           <div className="container mx-auto px-4 text-center">
             <h2 className="mb-12 text-3xl font-black uppercase italic tracking-tight md:text-4xl">Transparência é o nosso lema</h2>
             <div className="grid gap-8 md:grid-cols-3">
@@ -324,9 +324,9 @@ const MerchantSignup = () => {
                 { icon: <MapPin className="h-6 w-6" />, label: "Raio de Entrega", value: "Você Define" },
                 { icon: <Banknote className="h-6 w-6" />, label: "Repasses", value: "Semanais" }
               ].map((item, idx) => (
-                <div key={idx} className="rounded-none bg-white/10 p-6 backdrop-blur-sm">
+                <div key={idx} className="rounded-md bg-background/10 p-6 backdrop-blur-sm">
                   <div className="mb-4 flex justify-center">{item.icon}</div>
-                  <p className="text-white/70">{item.label}</p>
+                  <p className="text-foreground/70">{item.label}</p>
                   <p className="text-2xl font-black uppercase italic">{item.value}</p>
                 </div>
               ))}
@@ -335,7 +335,7 @@ const MerchantSignup = () => {
         </section>
 
         {/* FAQ Section */}
-        <section id="faq" className="bg-white py-20">
+        <section id="faq" className="bg-background py-20">
           <div className="container mx-auto max-w-3xl px-4">
             <h2 className="mb-12 text-center text-3xl font-black uppercase italic tracking-tight text-foreground md:text-4xl">
               Dúvidas <span className="text-[var(--hype-green-dark)]">Frequentes</span>
@@ -373,9 +373,9 @@ const MerchantSignup = () => {
         </section>
 
         {/* Final CTA */}
-        <section className="bg-[var(--hype-dark)] py-20">
+        <section className="bg-background py-20">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tight text-white md:text-5xl">
+            <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tight text-foreground md:text-5xl">
               Pronto para <span className="text-primary">escalar</span> seu negócio?
             </h2>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground">
@@ -391,7 +391,7 @@ const MerchantSignup = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-white py-12">
+      <footer className="border-t border-border bg-background py-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <BrandMark compact className="opacity-80" />

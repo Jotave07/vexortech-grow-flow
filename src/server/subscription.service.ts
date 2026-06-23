@@ -334,6 +334,7 @@ const resolveGatewayCustomerId = async (
       email: customerData.email,
       cpfCnpj: customerData.cpfCnpj,
       mobilePhone: customerData.mobilePhone,
+      externalReference: `platform-store:${storeId}`,
     },
     undefined,
     { idempotencyKey: asaasIdempotencyKey("pc", storeId) },

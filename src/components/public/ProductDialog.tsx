@@ -143,23 +143,23 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto p-0">
         <div className="space-y-5 p-5 sm:p-6">
-          <div className="mx-auto h-36 w-36 overflow-hidden rounded-none border border-[#e6e8de] bg-[#f6f7f2] p-2 shadow-sm sm:h-44 sm:w-44">
+          <div className="mx-auto h-36 w-36 overflow-hidden rounded-md border border-border bg-muted/50 p-2 shadow-sm sm:h-44 sm:w-44">
             {product.image_url ? (
-              <img src={product.image_url} alt={product.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full rounded-none object-contain" />
+              <img src={product.image_url} alt={product.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="h-full w-full rounded-md object-contain" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center rounded-none bg-white text-primary">
+              <div className="flex h-full w-full items-center justify-center rounded-md bg-card text-primary">
                 <Sparkles className="h-9 w-9" />
               </div>
             )}
           </div>
           <DialogHeader>
-            <DialogTitle className="pr-8 text-center text-2xl font-bold tracking-tight text-stone-950">{product.name}</DialogTitle>
+            <DialogTitle className="pr-8 text-center text-2xl font-bold tracking-tight text-foreground">{product.name}</DialogTitle>
           </DialogHeader>
           {product.description && <p className="text-center text-sm leading-relaxed text-muted-foreground">{product.description}</p>}
-          <div className="grid gap-3 border border-[#e6e8de] bg-[#f6f7f2] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="grid gap-3 border border-border bg-muted/50 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Valor base</div>
-              <div className="text-xl font-bold text-stone-950">
+              <div className="text-xl font-bold text-foreground">
             {product.promo_price ? (
               <>
                 {formatBRL(product.promo_price)}{" "}
@@ -190,10 +190,10 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
               const missing = Math.max(0, min - selection.length);
 
               return (
-                <div key={group.id} className="space-y-3 border border-[#e6e8de] bg-white p-4">
+                <div key={group.id} className="space-y-3 border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-bold text-stone-950">{group.name}</h4>
+                      <h4 className="text-sm font-bold text-foreground">{group.name}</h4>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {min > 0
                           ? `Escolha pelo menos ${min}${max > min ? ` e até ${max}` : ""}`
@@ -202,7 +202,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                     </div>
                     <span className={cn(
                       "border px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
-                      missing > 0 ? "border-primary/25 bg-primary/10 text-primary" : "border-[#e6e8de] bg-[#f6f7f2] text-stone-500",
+                      missing > 0 ? "border-primary/25 bg-primary/10 text-primary" : "border-border bg-muted/50 text-muted-foreground",
                     )}>
                       {missing > 0 ? `Faltam ${missing}` : "Ok"} {selection.length}/{max}
                     </span>
@@ -217,7 +217,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                           onClick={() => toggleItem(group, item.id)}
                           className={cn(
                             "flex w-full items-center justify-between border px-3 py-3 text-left text-sm transition-colors",
-                            checked ? "border-primary bg-primary/10 text-stone-950 font-semibold" : "border-[#e6e8de] hover:bg-[#f6f7f2]",
+                            checked ? "border-primary bg-primary/10 text-foreground font-semibold" : "border-border hover:bg-muted/50",
                           )}
                         >
                           <span className="flex min-w-0 items-center gap-2">
@@ -240,8 +240,8 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
           )}
 
           {!loading && optionalSuggestions.length > 0 && (
-            <div className="space-y-3 border border-[#e6e8de] bg-[#f6f7f2] p-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-stone-950">
+            <div className="space-y-3 border border-border bg-muted/50 p-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <Sparkles className="h-4 w-4 text-primary" />
                 Sugestões para incluir no pedido
               </div>
@@ -255,7 +255,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                       onClick={() => toggleItem(group, item.id)}
                       className={cn(
                         "border px-3 py-2 text-left text-xs font-semibold transition-colors",
-                        checked ? "border-primary bg-primary/10 text-primary" : "border-[#e6e8de] bg-white text-stone-600 hover:border-primary/35",
+                        checked ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:border-primary/35",
                       )}
                     >
                       {item.name}
@@ -268,13 +268,13 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
           )}
 
           {!loading && missingRequiredGroups.length > 0 && (
-            <div className="rounded-none border border-primary/20 bg-primary/5 p-3 text-xs font-bold text-primary">
+            <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs font-bold text-primary">
               Complete: {missingRequiredGroups.map((group) => group.name).join(", ")}
             </div>
           )}
 
           {!loading && unavailableRequiredGroups.length > 0 && (
-            <div className="rounded-none border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs font-bold text-destructive">
               Indisponível para montagem: {unavailableRequiredGroups.map((group) => group.name).join(", ")}
             </div>
           )}
@@ -288,7 +288,7 @@ export const ProductDialog = ({ product, onClose }: { product: any; onClose: () 
                   key={note}
                   type="button"
                   onClick={() => setNotes((current) => current.includes(note) ? current : [current, note].filter(Boolean).join("; "))}
-                  className="border border-[#e6e8de] bg-white px-2 py-1 text-xs font-semibold text-stone-600 hover:border-primary/35"
+                  className="border border-border bg-card px-2 py-1 text-xs font-semibold text-muted-foreground hover:border-primary/35"
                 >
                   {note}
                 </button>

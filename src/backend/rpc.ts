@@ -70,6 +70,20 @@ export const executeRpc = async (name: string, args: Record<string, unknown> = {
       return { data: rows, error: null };
     }
 
+    if (name === "get_public_store_order_counts") {
+      const storeIds = Array.isArray(args.store_ids) ? args.store_ids.filter(Boolean) : [];
+      if (!storeIds.length) return { data: [], error: null };
+      const { rows } = await query(
+        `SELECT store_id, count(*)::int AS completed_orders_count
+         FROM public.orders
+         WHERE store_id = ANY($1::uuid[])
+           AND status = ANY($2::text[])
+         GROUP BY store_id`,
+        [storeIds, ["entregue", "finalizado", "delivered", "completed"]],
+      );
+      return { data: rows, error: null };
+    }
+
     const actor = ctx.admin ? { admin: true } : await getActor(ctx.token);
     if (!actor?.admin) return errorResult("RPC nao autorizado.");
     return errorResult(`RPC nao implementado: ${name}`);

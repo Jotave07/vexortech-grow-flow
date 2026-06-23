@@ -1,0 +1,26 @@
+{
+  "pageUrl": "https://hypedelivery.com.br/",
+  "instagram": {
+    "text": "Instagram: @hype.delivery_",
+    "href": "https://www.instagram.com/hype.delivery_/"
+  },
+  "email": {
+    "text": "jvieira@vexortech.com.br",
+    "href": "mailto:jvieira@vexortech.com.br"
+  },
+  "instagramLinks": [
+    {
+      "text": "Instagram: @hype.delivery_",
+      "href": "https://www.instagram.com/hype.delivery_/"
+    }
+  ],
+  "vexorLinks": [
+    {
+      "text": "jvieira@vexortech.com.br",
+      "href": "mailto:jvieira@vexortech.com.br"
+    }
+  ],
+  "consoleErrors": [],
+  "requestFailures": [],
+  "badResponses": []
+}

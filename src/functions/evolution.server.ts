@@ -49,10 +49,17 @@ export const notifyOrderCreatedHandler = async (orderId: string) => {
     );
   }
 
-  const results = await Promise.allSettled(messages);
+  const results = [];
+  for (const promise of messages) {
+    const result = await promise.catch(() => ({ sent: false, reason: "send_failed" }));
+    results.push(result);
+    if (messages.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
   return {
-    sent: results.some((result) => result.status === "fulfilled" && result.value.sent),
-    results: results.map((result) => result.status === "fulfilled" ? result.value : { sent: false, reason: "send_failed" }),
+    sent: results.some((r) => r && (r as any).sent),
+    results,
   };
 };
 
@@ -76,9 +83,14 @@ export const notifyStoreCreatedHandler = async (storeId: string) => {
   ].join("\n"));
 };
 
+const CUSTOMER_NOTIFIABLE_STATUSES = new Set([
+  "em_preparo",
+  "saiu_para_entrega",
+]);
+
 export const sendOrderStatusNotification = async (orderId: string, status?: string, note?: string | null) => {
   const targetStatus = status || "";
-  if (!["saiu_para_entrega", "pronto_para_retirada", "novo"].includes(targetStatus)) {
+  if (!CUSTOMER_NOTIFIABLE_STATUSES.has(targetStatus)) {
     return { sent: false, reason: "status_without_customer_notification" };
   }
 
@@ -90,19 +102,18 @@ export const sendOrderStatusNotification = async (orderId: string, status?: stri
 
   if (!order) return { sent: false, reason: "order_not_found" };
 
-  const [{ data: store }, { data: settings }] = await Promise.all([
+  const [{ data: store }, { data: items }] = await Promise.all([
     backendAdmin.from("stores").select("*").eq("id", (order as any).store_id).maybeSingle(),
-    backendAdmin.from("store_settings").select("whatsapp_number").eq("store_id", (order as any).store_id).maybeSingle(),
+    backendAdmin.from("order_items").select("*, order_item_options(*)").eq("order_id", orderId),
   ]);
 
   const customerPhone = firstPhone((order as any).customer_phone);
   if (!customerPhone) return { sent: false, reason: "missing_customer_phone" };
 
   const config = getEvolutionConfig();
-  const storePhone = firstPhone(settings?.whatsapp_number, (store as any)?.whatsapp, (store as any)?.whatsapp_number, (store as any)?.phone);
-  const message = buildCustomerStatusMessage(order, store, targetStatus, storePhone, config.appUrl, note);
+  const message = buildCustomerStatusMessage(order, store, targetStatus, config.appUrl, items || [], note);
 
-  return sendIdempotentOrderNotification(`order_status_${targetStatus}`, orderId, customerPhone, message, storePhone);
+  return sendIdempotentOrderNotification(`order_status_${targetStatus}`, orderId, customerPhone, message);
 };
 
 const sendIdempotentOrderNotification = (
@@ -260,69 +271,205 @@ const isEvolutionInstanceConnected = (item: any) => {
   return state.includes("open") || state.includes("connected");
 };
 
-const buildItemsLines = (items: any[]) => items.map((item) => {
-  const options = (item.order_item_options || [])
-    .map((option: any) => `   + ${option.item_name}${Number(option.extra_price) > 0 ? ` (${formatMoney(option.extra_price)})` : ""}`)
-    .join("\n");
-  return `- ${item.quantity}x ${item.product_name}${options ? `\n${options}` : ""}${item.notes ? `\n   Obs: ${item.notes}` : ""}`;
-});
+const escapeWhatsApp = (value: string) =>
+  String(value || "")
+    .replace(/[`*_~>]/g, "");
 
-const buildStoreOrderMessage = (order: any, store: any, items: any[], appUrl: string) => [
-  `Novo pedido registrado #${order.order_number || ""}`,
-  `Loja: ${store?.public_name || store?.name || "Loja"}`,
-  `Cliente: ${order.customer_name}`,
-  `Telefone: ${order.customer_phone}`,
-  `Tipo: ${order.delivery_type}`,
-  order.delivery_type === "entrega" ? `Endereco: ${order.delivery_address}` : "Retirada no local",
-  order.delivery_reference ? `Referencia: ${order.delivery_reference}` : null,
-  order.distance_km ? `Distancia: ${Number(order.distance_km).toFixed(1).replace(".", ",")} km` : null,
-  "",
-  "Itens:",
-  ...buildItemsLines(items),
-  "",
-  `Subtotal: ${formatMoney(order.subtotal)}`,
-  `Frete: ${formatMoney(order.delivery_fee)}`,
-  Number(order.discount_amount || 0) > 0 ? `Desconto: ${formatMoney(order.discount_amount)}` : null,
-  `Total: ${formatMoney(order.total)}`,
-  `Pagamento: ${order.payment_method}`,
-  order.notes ? `Obs pedido: ${order.notes}` : null,
-  `Painel: ${appUrl}/lojista/pedidos`,
-].filter(Boolean).join("\n");
+const buildStoreOrderMessage = (order: any, store: any, items: any[], appUrl: string) => {
+  const isDelivery = order.delivery_type === "entrega";
+  const fee = Number(order.delivery_fee || 0);
+  const discount = Number(order.discount_amount || 0);
+  const itemsLines = buildItemsSummary(items);
 
-const buildCustomerOrderMessage = (order: any, store: any, items: any[], appUrl: string) => [
-  `${order.customer_name}, recebemos seu pedido #${order.order_number || ""} em ${store?.public_name || store?.name || "nossa loja"}.`,
-  "",
-  "Itens:",
-  ...buildItemsLines(items),
-  "",
-  `Subtotal: ${formatMoney(order.subtotal)}`,
-  `Frete: ${formatMoney(order.delivery_fee)}`,
-  Number(order.discount_amount || 0) > 0 ? `Desconto: ${formatMoney(order.discount_amount)}` : null,
-  `Total: ${formatMoney(order.total)}`,
-  `Pagamento: ${order.payment_method}`,
-  `Status inicial: ${order.status}.`,
-  order.payment_method === "pix" ? "Pedido entra na fila apos confirmacao do PIX." : null,
-  order.public_token ? `Acompanhe: ${appUrl}/pedido/${order.public_token}` : null,
-].filter(Boolean).join("\n");
-
-const buildCustomerStatusMessage = (order: any, store: any, status: string, storePhone: string, appUrl: string, note?: string | null) => {
-  const isPickup = status === "pronto_para_retirada";
   return [
-    `${order.customer_name || "Cliente"}, atualizacao do pedido #${order.order_number || ""}.`,
-    isPickup ? "Seu pedido esta pronto para retirada." : STATUS_MESSAGE_LABELS[status],
-    status === "saiu_para_entrega" && order.estimated_min ? `Previsao: ${order.estimated_min}-${order.estimated_max || order.estimated_min} min.` : null,
-    order.delivery_type === "entrega" ? `Endereco: ${order.delivery_address}` : `Retirada em: ${store?.address || store?.city || "endereco da loja"}`,
-    note ? `Observacao: ${note}` : null,
-    `Loja: ${store?.public_name || store?.name || "Hype Delivery"}.`,
-    storePhone ? `Contato da loja: ${formatPhoneForMessage(storePhone)}` : null,
-    order.public_token ? `Acompanhe em tempo real: ${appUrl}/pedido/${order.public_token}` : null,
-  ].filter(Boolean).join("\n");
+    "\u{1F514} *NOVO PEDIDO #" + escapeWhatsApp(String(order.order_number || "")) + "*",
+    "",
+    `\u{1F465} ${escapeWhatsApp(order.customer_name)}`,
+    `\u{1F4DE} ${formatPhoneForMessage(order.customer_phone || "")}`,
+    isDelivery ? "\u{1F69A} *ENTREGA*" : "\u{1F3EA} *RETIRADA NO LOCAL*",
+  ]
+  .concat(isDelivery ? [
+    `\u{1F4CD} ${escapeWhatsApp(String(order.delivery_address || ""))}`,
+    order.delivery_reference ? `Ref: ${escapeWhatsApp(String(order.delivery_reference))}` : "",
+    order.delivery_complement ? `Compl: ${escapeWhatsApp(String(order.delivery_complement))}` : "",
+    order.distance_km ? `Dist: ${Number(order.distance_km).toFixed(1).replace(".", ",")} km` : "",
+  ] : [])
+  .concat([
+    "",
+    "*Itens:*",
+    itemsLines,
+    "",
+    `\u{1F4B0} Subtotal: ${formatMoney(order.subtotal)}`,
+    isDelivery && fee > 0 ? `\u{1F69A} Entrega: ${formatMoney(fee)}` : "",
+    discount > 0 ? `\u{1F389} Desconto: -${formatMoney(discount)}` : "",
+    `\u{1F4B3} *Total: ${formatMoney(order.total)}*`,
+    "",
+    `\u{1F4B1} ${(order.payment_method || "").toUpperCase()}`,
+    order.payment_method === "dinheiro" && Number(order.change_for) > 0 ? `Troco para: ${formatMoney(order.change_for)}` : "",
+    order.notes ? `\u{1F4DD} ${escapeWhatsApp(order.notes)}` : "",
+    "",
+    `\u{1F517} Painel: ${appUrl}/lojista/pedidos`,
+  ])
+  .filter(Boolean).join("\n");
 };
 
-const STATUS_MESSAGE_LABELS: Record<string, string> = {
-  novo: "Pagamento confirmado. Seu pedido foi encaminhado para a loja.",
-  saiu_para_entrega: "Seu pedido saiu para entrega.",
-  pronto_para_retirada: "Seu pedido esta pronto para retirada.",
+const buildCustomerOrderMessage = (order: any, store: any, items: any[], appUrl: string) => {
+  const isDelivery = order.delivery_type === "entrega";
+  const isPix = order.payment_method === "pix";
+  const fee = Number(order.delivery_fee || 0);
+  const discount = Number(order.discount_amount || 0);
+  const itemsLines = buildItemsSummary(items);
+  const storeName = store?.public_name || store?.name || "nossa loja";
+  const trackingUrl = order.public_token ? `${appUrl}/pedido/${order.public_token}` : "";
+
+  return [
+    `\u{1F4E6} *Pedido Recebido* \u{1F4E6}`,
+    "",
+    `Ola, *${escapeWhatsApp(order.customer_name || "Cliente")}*!`,
+    "",
+    `Seu pedido #${escapeWhatsApp(String(order.order_number || ""))} foi recebido por *${escapeWhatsApp(storeName)}*.`,
+    isPix ? "" : "",
+    "",
+    "*Itens do Pedido:*",
+    itemsLines,
+    "",
+    `\u{1F4B0} Subtotal: ${formatMoney(order.subtotal)}`,
+    isDelivery && fee > 0 ? `\u{1F69A} Entrega: ${formatMoney(fee)}` : "",
+    discount > 0 ? `\u{1F389} Desconto: -${formatMoney(discount)}` : "",
+    `\u{1F4B3} *Total: ${formatMoney(order.total)}*`,
+    "",
+    `\u{1F4B1} Pagamento: ${(order.payment_method || "").toUpperCase()}`,
+  ]
+  .concat(isDelivery ? [
+    "",
+    `\u{1F4CD} *Entrega em:*`,
+    `${escapeWhatsApp(String(order.delivery_address || ""))}`,
+    order.delivery_reference ? `Ref: ${escapeWhatsApp(String(order.delivery_reference))}` : "",
+  ] : [])
+  .concat([
+    "",
+    isPix
+      ? "⏳ Apos a confirmacao do PIX, seu pedido entrara em preparo."
+      : "🔥 Seu pedido ja esta sendo encaminhado para preparo!",
+    trackingUrl ? "" : "",
+    trackingUrl ? `🔗 Acompanhe: ${trackingUrl}` : "",
+  ])
+  .filter(Boolean).join("\n");
+};
+
+const STATUS_EMOJI: Record<string, string> = {
+  em_preparo: "👨‍🍳",
+  saiu_para_entrega: "🛥️",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  em_preparo: "Em Preparo",
+  saiu_para_entrega: "Saiu para Entrega",
+};
+
+const STATUS_MESSAGE: Record<string, string> = {
+  em_preparo: "Seu pedido esta sendo preparado com todo cuidado.",
+  saiu_para_entrega: "Seu pedido saiu para entrega e esta a caminho.",
+};
+
+const buildItemsSummary = (items: any[]) => {
+  if (!items?.length) return "";
+  const lines = items.map((item) => {
+    const name = item.product_name || "";
+    const qty = item.quantity || 1;
+    const options = (item.order_item_options || [])
+      .map((o: any) => o.item_name || o.name)
+      .filter(Boolean)
+      .join(", ");
+    const detail = options ? `${name} (${options})` : name;
+    return `  • ${qty}x ${detail}`;
+  });
+  return lines.join("\n");
+};
+
+const buildCustomerStatusMessage = (order: any, store: any, status: string, appUrl: string, items: any[], note?: string | null) => {
+  const emoji = STATUS_EMOJI[status] || "📦";
+  const label = STATUS_LABEL[status] || "Atualizacao";
+  const msg = STATUS_MESSAGE[status] || "";
+  const isPickup = order.delivery_type === "retirada";
+  const isDelivery = order.delivery_type === "entrega";
+  const trackingUrl = order.public_token ? `${appUrl}/pedido/${order.public_token}` : "";
+  const itemsLines = buildItemsSummary(items);
+
+  const header = `${emoji} *${label}* ${emoji}`;
+  const greeting = `Ola, *${escapeWhatsApp(order.customer_name || "Cliente")}*!`;
+
+  const lines = [
+    header,
+    "",
+    greeting,
+    "",
+    msg,
+    "",
+    `*Resumo do Pedido #${escapeWhatsApp(String(order.order_number || ""))}*`,
+  ];
+
+  if (itemsLines) {
+    lines.push(itemsLines);
+  }
+
+  const fee = Number(order.delivery_fee || 0);
+  const discount = Number(order.discount_amount || 0);
+
+  lines.push("");
+  lines.push(`💰 Subtotal: ${formatMoney(order.subtotal)}`);
+  if (isDelivery && fee > 0) lines.push(`🚚 Entrega: ${formatMoney(fee)}`);
+  if (discount > 0) lines.push(`🎉 Desconto: -${formatMoney(discount)}`);
+  lines.push(`💳 *Total: ${formatMoney(order.total)}*`);
+
+  if (order.payment_method) {
+    const methodLabel = {
+      pix: "PIX",
+      dinheiro: "Dinheiro",
+      cartao_credito: "Cartao de Credito",
+      cartao_debito: "Cartao de Debito",
+      vr: "Vale Refeicao",
+    }[order.payment_method] || order.payment_method;
+    lines.push(`💱 Pagamento: ${methodLabel}`);
+  }
+
+  lines.push("");
+
+  if (isDelivery) {
+    lines.push(`📌 *Endereco de Entrega*`);
+    lines.push(`${escapeWhatsApp(String(order.delivery_address || ""))}`);
+    if (order.delivery_reference) {
+      lines.push(`Ref: ${escapeWhatsApp(String(order.delivery_reference))}`);
+    }
+    if (order.delivery_complement) {
+      lines.push(`Compl: ${escapeWhatsApp(String(order.delivery_complement))}`);
+    }
+    lines.push("");
+  }
+
+  if (isPickup) {
+    lines.push(`🏪 *Retirada na Loja*`);
+    if (store?.address) lines.push(`${escapeWhatsApp(store.address)}`);
+    lines.push("");
+  }
+
+  if (status === "saiu_para_entrega" && order.estimated_min) {
+    lines.push(`⏱️ Previsao de entrega: ${order.estimated_min}-${order.estimated_max || order.estimated_min} min`);
+    lines.push("");
+  }
+
+  if (trackingUrl) {
+    lines.push(`🔗 Acompanhe em tempo real:`);
+    lines.push(trackingUrl);
+    lines.push("");
+  }
+
+  if (note) {
+    lines.push(`📝 ${escapeWhatsApp(note)}`);
+    lines.push("");
+  }
+
+  return lines.join("\n");
 };
 
 const normalizeBrazilianPhone = (phone: string) => {

@@ -288,7 +288,12 @@ export const geocodeAddressCoordinates = async (address: GeocodeAddressInput): P
     url.searchParams.set("accept-language", "pt-BR");
     url.searchParams.set("q", queryParts.join(", "));
 
-    const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "HypeDelivery/1.0 (hype-delivery@vexortech.com.br)",
+      },
+    });
     if (!response.ok) return null;
 
     const payload = (await response.json()) as Array<{ lat?: string; lon?: string }>;
@@ -301,18 +306,56 @@ export const geocodeAddressCoordinates = async (address: GeocodeAddressInput): P
   }
 };
 
+const GEOLOCATION_ERROR_MESSAGES: Record<number, string> = {
+  1: "Permissao de localizacao negada. Verifique as configuracoes do navegador.",
+  2: "Localizacao indisponivel no momento. Verifique o GPS e tente novamente.",
+  3: "Tempo esgotado ao buscar localizacao. Tente novamente.",
+};
+
 export const fetchAddressFromCurrentLocation = async (): Promise<AddressWithCoordinates> => {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     throw new ViaCepError("network_error", "Localizacao atual indisponivel neste navegador.");
   }
 
-  const coordinates = await new Promise<GeolocationCoordinates>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position.coords),
-      () => reject(new ViaCepError("network_error", "Nao foi possivel acessar sua localizacao.")),
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 12000 },
-    );
-  });
+  // Helper to request position with flexible options
+  const requestPosition = (opts: PositionOptions): Promise<GeolocationCoordinates> =>
+    new Promise<GeolocationCoordinates>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => resolve(position.coords),
+        (err) => {
+          const message = GEOLOCATION_ERROR_MESSAGES[err.code] || `Erro ao acessar localizacao (codigo ${err.code}).`;
+          reject(new ViaCepError("network_error", message));
+        },
+        opts,
+      );
+    });
+
+  let coordinates: GeolocationCoordinates;
+
+  try {
+    // First attempt: balanced accuracy for fast response (address lookup doesn't need GPS precision)
+    coordinates = await requestPosition({
+      enableHighAccuracy: false,
+      maximumAge: 300000, // 5-minute cache — avoids unnecessary prompts on rapid clicks
+      timeout: 10000,
+    });
+  } catch (firstError) {
+    // If first attempt was a timeout or position unavailable, retry with even looser constraints
+    const msg = firstError instanceof ViaCepError ? firstError.message : "";
+    if (msg.includes("codigo 2") || msg.includes("codigo 3")) {
+      try {
+        coordinates = await requestPosition({
+          enableHighAccuracy: false,
+          maximumAge: 600000, // 10-minute cache
+          timeout: 15000,
+        });
+      } catch {
+        throw firstError;
+      }
+    } else {
+      throw firstError;
+    }
+  }
 
   const googleAddress = await reverseGeocodeWithGoogle({
     lat: coordinates.latitude,
@@ -336,7 +379,12 @@ export const fetchAddressFromCurrentLocation = async (): Promise<AddressWithCoor
     url.searchParams.set("accept-language", "pt-BR");
     url.searchParams.set("lat", String(coordinates.latitude));
     url.searchParams.set("lon", String(coordinates.longitude));
-    response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "HypeDelivery/1.0 (hype-delivery@vexortech.com.br)",
+      },
+    });
   } catch {
     throw new ViaCepError("network_error", "Nao foi possivel transformar sua localizacao em endereco.");
   }

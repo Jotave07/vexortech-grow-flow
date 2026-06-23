@@ -316,13 +316,13 @@ const Zones = () => {
                         {z.zip_start && <div className="flex items-center gap-1"><Search className="h-3 w-3" /> CEP {formatCep(z.zip_start)} a {formatCep(z.zip_end || "")}</div>}
                       </div>
                       <div className="flex flex-wrap gap-3 mt-2">
-                        <div className="bg-primary/10 text-primary-foreground text-xs px-2 py-1 rounded-none font-medium flex items-center gap-1">
+                        <div className="bg-primary/10 text-primary-foreground text-xs px-2 py-1 rounded-md font-medium flex items-center gap-1">
                           <Truck className="h-3 w-3" /> Taxa: {formatBRL(z.fee || 0)} {z.fee_per_km ? `+ ${formatBRL(z.fee_per_km)}/km` : ""}
                         </div>
-                        <div className="bg-primary/15 text-foreground text-xs px-2 py-1 rounded-none font-medium flex items-center gap-1">
+                        <div className="bg-primary/15 text-foreground text-xs px-2 py-1 rounded-md font-medium flex items-center gap-1">
                           <Clock className="h-3 w-3" /> {(z.base_prep_time || 30) + (z.additional_region_time || 0)} min base
                         </div>
-                        <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-none font-medium">
+                        <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-md font-medium">
                           Mín: {formatBRL(z.min_order || 0)}
                         </div>
                       </div>
@@ -366,7 +366,7 @@ const Zones = () => {
                   />
                 </div>
                 {(testAddress.street || testAddress.neighborhood || testAddress.city || testAddress.state) && (
-                  <div className="rounded-none border border-border bg-muted/30 p-3 text-xs font-medium leading-relaxed text-muted-foreground">
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-xs font-medium leading-relaxed text-muted-foreground">
                     {testAddress.street && <div>{testAddress.street}</div>}
                     {testAddress.neighborhood && <div>Bairro: {testAddress.neighborhood}</div>}
                     {(testAddress.city || testAddress.state) && <div>{[testAddress.city, testAddress.state].filter(Boolean).join("/")}</div>}
@@ -378,7 +378,7 @@ const Zones = () => {
               </div>
 
               {testResult && (
-                <div className={`p-4 rounded-none border ${testResult.available ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                <div className={`p-4 rounded-md border ${testResult.available ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
                   {testResult.available ? (
                     <div className="space-y-2">
                       <div className="text-green-800 font-bold flex items-center gap-2">
@@ -446,7 +446,7 @@ const Zones = () => {
                   <Input type="number" step="0.1" value={form.max_radius_km} onChange={(e) => setForm({ ...form, max_radius_km: e.target.value })} />
                 </div>
               </div>
-              <div className="p-4 border rounded-none bg-muted/30">
+              <div className="p-4 border rounded-md bg-muted/30">
                 <Label className="mb-2 block font-bold">Faixa de CEP (Opcional)</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -482,7 +482,7 @@ const Zones = () => {
                   <Label>Pedido Mínimo (R$)</Label>
                   <Input type="number" step="0.01" value={form.min_order} onChange={(e) => setForm({ ...form, min_order: e.target.value })} />
                 </div>
-                <div className="col-span-2 p-4 border rounded-none space-y-4">
+                <div className="col-span-2 p-4 border rounded-md space-y-4">
                   <Label className="font-bold">Cálculo Avançado</Label>
                   <div className="grid grid-cols-3 gap-3">
                     <div>

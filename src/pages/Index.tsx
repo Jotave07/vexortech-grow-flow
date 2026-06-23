@@ -5,6 +5,7 @@ import { Benefits } from "@/components/landing/Benefits";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Pricing } from "@/components/landing/Pricing";
 import { CTA } from "@/components/landing/CTA";
+import { AppShowcase } from "@/components/landing/AppShowcase";
 import { Footer } from "@/components/landing/Footer";
 
 /**
@@ -48,6 +49,9 @@ const Index = () => {
 
         {/* Chamada final */}
         <CTA />
+
+        {/* Vitrine interativa com slides animados */}
+        <AppShowcase />
       </main>
       <Footer />
     </div>

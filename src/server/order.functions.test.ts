@@ -67,7 +67,7 @@ const checkoutInput = {
   reference: "bloco B",
 };
 
-const createCheckoutDeps = (options: { existingOrder?: any; createPayment?: any } = {}) => {
+const createCheckoutDeps = (options: { existingCustomer?: any; existingOrder?: any; createPayment?: any } = {}) => {
   const inserted: Record<string, number> = {};
   const client = {
     query: vi.fn(async (sql: string, params?: any[]) => {
@@ -84,7 +84,8 @@ const createCheckoutDeps = (options: { existingOrder?: any; createPayment?: any 
       }
       if (sql.includes("FROM public.delivery_zones")) return { rows: [] };
       if (sql.includes("FROM public.coupons")) return { rows: [] };
-      if (sql.includes("FROM public.customers")) return { rows: [] };
+      if (sql.includes("FROM public.customers")) return { rows: options.existingCustomer ? [options.existingCustomer] : [] };
+      if (sql.includes("UPDATE public.customers")) return { rows: [{ id: options.existingCustomer?.id || "77777777-7777-4777-8777-777777777777" }] };
       if (sql.includes("INSERT INTO public.customers")) return { rows: [{ id: "77777777-7777-4777-8777-777777777777" }] };
       if (sql.includes("WHERE idempotency_key")) return { rows: options.existingOrder ? [options.existingOrder] : [] };
       if (sql.includes("INSERT INTO public.orders")) {
@@ -160,6 +161,23 @@ describe("createCheckoutOrderForActor", () => {
     expect(result).toMatchObject({ orderId: "existing-order", publicToken: "same-public-token" });
     expect(inserted.orders || 0).toBe(0);
     expect(deps.createPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates an existing customer before creating a new order for the same user", async () => {
+    const { deps, inserted, client } = createCheckoutDeps({
+      existingCustomer: { id: "77777777-7777-4777-8777-777777777777" },
+    });
+
+    await createCheckoutOrderForActor({ ...checkoutInput, idempotencyKey: "idem-second-order" }, actor as any, deps as any);
+
+    expect(inserted.orders).toBe(1);
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE public.customers"),
+      expect.arrayContaining(["MARIA", "11999999999", "12345678901", "RUA A", "10"]),
+    );
+    const updateCall = client.query.mock.calls.find(([sql]) => String(sql).includes("UPDATE public.customers"));
+    expect(updateCall?.[0]).toContain("full_name = $1");
+    expect(updateCall?.[0]).toContain("WHERE id = $11");
   });
 
   it("keeps the order recoverable when PIX creation fails", async () => {

@@ -81,7 +81,7 @@ describe("subscription checkout service", () => {
       mode: "card_validated",
     });
     expect(deps.createCustomer).toHaveBeenCalledWith(
-      expect.objectContaining({ cpfCnpj: "12345678901" }),
+      expect.objectContaining({ cpfCnpj: "12345678901", externalReference: `platform-store:${storeId}` }),
       undefined,
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     );

@@ -32,6 +32,7 @@ interface AsaasCustomer {
   email: string;
   cpfCnpj: string;
   mobilePhone?: string;
+  externalReference?: string;
 }
 
 interface AsaasSubscription {
@@ -149,6 +150,38 @@ async function asaasRequest(
   }
 }
 
+const buildQuery = (params: Record<string, string | number | undefined | null>) => {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const normalized = String(value ?? "").trim();
+    if (normalized) searchParams.set(key, normalized);
+  }
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+};
+
+const firstCustomerFromList = (response: any) => {
+  const customers = Array.isArray(response?.data) ? response.data : [];
+  return customers.find((customer: any) => customer?.id) || null;
+};
+
+const findExistingCustomer = async (apiKey: string, data: AsaasCustomer) => {
+  const searches: Record<string, string | number>[] = [];
+  if (data.externalReference && data.cpfCnpj) {
+    searches.push({ externalReference: data.externalReference, cpfCnpj: data.cpfCnpj, limit: 1 });
+  }
+  if (data.cpfCnpj) searches.push({ cpfCnpj: data.cpfCnpj, limit: 1 });
+  if (data.email) searches.push({ email: data.email, limit: 1 });
+
+  for (const params of searches) {
+    const result = await asaasRequest(`/customers${buildQuery(params)}`, "GET", apiKey);
+    const customer = firstCustomerFromList(result);
+    if (customer) return customer;
+  }
+
+  return null;
+};
+
 export const asaas = {
   /**
    * Global (Platform) API calls
@@ -156,7 +189,16 @@ export const asaas = {
   async createCustomer(data: AsaasCustomer, apiKey?: string, options?: { idempotencyKey?: string }) {
     const key = apiKey || ASAAS_API_KEY;
     if (!key) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
-    return asaasRequest('/customers', 'POST', key, data, options);
+    const existingCustomer = await findExistingCustomer(key, data);
+    if (existingCustomer) return existingCustomer;
+
+    const created = await asaasRequest('/customers', 'POST', key, data, options);
+    if (created?.status === 409) {
+      const reconciledCustomer = await findExistingCustomer(key, data);
+      if (reconciledCustomer) return reconciledCustomer;
+    }
+
+    return created;
   },
 
   async createSubscription(data: AsaasSubscription, options?: { idempotencyKey?: string }) {

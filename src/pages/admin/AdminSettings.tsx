@@ -164,7 +164,7 @@ const AdminSettings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">Assinaturas e plataforma</h1>
@@ -199,14 +199,14 @@ const AdminSettings = () => {
             {plansOverview.map((plan) => (
               <div
                 key={plan.name}
-                className="rounded-none border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]"
+                className="rounded-md border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-base font-black tracking-tight">{plan.name}</div>
                     <div className="text-xs text-muted-foreground">{formatBRL(plan.price)}/mes</div>
                   </div>
-                  <Badge variant="outline" className="rounded-none border-primary/20 bg-primary/15 text-[10px] font-black uppercase text-foreground">
+                  <Badge variant="outline" className="rounded-md border-primary/20 bg-primary/15 text-[10px] font-black uppercase text-foreground">
                     {plan.active} ativas
                   </Badge>
                 </div>
@@ -268,7 +268,7 @@ const AdminSettings = () => {
                       <TableRow key={subscription.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-primary/15 text-xs font-black text-foreground">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-black text-foreground">
                               {initialsFor(storeName)}
                             </div>
                             <div className="min-w-0">
@@ -284,7 +284,7 @@ const AdminSettings = () => {
                           <div className="text-xs text-muted-foreground">{formatBRL(Number(subscription.plans?.price_monthly || 0))}/mes</div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn("rounded-none font-black uppercase text-[10px]", meta.className)}>
+                          <Badge variant="outline" className={cn("rounded-md font-black uppercase text-[10px]", meta.className)}>
                             {meta.label}
                           </Badge>
                         </TableCell>
@@ -339,7 +339,7 @@ const AdminSettings = () => {
                     type="password"
                     value="Configurado no servidor"
                     readOnly
-                    className="h-12 rounded-none border border-dashed border-primary/20 bg-background font-bold"
+                    className="h-12 rounded-md border border-dashed border-primary/20 bg-background font-bold"
                   />
                   <Key className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 </div>
@@ -361,11 +361,11 @@ const AdminSettings = () => {
               <CardDescription>URL unica para assinaturas e pagamentos das lojas.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 rounded-none border border-dashed border-border bg-muted/30 p-4">
+              <div className="space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-4">
                 <Input
                   value={`${window.location.origin}/api/webhooks/asaas`}
                   readOnly
-                  className="rounded-none border-border bg-background font-mono text-[10px]"
+                  className="rounded-md border-border bg-background font-mono text-[10px]"
                 />
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                   Configure o token secreto no painel Asaas e no servidor.
@@ -414,14 +414,14 @@ const MetricCard = ({
   }[tone];
 
   return (
-    <Card className="rounded-none border-border p-4 shadow-sm">
+    <Card className="rounded-md border-border p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</div>
           <div className="mt-1 truncate text-2xl font-black tracking-tight">{value}</div>
           <div className="mt-1 truncate text-xs text-muted-foreground">{detail}</div>
         </div>
-        <div className={cn("rounded-none p-3", toneClass)}>
+        <div className={cn("rounded-md p-3", toneClass)}>
           <Icon className="h-5 w-5" />
         </div>
       </div>

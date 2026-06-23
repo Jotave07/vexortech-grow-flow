@@ -83,6 +83,73 @@ const compatibleChecksums = new Map([
       "95534036768d371fd2463750363604e60c5d14b361a3e95c4f4b55226e947e65",
     ],
   ],
+  [
+    "20260521180000_generic_pix_gateway.sql",
+    [
+      "60b5593a6ff0642622145cffaa04df687c5905847cc6d6ed87a96c0b090f31a0",
+    ],
+  ],
+  [
+    "20260521190000_orders_delivery_evolution.sql",
+    [
+      "26c339fbdc1217abb1941fe8f9eaf55f8c0b3f2c6a225e0ccc857a568b1d842d",
+    ],
+  ],
+  [
+    "20260522153000_order_number_defaults.sql",
+    [
+      "e9b1d80f8615c1c1e7f04b87ea9697895280d8b9800c9671cd0c7a3315033d17",
+    ],
+  ],
+  [
+    "20260522154000_public_order_address_fields.sql",
+    [
+      "e4202434a5bcfbd93779375b9470e57cc1166793c911073c8b5738b3d9c61fc5",
+    ],
+  ],
+  [
+    "20260526110000_subscription_and_manual_pix.sql",
+    [
+      "f2f09fa7e291c63e93dd093c466ef860890633ecfbb2e08c5263e54414e9b677",
+    ],
+  ],
+  [
+    "20260527102000_store_profile_and_plan_safety.sql",
+    [
+      "1ae045ab534f631bbab1106149b39dbba056f7403509633dddb8a667b18991ea",
+      "2b67f3af999259a593ab8d8360b6b5e60e0dd9d28ee35bba27bbd0bc1d7b5eec",
+    ],
+  ],
+  [
+    "20260619145104_plan_monthly_order_limit.sql",
+    [
+      "7bf2b051ee2485ae551f12ddbb511d6b6fdfc56d27d936972e5fdbb19f368f8a",
+    ],
+  ],
+  [
+    "20260617120000_supabase_auth_storage_maps.sql",
+    [
+      "75ca2b74e286fe6e8f99260cf3a869919843d87a83486e06cd1d7b2556ca0a54",
+    ],
+  ],
+  [
+    "20260617163500_store_public_profile_columns.sql",
+    [
+      "9529517da4cad10d11f21fb5cd78d885dc5ba9652388e47094c1e518c3d22805",
+    ],
+  ],
+  [
+    "20260618082000_store_contract_columns.sql",
+    [
+      "44194f92a730286c7668def7a496dbef3a1a2cbcd37f9d4496dbd227463d167a",
+    ],
+  ],
+  [
+    "20260618090000_subscriptions_provider_column.sql",
+    [
+      "8cbd0c4bf012afb208c6564b55913b3a35b2629ce06951b8ae3071587ea8ba73",
+    ],
+  ],
 ]);
 
 const migrationFiles = () => {
