@@ -718,7 +718,7 @@ export const HEALTH_SCHEMA_SQL = `
             SELECT 1
             FROM pg_catalog.pg_attribute AS column_state
             CROSS JOIN LATERAL pg_catalog.aclexplode(
-              COALESCE(column_state.attacl, ARRAY[]::aclitem[])
+              column_state.attacl
             ) AS public_column_acl
             WHERE column_state.attrelid = financial_table.oid
               AND column_state.attnum > 0

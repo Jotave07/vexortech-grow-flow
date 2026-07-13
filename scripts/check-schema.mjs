@@ -226,7 +226,27 @@ const requiredIndexContractsCheck = (label, indexes) => ({
           AND (
             SELECT array_agg(
               ${normalizedCatalogSql(
-                "pg_catalog.pg_get_indexdef(index_state.indexrelid, key_position, true)",
+                `
+                  pg_catalog.pg_get_indexdef(
+                    index_state.indexrelid,
+                    key_position,
+                    true
+                  )
+                  || CASE
+                    WHEN (index_state.indoption[key_position - 1] & 1) = 1
+                      THEN ' DESC'
+                    ELSE ''
+                  END
+                  || CASE
+                    WHEN (index_state.indoption[key_position - 1] & 1) = 1
+                      AND (index_state.indoption[key_position - 1] & 2) = 0
+                      THEN ' NULLS LAST'
+                    WHEN (index_state.indoption[key_position - 1] & 1) = 0
+                      AND (index_state.indoption[key_position - 1] & 2) = 2
+                      THEN ' NULLS FIRST'
+                    ELSE ''
+                  END
+                `,
               )}
               ORDER BY key_position
             )
@@ -2088,7 +2108,7 @@ const checks = [
           SELECT 1
           FROM pg_attribute AS column_state
           CROSS JOIN LATERAL aclexplode(
-            COALESCE(column_state.attacl, ARRAY[]::aclitem[])
+            column_state.attacl
           ) AS public_column_acl
           WHERE column_state.attrelid = table_relation.oid
             AND column_state.attnum > 0
