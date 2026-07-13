@@ -3,7 +3,7 @@ import { normalizeDocument, validDocument } from "./checkout.js";
 import { routes as checkoutRoutes } from "./checkout.js";
 import { routes as homeRoutes } from "./home.js";
 import { routes as paymentRoutes } from "./payment.js";
-import { routes as storeRoutes } from "./store.js";
+import { routes as storeRoutes, storeCanBuildCart } from "./store.js";
 import { currentStep, parseOptions } from "./tracking.js";
 import { routes as trackingRoutes } from "./tracking.js";
 
@@ -42,5 +42,11 @@ describe("public page domain helpers", () => {
       "/pedido/:token/cancelado", "/vendas/pedido/:token/cancelado",
     ]));
     expect(checkoutRoutes.every((route) => route.auth === "customer")).toBe(true);
+  });
+
+  it("lets customers build a cart while a healthy store is closed", () => {
+    expect(storeCanBuildCart({ is_active: true, is_suspended: false })).toBe(true);
+    expect(storeCanBuildCart({ is_active: false, is_suspended: false })).toBe(false);
+    expect(storeCanBuildCart({ is_active: true, is_suspended: true })).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import {
   alertBox,
+  brandLink,
   createPage,
   debounce,
   emptyState,
@@ -40,7 +41,7 @@ function storeCard(ctx, store) {
 }
 
 function listContent(ctx, stores, isHome, registerCleanup) {
-  const section = h("section", { className: "vxp-stack vxp-stack--lg", "aria-labelledby": "stores-title" });
+  const section = h("section", { id: "stores", className: "vxp-stack vxp-stack--lg", "aria-labelledby": "stores-title" });
   const heading = h("div", { className: "vxp-stack vxp-stack--xs" },
     h("p", { className: "vxp-eyebrow", text: isHome ? "Peça perto de você" : "Lojas disponíveis" }),
     h("h1", { id: "stores-title", className: "vxp-title", text: isHome ? "O que você quer pedir hoje?" : "Escolha uma loja" }),
@@ -90,6 +91,38 @@ function listContent(ctx, stores, isHome, registerCleanup) {
   return section;
 }
 
+function consumerHero() {
+  return h("section", { className: "vxp-consumer-hero", "aria-labelledby": "consumer-hero-title" },
+    h("div", { className: "vxp-consumer-hero__copy vxp-stack vxp-stack--lg" },
+      h("span", { className: "vxp-badge vxp-badge--success", text: "Delivery simples, do seu jeito" }),
+      h("div", { className: "vxp-stack vxp-stack--sm" },
+        h("h1", { id: "consumer-hero-title", className: "vxp-consumer-headline", text: "Seu pedido favorito, a caminho." }),
+        h("p", { className: "vxp-subtitle", text: "Encontre lojas, monte sua sacola e acompanhe cada etapa sem sair da Hype Delivery." }),
+      ),
+      h("a", { className: "vxp-btn vxp-consumer-hero__cta", href: "#stores", text: "Explorar lojas" }),
+    ),
+    h("div", { className: "vxp-delivery-scene", role: "img", "aria-label": "Ilustração animada de uma entrega a caminho" },
+      h("div", { className: "vxp-delivery-status" },
+        h("span", { className: "vxp-delivery-status__pulse", ariaHidden: "true" }),
+        h("span", { className: "vxp-stack vxp-stack--xs" },
+          h("strong", { text: "Pedido confirmado" }),
+          h("small", { className: "vxp-muted", text: "A loja já está preparando" }),
+        ),
+      ),
+      h("div", { className: "vxp-delivery-route", ariaHidden: "true" },
+        h("span", { className: "vxp-delivery-route__point vxp-delivery-route__point--start" }),
+        h("span", { className: "vxp-delivery-route__track" }),
+        h("span", { className: "vxp-delivery-route__rider", text: "🛵" }),
+        h("span", { className: "vxp-delivery-route__point vxp-delivery-route__point--finish", text: "⌂" }),
+      ),
+      h("div", { className: "vxp-delivery-caption" },
+        h("span", { className: "vxp-muted vxp-small", text: "Do pedido à sua porta" }),
+        h("strong", { text: "Acompanhe em tempo real" }),
+      ),
+    ),
+  );
+}
+
 export function renderStores(ctx) {
   const root = createPage(ctx, { label: "Lojas para pedir" });
   const path = String(ctx?.location?.pathname || ctx?.pathname || globalThis.location?.pathname || "");
@@ -108,7 +141,11 @@ export function renderStores(ctx) {
       );
       if (root.pageSignal.aborted) return;
       const stores = Array.isArray(data) ? data : [];
-      replaceMain(root, main(listContent(ctx, stores, isHome, root.addCleanup)));
+      const content = listContent(ctx, stores, isHome, root.addCleanup);
+      replaceMain(root, main(
+        isHome ? h("div", { className: "vxp-stack vxp-stack--lg" }, consumerHero(), content) : content,
+        `vxp-shell vxp-main${isHome ? " vxp-main--home" : ""}`,
+      ));
     } catch {
       if (root.pageSignal.aborted) return;
       replaceMain(root, main(errorState({
@@ -197,8 +234,7 @@ export function renderPartnerLanding(ctx) {
   const deliveryLink = /^https?:/i.test(deliveryUrl)
     ? safeExternalLink(deliveryUrl, "Ver delivery", "vxp-btn vxp-btn--secondary")
     : navLink(ctx, deliveryUrl, "Ver delivery", "vxp-btn vxp-btn--secondary");
-  const partnerBrand = navLink(ctx, partnerHost(ctx) ? "/" : "/vendas", "Hype Delivery", "vxp-brand vxp-grow", "H");
-  partnerBrand.querySelector(".vxp-icon")?.classList.add("vxp-brand__mark");
+  const partnerBrand = brandLink(ctx, partnerHost(ctx) ? "/" : "/vendas", "Hype Delivery", "vxp-brand vxp-grow");
   const header = h("header", { className: "vxp-header" },
     h("nav", { className: "vxp-shell vxp-header__inner", "aria-label": "Navegação principal" },
       partnerBrand,

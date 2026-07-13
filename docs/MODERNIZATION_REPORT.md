@@ -333,6 +333,9 @@ A automação registrada naquele snapshot foi executada em Chromium. A configura
 - Sidebar/painel, cabeçalhos, navegação pública, formulários, tabelas e cards padronizados.
 - Tabelas usam contenção/alternativa responsiva; checkout e painéis reorganizam grids em mobile, sem simples redução proporcional.
 - Microinterações em menu, modal, toast, botões, carrinho, etapas e mudança de status com CSS/JS nativo e reduced motion.
+- A experiência pública usa a marca oficial nos cabeçalhos, mantém a navegação móvel em uma única linha e isola os tokens visuais dos modais anexados ao `body`.
+- Na home do consumidor, uma cena de entrega reintroduz movimento e contexto sem bloquear a busca de lojas e respeita `prefers-reduced-motion`.
+- Clientes podem montar a sacola enquanto uma loja ativa estiver fechada; a finalização permanece bloqueada até a loja voltar a aceitar pedidos.
 - Evidências visuais preservadas em [docs/evidence](evidence), incluindo desktop/mobile de produtos, configurações e entregas, além de assinatura, cartão, tracking e configurações administrativas.
 
 ## 14. Melhorias em gestão de pedidos

@@ -31,6 +31,10 @@ function productPrice(product) {
   return Number(product.promo_price ?? product.price ?? 0);
 }
 
+export function storeCanBuildCart(store) {
+  return Boolean(store) && store.is_active !== false && !store.is_suspended;
+}
+
 function optionLimits(group) {
   const min = Math.max(group.is_required ? 1 : 0, Number(group.min_choices || 0));
   return { min, max: Math.max(min, Number(group.max_choices || 1)) };
@@ -63,7 +67,7 @@ function productCard(ctx, product, onOpen) {
   return button;
 }
 
-function renderProductDialog(ctx, product, cart, acceptOrders, onCartChange, registerCleanup) {
+function renderProductDialog(ctx, product, cart, canBuildCart, onCartChange, registerCleanup) {
   const dialog = h("dialog", { className: "vxp-dialog", "aria-labelledby": "product-dialog-title" });
   const body = h("div", { className: "vxp-dialog__body" }, loadingState("Carregando opções…"));
   const closeButton = h("button", { type: "button", className: "vxp-btn vxp-btn--ghost vxp-btn--icon", "aria-label": "Fechar", text: "×" });
@@ -192,8 +196,8 @@ function renderProductDialog(ctx, product, cart, acceptOrders, onCartChange, reg
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (!acceptOrders || blockingReason) {
-        toast(ctx, blockingReason || "A loja não está aceitando pedidos agora.", "warning");
+      if (!canBuildCart || blockingReason) {
+        toast(ctx, blockingReason || "Não é possível adicionar itens desta loja agora.", "warning");
         return;
       }
       for (const fieldset of form.querySelectorAll(".vxp-option-group")) {
@@ -225,7 +229,7 @@ function renderProductDialog(ctx, product, cart, acceptOrders, onCartChange, reg
     form.append(optionArea);
     if (blockingReason) form.append(alertBox(blockingReason, "error"));
     form.append(notesField, h("div", { className: "vxp-row vxp-row--between" }, quantityControl, addButton));
-    addButton.disabled = !acceptOrders || Boolean(blockingReason);
+    addButton.disabled = !canBuildCart || Boolean(blockingReason);
     updateTotal();
     body.replaceChildren(form);
   };
@@ -319,7 +323,8 @@ function renderStoreContent(ctx, state, cart, root) {
   const { store, settings, categories, products, reviews } = state;
   const name = String(store.public_name || store.name || "Loja");
   const open = isStoreOpen(settings?.business_hours, settings?.is_open);
-  const acceptOrders = store.is_active !== false && !store.is_suspended && (open || settings?.accept_orders_when_closed);
+  const canBuildCart = storeCanBuildCart(store);
+  const acceptOrders = canBuildCart && (open || settings?.accept_orders_when_closed);
   let searchTerm = "";
   let activeCategory = "all";
 
@@ -356,7 +361,10 @@ function renderStoreContent(ctx, state, cart, root) {
   if (loadingMain) root.insertBefore(hero, loadingMain);
   else root.append(hero);
 
-  if (!acceptOrders) shell.append(alertBox(store.is_suspended ? "Esta loja não pode receber pedidos no momento." : `A loja está fechada. ${settings?.next_opening_time ? `Próxima abertura: ${settings.next_opening_time}.` : "Você ainda pode consultar o cardápio."}`, "warning"));
+  if (!acceptOrders) shell.append(alertBox(store.is_suspended
+    ? "Esta loja não pode receber pedidos no momento."
+    : `A loja está fechada. Você pode montar sua sacola agora e finalizar quando ela voltar a aceitar pedidos.${settings?.next_opening_time ? ` Próxima abertura: ${settings.next_opening_time}.` : ""}`,
+  "warning"));
 
   const search = h("input", { className: "vxp-input", type: "search", autocomplete: "off", placeholder: "Buscar no cardápio", "aria-label": "Buscar produtos" });
   const chips = h("div", { className: "vxp-chip-list", role: "group", "aria-label": "Categorias" });
@@ -374,7 +382,7 @@ function renderStoreContent(ctx, state, cart, root) {
     return button;
   });
 
-  const openProduct = (product) => renderProductDialog(ctx, product, cart, acceptOrders, updateCartBar, root.addCleanup);
+  const openProduct = (product) => renderProductDialog(ctx, product, cart, canBuildCart, updateCartBar, root.addCleanup);
   const drawMenu = () => {
     const normalized = normalizeText(searchTerm);
     const filtered = products.filter((product) => {

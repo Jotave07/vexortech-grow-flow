@@ -71,11 +71,24 @@ export function createPage(ctx, { className = "", label = "Conteúdo principal" 
 
 export function shellHeader(ctx, { backPath = null, backLabel = "Voltar", title = "Hype Delivery", compact = false } = {}) {
   const inner = h("div", { className: "vxp-shell vxp-header__inner" });
-  if (backPath) inner.append(navLink(ctx, backPath, `${backLabel}`, "vxp-btn vxp-btn--ghost vxp-btn--icon", "←", backLabel));
-  const brand = navLink(ctx, salesPath(ctx, "/lojas"), title, "vxp-brand vxp-grow", compact ? null : "V");
-  brand.querySelector(".vxp-icon")?.classList.add("vxp-brand__mark");
+  if (backPath) inner.append(navLink(ctx, backPath, `${backLabel}`, "vxp-btn vxp-btn--ghost vxp-back-link", "←", backLabel));
+  const brand = brandLink(ctx, salesPath(ctx, "/lojas"), title, "vxp-brand vxp-grow");
+  if (compact) brand.classList.add("vxp-brand--compact");
   inner.append(brand);
   return h("header", { className: "vxp-header" }, inner);
+}
+
+export function brandLink(ctx, href, label, className = "vxp-brand") {
+  const link = navLink(ctx, href, label, className);
+  link.prepend(h("img", {
+    className: "vxp-brand__logo",
+    src: "/brand/hype-icon.svg",
+    alt: "",
+    width: "36",
+    height: "36",
+    ariaHidden: "true",
+  }));
+  return link;
 }
 
 export function navLink(ctx, href, label, className = "", leading = null, ariaLabel = null) {
