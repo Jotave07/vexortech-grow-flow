@@ -165,6 +165,10 @@ const compatibleChecksums = new Map([
     "20260618090000_subscriptions_provider_column.sql",
     ["8cbd0c4bf012afb208c6564b55913b3a35b2629ce06951b8ae3071587ea8ba73"],
   ],
+  [
+    "20260618104500_supabase_api_privilege_hardening.sql",
+    ["1c671a1c7ffe1e13c696742aceeeddf959a16f4b5ff37cf38cdca786a5aa365f"],
+  ],
 ]);
 
 const migrationFiles = () => {
