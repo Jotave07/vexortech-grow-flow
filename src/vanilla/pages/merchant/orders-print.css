@@ -1,0 +1,78 @@
+@page {
+  margin: 0;
+  size: 80mm auto;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.merchant-print {
+  background: #fff;
+  color: #000;
+  font: 11px/1.4 "Courier New", monospace;
+  margin: 0;
+  padding: 4mm 2mm;
+}
+
+.merchant-print-ticket {
+  margin: 0 auto;
+  max-width: 80mm;
+}
+
+.merchant-print__header,
+.merchant-print__footer {
+  text-align: center;
+}
+
+.merchant-print__header h1 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.merchant-print__header p,
+.merchant-print__footer {
+  font-weight: 700;
+  margin: 1mm 0;
+}
+
+.merchant-print__section {
+  border-top: 1px dashed #000;
+  margin-top: 3mm;
+  padding-top: 3mm;
+}
+
+.merchant-print__section h2 {
+  font-size: 12px;
+  margin: 0 0 1.5mm;
+  text-transform: uppercase;
+}
+
+.merchant-print__section p {
+  margin: .8mm 0;
+}
+
+.merchant-print__item {
+  display: grid;
+  gap: 1mm;
+  margin-bottom: 2mm;
+}
+
+.merchant-print__row {
+  display: flex;
+  gap: 3mm;
+  justify-content: space-between;
+}
+
+.merchant-print__options {
+  font-size: 9px;
+  margin: 0;
+  padding-left: 5mm;
+}
+
+.merchant-print__total {
+  border-top: 1px solid #000;
+  font-size: 14px;
+  margin-top: 2mm;
+  padding-top: 2mm;
+}

@@ -1,12 +1,15 @@
 import { z } from "zod";
 import type pg from "pg";
+import crypto from "node:crypto";
 import type { BackendResult } from "@/integrations/backend/compat-types";
 import { getActor } from "@/backend/auth";
 import { withTransaction } from "@/backend/db";
 import { isStoreOpen } from "@/lib/opening-hours";
+import { isValidDocument, normalizeDocument } from "@/lib/validators";
 import { createOrderPaymentForOrder } from "./asaas.service";
 import { notifyOrderCreatedHandler } from "@/functions/evolution.server";
-import { quoteDelivery } from "./delivery.service";
+import { deliveryConfigurationFingerprint, quoteDelivery } from "./delivery.service";
+import { hasPixGatewayConfig } from "./payment-gateways";
 
 type DbClient = Pick<pg.PoolClient, "query">;
 
@@ -94,7 +97,10 @@ const optionLimits = (group: any) => {
 };
 
 const isPaymentMethodAccepted = (settings: any, method: CheckoutInput["paymentMethod"]) => {
-  if (method === "pix") return Boolean(settings.accept_pix) && Boolean(String(settings.pix_key || "").trim());
+  if (method === "pix") {
+    const hasManualKey = Boolean(String(settings.pix_key || "").trim());
+    return Boolean(settings.accept_pix) && (hasManualKey || Boolean(settings.financeiro_ativo) || hasPixGatewayConfig(settings));
+  }
   if (method === "dinheiro") return Boolean(settings.accept_cash);
   return Boolean(settings.accept_card_on_delivery);
 };
@@ -102,14 +108,16 @@ const isPaymentMethodAccepted = (settings: any, method: CheckoutInput["paymentMe
 const loadProductsContext = async (client: DbClient, storeId: string, productIds: string[]) => {
   const { rows: products } = await client.query(
     `SELECT * FROM public.products
-     WHERE store_id = $1 AND id = ANY($2::uuid[])`,
+     WHERE store_id = $1 AND id = ANY($2::uuid[])
+     FOR SHARE`,
     [storeId, productIds],
   );
   const { rows: groups } = await client.query(
     `SELECT po.*
      FROM public.product_options po
      JOIN public.products p ON p.id = po.product_id
-     WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])`,
+     WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])
+     FOR SHARE OF po, p`,
     [storeId, productIds],
   );
   const { rows: optionItems } = await client.query(
@@ -117,7 +125,8 @@ const loadProductsContext = async (client: DbClient, storeId: string, productIds
      FROM public.product_option_items poi
      JOIN public.product_options po ON po.id = poi.option_id
      JOIN public.products p ON p.id = po.product_id
-     WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])`,
+     WHERE p.store_id = $1 AND po.product_id = ANY($2::uuid[])
+     FOR SHARE OF poi, po, p`,
     [storeId, productIds],
   );
 
@@ -147,7 +156,13 @@ const calculateItems = (input: CheckoutInput, products: any[], groups: any[], op
 
     const productGroups = groups.filter((group) => group.product_id === product.id);
     const selectedByGroup = new Map<string, CheckoutInput["items"][number]["options"]>();
+    const uniqueSelections = new Set<string>();
     for (const selected of cartItem.options) {
+      const selectionKey = `${selected.optionId}:${selected.itemId}`;
+      if (uniqueSelections.has(selectionKey)) {
+        throw new Error(`Opcao duplicada em "${product.name}".`);
+      }
+      uniqueSelections.add(selectionKey);
       selectedByGroup.set(selected.optionId, [...(selectedByGroup.get(selected.optionId) || []), selected]);
     }
 
@@ -231,7 +246,7 @@ const createOrUpdateCustomer = async (client: DbClient, input: CheckoutInput, ac
     actor.user.id,
     upper(input.customer.name),
     onlyDigits(input.customer.phone),
-    onlyDigits(input.customer.document),
+    normalizeDocument(input.customer.document || ""),
     upper(input.delivery.street),
     input.delivery.number || null,
     upper(input.delivery.neighborhood),
@@ -317,9 +332,116 @@ export const createCheckoutOrderForActor = async (
   deps: CheckoutDeps = defaultDeps,
 ) => {
   const input = checkoutInputSchema.parse(rawInput);
+  const resolvedCustomerDocument = normalizeDocument(actor.profile?.document || input.customer.document || "");
+  if (resolvedCustomerDocument && !isValidDocument(resolvedCustomerDocument)) {
+    throw new Error("CPF ou CNPJ invalido.");
+  }
+  const checkoutPayloadHash = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(input))
+    .digest("hex");
+
+  const finalizeOrder = async (order: any) => {
+    let payment = null;
+    if (order.payment_method === "pix") {
+      try {
+        payment = await deps.createPayment({
+          orderId: order.id,
+          storeId: order.store_id,
+          attemptKey: `checkout:${order.id}:${input.idempotencyKey}`,
+        });
+      } catch (error: any) {
+        payment = {
+          error: error?.message || "Pedido criado, mas nao foi possivel gerar o PIX agora.",
+          status: "falhou",
+        };
+      }
+    }
+
+    await deps.notifyOrderCreated(order.id).catch((error) => {
+      console.warn("Evolution notification skipped:", error);
+    });
+
+    return {
+      orderId: order.id,
+      publicToken: order.public_token,
+      orderNumber: order.order_number,
+      payment,
+    };
+  };
+
+  // A retry of an already committed checkout must not depend on the current
+  // menu, delivery provider or store availability.
+  const existingOrder = await deps.withTransaction(async (client) => {
+    const { rows } = await client.query(
+      `SELECT o.id, o.store_id, o.public_token, o.payment_method, o.order_number, o.checkout_payload_hash
+       FROM public.orders o
+       JOIN public.customers c ON c.id = o.customer_id
+       WHERE o.idempotency_key = $1 AND o.store_id = $2 AND c.user_id = $3
+       LIMIT 1`,
+      [input.idempotencyKey, input.storeId, actor.user.id],
+    );
+    return rows[0] || null;
+  });
+  if (existingOrder) {
+    if (!existingOrder.public_token) throw new Error("Pedido existente sem token publico.");
+    if (existingOrder.checkout_payload_hash && existingOrder.checkout_payload_hash !== checkoutPayloadHash) {
+      throw new Error("Esta chave de idempotencia ja foi usada com outro carrinho.");
+    }
+    return finalizeOrder(existingOrder);
+  }
+
+  // Resolve remote geocoding/routing before the write transaction. The product
+  // context is read once for the quote and then revalidated under lock below.
+  const previewProductIds = [...new Set(input.items.map((item) => item.productId))];
+  const quotedSubtotal = await deps.withTransaction(async (client) => {
+    const context = await loadProductsContext(client, input.storeId, previewProductIds);
+    return calculateItems(input, context.products, context.groups, context.optionItems).subtotal;
+  });
+  const quotedDelivery = input.delivery.type === "retirada"
+    ? {
+        fee: 0,
+        regionId: null,
+        estimatedMin: null,
+        estimatedMax: null,
+        source: "pickup",
+        distanceKm: null,
+        normalizedAddress: null,
+        configurationFingerprint: null,
+      }
+    : await deps.quoteDelivery({
+        storeId: input.storeId,
+        subtotal: quotedSubtotal,
+        address: {
+          cep: input.delivery.zipCode,
+          street: input.delivery.street,
+          number: input.delivery.number,
+          complement: input.delivery.complement,
+          neighborhood: input.delivery.neighborhood,
+          city: input.delivery.city,
+          state: input.delivery.state,
+        },
+        customerCoordinates: input.delivery.customerCoordinates || null,
+      }).then((quote) => {
+        if (!quote.available) throw new Error(quote.reason || "Regiao nao atendida.");
+        return {
+          fee: quote.fee,
+          regionId: quote.regionId || null,
+          estimatedMin: quote.estimatedMin || null,
+          estimatedMax: quote.estimatedMax || null,
+          source: quote.source,
+          distanceKm: quote.distanceKm || null,
+          normalizedAddress: quote.normalizedAddress || null,
+          configurationFingerprint: quote.configurationFingerprint || null,
+        };
+      });
 
   const order = await deps.withTransaction(async (client) => {
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`checkout:${input.idempotencyKey}`]);
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`,
+      [`customer:${input.storeId}:${actor.user.id}`],
+    );
 
     const { rows: stores } = await client.query(
       `SELECT * FROM public.stores
@@ -346,49 +468,28 @@ export const createCheckoutOrderForActor = async (
     if (input.delivery.type === "retirada" && !settings.allow_pickup) {
       throw new Error("Retirada indisponivel para esta loja.");
     }
+    if (input.delivery.type === "entrega") {
+      if (!settings.allow_delivery) throw new Error("Entrega indisponivel para esta loja.");
+      const { rows: deliveryZones } = await client.query(
+        `SELECT * FROM public.delivery_zones
+         WHERE store_id = $1 AND COALESCE(is_active, true) IS TRUE
+         FOR SHARE`,
+        [input.storeId],
+      );
+      const currentFingerprint = deliveryConfigurationFingerprint(store, settings, deliveryZones);
+      if (!quotedDelivery.configurationFingerprint || currentFingerprint !== quotedDelivery.configurationFingerprint) {
+        throw new Error("As condicoes de entrega mudaram durante o checkout. Calcule o frete novamente.");
+      }
+    }
     if (onlyDigits(input.customer.phone).length < 10) throw new Error("WhatsApp invalido.");
 
     const productIds = [...new Set(input.items.map((item) => item.productId))];
     const { products, groups, optionItems } = await loadProductsContext(client, input.storeId, productIds);
     const { calculatedItems, subtotal } = calculateItems(input, products, groups, optionItems);
-
-    const delivery = input.delivery.type === "retirada"
-      ? {
-        fee: 0,
-        regionId: null,
-        estimatedMin: null,
-        estimatedMax: null,
-        source: "pickup",
-        distanceKm: null,
-        normalizedAddress: null,
-      }
-      : await deps.quoteDelivery({
-        storeId: input.storeId,
-        subtotal,
-        address: {
-          cep: input.delivery.zipCode,
-          street: input.delivery.street,
-          number: input.delivery.number,
-          complement: input.delivery.complement,
-          neighborhood: input.delivery.neighborhood,
-          city: input.delivery.city,
-          state: input.delivery.state,
-        },
-        customerCoordinates: input.delivery.customerCoordinates || null,
-      }, {
-        query: client.query.bind(client) as any,
-      }).then((quote) => {
-        if (!quote.available) throw new Error(quote.reason || "Regiao nao atendida.");
-        return {
-          fee: quote.fee,
-          regionId: quote.regionId || null,
-          estimatedMin: quote.estimatedMin || null,
-          estimatedMax: quote.estimatedMax || null,
-          source: quote.source,
-          distanceKm: quote.distanceKm || null,
-          normalizedAddress: quote.normalizedAddress || null,
-        };
-      });
+    if (subtotal !== quotedSubtotal) {
+      throw new Error("O cardapio mudou durante o checkout. Revise o carrinho e tente novamente.");
+    }
+    const delivery = quotedDelivery;
     const coupon = await loadCoupon(client, input.storeId, input.couponCode);
     const discount = calculateDiscount(coupon, subtotal);
     const total = money(Math.max(0, subtotal + delivery.fee - discount));
@@ -396,9 +497,12 @@ export const createCheckoutOrderForActor = async (
       throw new Error("Troco precisa ser maior ou igual ao total do pedido.");
     }
 
-    const customer = await createOrUpdateCustomer(client, input, actor);
+    const customer = await createOrUpdateCustomer(client, {
+      ...input,
+      customer: { ...input.customer, document: resolvedCustomerDocument || null },
+    }, actor);
     const { rows: existingOrders } = await client.query(
-      `SELECT id, store_id, public_token, payment_method, order_number
+      `SELECT id, store_id, public_token, payment_method, order_number, checkout_payload_hash
        FROM public.orders
        WHERE idempotency_key = $1 AND store_id = $2 AND customer_id = $3
        LIMIT 1
@@ -407,6 +511,9 @@ export const createCheckoutOrderForActor = async (
     );
     if (existingOrders[0]) {
       if (!existingOrders[0].public_token) throw new Error("Pedido existente sem token publico.");
+      if (existingOrders[0].checkout_payload_hash && existingOrders[0].checkout_payload_hash !== checkoutPayloadHash) {
+        throw new Error("Esta chave de idempotencia ja foi usada com outro carrinho.");
+      }
       return existingOrders[0];
     }
 
@@ -423,14 +530,15 @@ export const createCheckoutOrderForActor = async (
          delivery_type, status, payment_status, delivery_address, delivery_fee, subtotal,
          discount_amount, total, payment_method, change_for, notes, zip_code, neighborhood,
          city, state, street, number, complement, delivery_reference, delivery_region_id, estimated_min,
-         estimated_max, delivery_source, distance_km, coupon_id, coupon_code, idempotency_key
+         estimated_max, delivery_source, distance_km, coupon_id, coupon_code, idempotency_key,
+         checkout_payload_hash
        )
        VALUES (
          $1, $2, $3, $4, $5, $6,
          $7, $8, $9, $10, $11, $12,
          $13, $14, $15, $16, $17, $18, $19,
          $20, $21, $22, $23, $24, $25, $26, $27,
-         $28, $29, $30, $31, $32, $33
+         $28, $29, $30, $31, $32, $33, $34
        )
        RETURNING id, store_id, public_token, payment_method, order_number`,
       [
@@ -438,8 +546,8 @@ export const createCheckoutOrderForActor = async (
         customer.id,
         upper(input.customer.name),
         onlyDigits(input.customer.phone),
-        onlyDigits(input.customer.document),
-        input.customer.email || actor.user.email || null,
+        resolvedCustomerDocument || null,
+        actor.user.email || null,
         input.delivery.type,
         status,
         "pendente",
@@ -467,6 +575,7 @@ export const createCheckoutOrderForActor = async (
         coupon?.id || null,
         coupon?.code || null,
         input.idempotencyKey,
+        checkoutPayloadHash,
       ],
     );
     const newOrder = orderRows[0];
@@ -486,32 +595,7 @@ export const createCheckoutOrderForActor = async (
     return newOrder;
   });
 
-  let payment = null;
-  if (order.payment_method === "pix") {
-    try {
-      payment = await deps.createPayment({
-        orderId: order.id,
-        storeId: order.store_id,
-        attemptKey: `checkout:${order.id}:${checkoutInputSchema.parse(rawInput).idempotencyKey}`,
-      });
-    } catch (error: any) {
-      payment = {
-        error: error?.message || "Pedido criado, mas nao foi possivel gerar o PIX agora.",
-        status: "falhou",
-      };
-    }
-  }
-
-  await deps.notifyOrderCreated(order.id).catch((error) => {
-    console.warn("Evolution notification skipped:", error);
-  });
-
-  return {
-    orderId: order.id,
-    publicToken: order.public_token,
-    orderNumber: order.order_number,
-    payment,
-  };
+  return finalizeOrder(order);
 };
 
 export const createCheckoutOrderHandler = async (

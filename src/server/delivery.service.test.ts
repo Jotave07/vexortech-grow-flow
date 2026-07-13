@@ -47,8 +47,8 @@ const createDeps = (overrides: {
     if (sql.includes("FROM public.delivery_zones")) return { rows: overrides.zones ?? [] };
     return { rows: [] };
   }),
-  cepLookup: vi.fn(async () => ({
-    cep: "01001-000",
+  cepLookup: vi.fn(async (cep: string) => ({
+    cep,
     street: "Praca da Se",
     neighborhood: "SE",
     city: "SAO PAULO",
@@ -177,7 +177,7 @@ describe("quoteDelivery", () => {
         name: "Centro",
         city: "SAO PAULO",
         state: "SP",
-        neighborhood: "CENTRO",
+        neighborhood: "SE",
         fee: 12,
         min_order: 0,
       }],
@@ -207,6 +207,19 @@ describe("quoteDelivery", () => {
     expect(quote.reason).toContain("ainda nao entrega");
   });
 
+  it("fails closed when the server cannot validate the CEP", async () => {
+    const deps = createDeps({
+      zones: [{ city: "SAO PAULO", state: "SP", neighborhood: "CENTRO", fee: 1 }],
+    });
+    deps.cepLookup.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const quote = await quoteDelivery(input, deps as any);
+
+    expect(quote.available).toBe(false);
+    expect(quote.reason).toContain("validar o CEP");
+    expect(deps.distance).not.toHaveBeenCalled();
+  });
+
   it("matches neighborhood fallback and applies min and max fee", async () => {
     const deps = createDeps({
       zones: [{
@@ -214,7 +227,7 @@ describe("quoteDelivery", () => {
         name: "Bairro",
         city: "SAO PAULO",
         state: "SP",
-        neighborhood: "CENTRO",
+        neighborhood: "SE",
         fee: 2,
         fee_per_km: 10,
         min_fee: 15,

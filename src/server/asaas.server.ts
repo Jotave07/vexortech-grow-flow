@@ -3,10 +3,16 @@
  */
 
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
-const ASAAS_ENVIRONMENT = process.env.ASAAS_ENVIRONMENT || 'production';
-const ASAAS_URL = ASAAS_ENVIRONMENT === 'sandbox'
-  ? 'https://sandbox.asaas.com/api/v3'
-  : 'https://www.asaas.com/api/v3';
+const configuredAsaasEnvironment = process.env.ASAAS_ENVIRONMENT?.trim().toLowerCase();
+const ASAAS_ENVIRONMENT =
+  configuredAsaasEnvironment || (process.env.NODE_ENV === "production" ? "production" : "sandbox");
+if (!new Set(["sandbox", "production"]).has(ASAAS_ENVIRONMENT)) {
+  throw new Error("ASAAS_ENVIRONMENT deve ser sandbox ou production.");
+}
+const ASAAS_URL =
+  ASAAS_ENVIRONMENT === "sandbox"
+    ? "https://sandbox.asaas.com/api/v3"
+    : "https://www.asaas.com/api/v3";
 const PAYMENT_GATEWAY_DEBUG = process.env.PAYMENT_GATEWAY_DEBUG === "true";
 const ASAAS_REQUEST_TIMEOUT_MS = 25000;
 
@@ -37,10 +43,10 @@ interface AsaasCustomer {
 
 interface AsaasSubscription {
   customer: string;
-  billingType: 'CREDIT_CARD' | 'BOLETO';
+  billingType: "CREDIT_CARD" | "BOLETO";
   value: number;
   nextDueDate: string;
-  cycle: 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  cycle: "WEEKLY" | "MONTHLY" | "YEARLY";
   description?: string;
   externalReference?: string;
   creditCard?: {
@@ -63,6 +69,10 @@ interface AsaasSubscription {
   remoteIp?: string;
 }
 
+type AsaasSubscriptionUpdate = Partial<AsaasSubscription> & {
+  status?: "ACTIVE" | "INACTIVE";
+};
+
 async function asaasRequest(
   endpoint: string,
   method: string,
@@ -75,12 +85,12 @@ async function asaasRequest(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ASAAS_REQUEST_TIMEOUT_MS);
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'access_token': apiKey,
-    'User-Agent': 'HypeDelivery/1.0',
+    "Content-Type": "application/json",
+    access_token: apiKey,
+    "User-Agent": "HypeDelivery/1.0",
   };
 
-  if (options?.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
+  if (options?.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
 
   try {
     const response = await fetch(url, {
@@ -123,7 +133,7 @@ async function asaasRequest(
       return {
         status: response.status,
         retryable: response.status >= 500 || response.status === 429,
-        errors: data.errors || [{ description: data.message || 'Erro desconhecido no Asaas' }],
+        errors: data.errors || [{ description: data.message || "Erro desconhecido no Asaas" }],
       };
     }
 
@@ -140,10 +150,13 @@ async function asaasRequest(
         errors: [{ description: "Tempo esgotado na comunicacao com o gateway de pagamento." }],
       };
     }
-    console.error("Asaas Network/Fetch Error:", error instanceof Error ? error.message : "network_error");
+    console.error(
+      "Asaas Network/Fetch Error:",
+      error instanceof Error ? error.message : "network_error",
+    );
     return {
       retryable: true,
-      errors: [{ description: 'Falha na comunicação com o gateway de pagamento.' }],
+      errors: [{ description: "Falha na comunicação com o gateway de pagamento." }],
     };
   } finally {
     clearTimeout(timeout);
@@ -160,9 +173,56 @@ const buildQuery = (params: Record<string, string | number | undefined | null>) 
   return query ? `?${query}` : "";
 };
 
-const firstCustomerFromList = (response: any) => {
-  const customers = Array.isArray(response?.data) ? response.data : [];
-  return customers.find((customer: any) => customer?.id) || null;
+const normalizeIdentityDocument = (value: unknown) => String(value || "").replace(/\D/g, "");
+
+const subscriptionsForReference = (response: any, data: AsaasSubscription) => {
+  const subscriptions = Array.isArray(response?.data) ? response.data : [];
+  return subscriptions.filter(
+    (subscription: any) =>
+      subscription?.id && subscription.externalReference === data.externalReference,
+  );
+};
+
+const matchingSubscriptionsFromList = (response: any, data: AsaasSubscription) => {
+  return subscriptionsForReference(response, data).filter(
+    (subscription: any) =>
+      subscription.customer === data.customer &&
+      subscription.billingType === data.billingType &&
+      Math.round(Number(subscription.value) * 100) === Math.round(Number(data.value) * 100),
+  );
+};
+
+const findExistingSubscription = async (apiKey: string, data: AsaasSubscription) => {
+  if (!data.externalReference) return { match: null, duplicate: false };
+  const response = await asaasRequest(
+    `/subscriptions${buildQuery({
+      externalReference: data.externalReference,
+      status: "ACTIVE",
+      limit: 100,
+    })}`,
+    "GET",
+    apiKey,
+  );
+  if (response?.errors) {
+    return {
+      match: null,
+      duplicate: false,
+      conflict: false,
+      lookupError: true,
+      retryable: Boolean(response.retryable || response.timeout),
+      status: response.status,
+    };
+  }
+  const candidates = subscriptionsForReference(response, data);
+  const matches = matchingSubscriptionsFromList(response, data);
+  return {
+    match: candidates.length === 1 ? matches[0] || null : null,
+    duplicate: candidates.length > 1 || response?.hasMore === true,
+    conflict: candidates.length === 1 && matches.length === 0,
+    lookupError: false,
+    retryable: false,
+    status: response?.status,
+  };
 };
 
 const findExistingCustomer = async (apiKey: string, data: AsaasCustomer) => {
@@ -171,54 +231,197 @@ const findExistingCustomer = async (apiKey: string, data: AsaasCustomer) => {
     searches.push({ externalReference: data.externalReference, cpfCnpj: data.cpfCnpj, limit: 1 });
   }
   if (data.cpfCnpj) searches.push({ cpfCnpj: data.cpfCnpj, limit: 1 });
-  if (data.email) searches.push({ email: data.email, limit: 1 });
 
   for (const params of searches) {
     const result = await asaasRequest(`/customers${buildQuery(params)}`, "GET", apiKey);
-    const customer = firstCustomerFromList(result);
-    if (customer) return customer;
+    if (result?.errors) {
+      return {
+        match: null,
+        lookupError: true,
+        conflict: false,
+        duplicate: false,
+        status: result.status,
+        retryable: Boolean(result.retryable || result.timeout),
+      };
+    }
+    const candidates = Array.isArray(result?.data)
+      ? result.data.filter((customer: any) => customer?.id)
+      : [];
+    const matches = candidates.filter(
+      (customer: any) =>
+        normalizeIdentityDocument(customer.cpfCnpj) === normalizeIdentityDocument(data.cpfCnpj),
+    );
+    if (matches.length === 1 && candidates.length === 1) {
+      return {
+        match: matches[0],
+        lookupError: false,
+        conflict: false,
+        duplicate: false,
+      };
+    }
+    if (candidates.length > 1 || result?.hasMore === true) {
+      return {
+        match: null,
+        lookupError: false,
+        conflict: false,
+        duplicate: true,
+      };
+    }
+    if (candidates.length === 1 && matches.length === 0) {
+      return {
+        match: null,
+        lookupError: false,
+        conflict: true,
+        duplicate: false,
+      };
+    }
   }
 
-  return null;
+  return { match: null, lookupError: false, conflict: false, duplicate: false };
 };
 
 export const asaas = {
   /**
    * Global (Platform) API calls
    */
-  async createCustomer(data: AsaasCustomer, apiKey?: string, options?: { idempotencyKey?: string }) {
+  async createCustomer(
+    data: AsaasCustomer,
+    apiKey?: string,
+    options?: { idempotencyKey?: string },
+  ) {
     const key = apiKey || ASAAS_API_KEY;
-    if (!key) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
+    if (!key) return { errors: [{ description: "API Key do Asaas não configurada." }] };
     const existingCustomer = await findExistingCustomer(key, data);
-    if (existingCustomer) return existingCustomer;
+    if (existingCustomer.lookupError) {
+      return {
+        status: existingCustomer.status,
+        retryable: existingCustomer.retryable,
+        reconciliationRequired: true,
+        errors: [
+          {
+            description: "Nao foi possivel reconciliar o cliente antes de criar o cadastro.",
+          },
+        ],
+      };
+    }
+    if (existingCustomer.duplicate || existingCustomer.conflict) {
+      return {
+        reconciliationRequired: true,
+        errors: [
+          {
+            description: "O documento do cliente exige reconciliacao manual antes do cadastro.",
+          },
+        ],
+      };
+    }
+    if (existingCustomer.match) return existingCustomer.match;
 
-    const created = await asaasRequest('/customers', 'POST', key, data, options);
-    if (created?.status === 409) {
+    const created = await asaasRequest("/customers", "POST", key, data, options);
+    if (created?.status === 409 || created?.retryable || created?.timeout) {
       const reconciledCustomer = await findExistingCustomer(key, data);
-      if (reconciledCustomer) return reconciledCustomer;
+      if (reconciledCustomer.match) return reconciledCustomer.match;
     }
 
     return created;
   },
 
   async createSubscription(data: AsaasSubscription, options?: { idempotencyKey?: string }) {
-    if (!ASAAS_API_KEY) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
-    return asaasRequest('/subscriptions', 'POST', ASAAS_API_KEY, data, options);
+    if (!ASAAS_API_KEY) return { errors: [{ description: "API Key do Asaas não configurada." }] };
+    const existing = await findExistingSubscription(ASAAS_API_KEY, data);
+    if (existing.lookupError) {
+      return {
+        status: existing.status,
+        retryable: existing.retryable,
+        errors: [
+          {
+            description:
+              "Nao foi possivel reconciliar assinaturas ativas antes de criar uma nova cobranca.",
+          },
+        ],
+        reconciliationRequired: true,
+      };
+    }
+    if (existing.duplicate) {
+      console.error("Asaas duplicate active subscriptions found for external reference", {
+        externalReference: data.externalReference,
+      });
+      return {
+        errors: [{ description: "Mais de uma assinatura ativa foi encontrada para esta loja." }],
+        reconciliationRequired: true,
+      };
+    }
+    if (existing.conflict) {
+      console.error("Asaas active subscription conflicts with the requested contract", {
+        externalReference: data.externalReference,
+      });
+      return {
+        errors: [
+          {
+            description:
+              "Uma assinatura ativa divergente exige reconciliacao antes de criar outra cobranca.",
+          },
+        ],
+        reconciliationRequired: true,
+      };
+    }
+    if (existing.match) return existing.match;
+
+    const created = await asaasRequest("/subscriptions", "POST", ASAAS_API_KEY, data, options);
+    if (created?.retryable || created?.timeout || created?.status === 409) {
+      const reconciled = await findExistingSubscription(ASAAS_API_KEY, data);
+      if (reconciled.lookupError) return created;
+      if (reconciled.duplicate) {
+        console.error("Asaas duplicate active subscriptions found after create", {
+          externalReference: data.externalReference,
+        });
+        return {
+          errors: [{ description: "Mais de uma assinatura ativa foi encontrada para esta loja." }],
+          reconciliationRequired: true,
+        };
+      }
+      if (reconciled.conflict) {
+        return {
+          errors: [
+            {
+              description:
+                "Uma assinatura ativa divergente exige reconciliacao antes de criar outra cobranca.",
+            },
+          ],
+          reconciliationRequired: true,
+        };
+      }
+      if (reconciled.match) return reconciled.match;
+    }
+    return created;
   },
 
-  async updateSubscription(subscriptionId: string, data: Partial<AsaasSubscription>) {
-    if (!ASAAS_API_KEY) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
-    return asaasRequest(`/subscriptions/${subscriptionId}`, 'PUT', ASAAS_API_KEY, data);
+  async updateSubscription(subscriptionId: string, data: AsaasSubscriptionUpdate) {
+    if (!ASAAS_API_KEY) return { errors: [{ description: "API Key do Asaas não configurada." }] };
+    return asaasRequest(`/subscriptions/${subscriptionId}`, "PUT", ASAAS_API_KEY, data);
+  },
+
+  async getSubscription(subscriptionId: string) {
+    if (!ASAAS_API_KEY) return { errors: [{ description: "API Key do Asaas nao configurada." }] };
+    return asaasRequest(
+      `/subscriptions/${encodeURIComponent(subscriptionId)}`,
+      "GET",
+      ASAAS_API_KEY,
+    );
   },
 
   async cancelSubscription(subscriptionId: string) {
-    if (!ASAAS_API_KEY) return { errors: [{ description: 'API Key do Asaas não configurada.' }] };
-    return asaasRequest(`/subscriptions/${subscriptionId}`, 'DELETE', ASAAS_API_KEY);
+    if (!ASAAS_API_KEY) return { errors: [{ description: "API Key do Asaas não configurada." }] };
+    const result = await asaasRequest(`/subscriptions/${subscriptionId}`, "DELETE", ASAAS_API_KEY);
+    return result?.status === 404 ? { success: true, alreadyAbsent: true } : result;
   },
 
   async listSubscriptionPayments(subscriptionId: string) {
-    if (!ASAAS_API_KEY) return { errors: [{ description: 'API Key do Asaas nao configurada.' }] };
-    return asaasRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}/payments`, 'GET', ASAAS_API_KEY);
+    if (!ASAAS_API_KEY) return { errors: [{ description: "API Key do Asaas nao configurada." }] };
+    return asaasRequest(
+      `/subscriptions/${encodeURIComponent(subscriptionId)}/payments`,
+      "GET",
+      ASAAS_API_KEY,
+    );
   },
 
   /**
@@ -226,7 +429,14 @@ export const asaas = {
    * Order Pix is paid directly to the store key and approved manually.
    */
   async createStorePayment(storeApiKey: string, data: any, options?: { idempotencyKey?: string }) {
-    return { errors: [{ description: "Pix de pedidos usa chave Pix da loja e confirmacao manual, sem API externa." }] };
+    return {
+      errors: [
+        {
+          description:
+            "Pix de pedidos usa chave Pix da loja e confirmacao manual, sem API externa.",
+        },
+      ],
+    };
   },
 
   async findPaymentByExternalReference(storeApiKey: string, externalReference: string) {
@@ -243,5 +453,5 @@ export const asaas = {
 
   async refundPayment(storeApiKey: string, paymentId: string, value: number, description: string) {
     return { errors: [{ description: "Estorno externo de Pix de pedido desabilitado." }] };
-  }
+  },
 };

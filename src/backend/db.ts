@@ -1,3 +1,4 @@
+import path from "node:path";
 import pg from "pg";
 import { validateRuntimeEnv } from "./env";
 
@@ -46,8 +47,37 @@ const getSslConfig = (connectionString: string) => {
     clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
 
   return {
-    rejectUnauthorized: rejectUnauthorizedEnv ? rejectUnauthorizedEnv !== "false" : sslMode !== "no-verify",
+    rejectUnauthorized: rejectUnauthorizedEnv
+      ? rejectUnauthorizedEnv !== "false"
+      : sslMode !== "no-verify",
   };
+};
+
+export const getPgPoolConfig = (connectionString: string): pg.PoolConfig => {
+  const rootCertPath =
+    clean(process.env.DATABASE_SSL_ROOT_CERT) || clean(process.env.POSTGRES_SSL_ROOT_CERT);
+  if (!rootCertPath) {
+    return { connectionString, ssl: getSslConfig(connectionString) };
+  }
+  if (!path.isAbsolute(rootCertPath)) {
+    throw new Error("DATABASE_SSL_ROOT_CERT deve ser um caminho absoluto.");
+  }
+  const rejectUnauthorized =
+    clean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED) ||
+    clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
+  if (rejectUnauthorized?.toLowerCase() === "false") {
+    throw new Error(
+      "DATABASE_SSL_ROOT_CERT nao pode ser combinado com SSL sem validacao de certificado.",
+    );
+  }
+
+  // URL SSL settings take precedence inside node-postgres. Put the pinned CA
+  // and verify-full in that same source of truth to prevent a legacy sslmode
+  // from weakening certificate or hostname validation.
+  const configuredUrl = new URL(connectionString);
+  configuredUrl.searchParams.set("sslmode", "verify-full");
+  configuredUrl.searchParams.set("sslrootcert", rootCertPath);
+  return { connectionString: configuredUrl.toString() };
 };
 
 export const getPool = () => {
@@ -56,8 +86,7 @@ export const getPool = () => {
     validateRuntimeEnv();
     const connectionString = buildConnectionString();
     g.__hypePgPool = new Pool({
-      connectionString,
-      ssl: getSslConfig(connectionString),
+      ...getPgPoolConfig(connectionString),
       max: Number(process.env.POSTGRES_POOL_MAX || 10),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
@@ -124,8 +153,38 @@ const runLoggedQuery = async <T extends pg.QueryResultRow = pg.QueryResultRow>(
   }
 };
 
-export const query = async <T extends pg.QueryResultRow = pg.QueryResultRow>(text: string, params: unknown[] = []) => {
+export const query = async <T extends pg.QueryResultRow = pg.QueryResultRow>(
+  text: string,
+  params: unknown[] = [],
+) => {
   return runLoggedQuery<T>((sql, values) => getPool().query<T>(sql, values), text, params);
+};
+
+export const queryWithStatementTimeout = async <T extends pg.QueryResultRow = pg.QueryResultRow>(
+  text: string,
+  params: unknown[] = [],
+  timeoutMs = 5_000,
+) => {
+  const client = await getPool().connect();
+  const boundedTimeoutMs = Math.max(1, Math.min(Math.floor(timeoutMs), 30_000));
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT set_config('statement_timeout', $1, true)`, [
+      `${boundedTimeoutMs}ms`,
+    ]);
+    const result = await runLoggedQuery<T>(
+      (sql, values) => client.query<T>(sql, values),
+      text,
+      params,
+    );
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const withTransaction = async <T>(fn: (client: pg.PoolClient) => Promise<T>) => {
@@ -134,7 +193,8 @@ export const withTransaction = async <T>(fn: (client: pg.PoolClient) => Promise<
     await client.query("BEGIN");
     const tracedClient = {
       ...client,
-      query: (text: string, params: unknown[] = []) => runLoggedQuery((sql, values) => client.query(sql, values), text, params),
+      query: (text: string, params: unknown[] = []) =>
+        runLoggedQuery((sql, values) => client.query(sql, values), text, params),
     } as pg.PoolClient;
     const result = await fn(tracedClient);
     await client.query("COMMIT");

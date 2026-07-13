@@ -1,13 +1,13 @@
 import type { BackendResult, QueryPayload } from "./compat-types";
 import { LocalQueryBuilder } from "./query-builder";
+import { executeQueryPayload } from "@/backend/query";
+import { executeRpc } from "@/backend/rpc";
 
 const executeServerQuery = async (payload: QueryPayload): Promise<BackendResult<any>> => {
-  const { executeQueryPayload } = await import("@/backend/query");
   return executeQueryPayload(payload, { admin: true });
 };
 
 const rpc = async (name: string, args?: Record<string, unknown>) => {
-  const { executeRpc } = await import("@/backend/rpc");
   return executeRpc(name, args || {}, { admin: true });
 };
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCheckoutOrderForActor } from "./order.functions";
+import { deliveryConfigurationFingerprint } from "./delivery.service";
 
 const actor = {
   user: { id: "11111111-1111-4111-8111-111111111111", email: "buyer@example.com" },
@@ -47,7 +48,7 @@ const checkoutInput = {
   customer: {
     name: "Maria",
     phone: "11999999999",
-    document: "12345678901",
+    document: "52998224725",
     email: "buyer@example.com",
   },
   delivery: {
@@ -87,7 +88,7 @@ const createCheckoutDeps = (options: { existingCustomer?: any; existingOrder?: a
       if (sql.includes("FROM public.customers")) return { rows: options.existingCustomer ? [options.existingCustomer] : [] };
       if (sql.includes("UPDATE public.customers")) return { rows: [{ id: options.existingCustomer?.id || "77777777-7777-4777-8777-777777777777" }] };
       if (sql.includes("INSERT INTO public.customers")) return { rows: [{ id: "77777777-7777-4777-8777-777777777777" }] };
-      if (sql.includes("WHERE idempotency_key")) return { rows: options.existingOrder ? [options.existingOrder] : [] };
+      if (sql.includes("idempotency_key = $1")) return { rows: options.existingOrder ? [options.existingOrder] : [] };
       if (sql.includes("INSERT INTO public.orders")) {
         inserted.orders = (inserted.orders || 0) + 1;
         return { rows: [{ id: "88888888-8888-4888-8888-888888888888", store_id: store.id, public_token: "public-token", payment_method: "pix" }] };
@@ -122,6 +123,7 @@ const createCheckoutDeps = (options: { existingCustomer?: any; existingOrder?: a
       regionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       regionName: "Centro",
       source: "region",
+      configurationFingerprint: deliveryConfigurationFingerprint(store, settings, []),
     })),
   };
 
@@ -161,6 +163,7 @@ describe("createCheckoutOrderForActor", () => {
     expect(result).toMatchObject({ orderId: "existing-order", publicToken: "same-public-token" });
     expect(inserted.orders || 0).toBe(0);
     expect(deps.createPayment).toHaveBeenCalledTimes(1);
+    expect(deps.quoteDelivery).not.toHaveBeenCalled();
   });
 
   it("updates an existing customer before creating a new order for the same user", async () => {
@@ -173,7 +176,7 @@ describe("createCheckoutOrderForActor", () => {
     expect(inserted.orders).toBe(1);
     expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE public.customers"),
-      expect.arrayContaining(["MARIA", "11999999999", "12345678901", "RUA A", "10"]),
+      expect.arrayContaining(["MARIA", "11999999999", "52998224725", "RUA A", "10"]),
     );
     const updateCall = client.query.mock.calls.find(([sql]) => String(sql).includes("UPDATE public.customers"));
     expect(updateCall?.[0]).toContain("full_name = $1");

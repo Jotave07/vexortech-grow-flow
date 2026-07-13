@@ -1,0 +1,12 @@
+{
+  "name": "Hype Delivery",
+  "short_name": "Hype",
+  "description": "Pedidos e gestao de delivery",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4f5a58",
+  "theme_color": "#303938",
+  "icons": [
+    { "src": "/brand/hype-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import crypto from "node:crypto";
 import { query } from "@/backend/db";
 import { fetchAddressByCep, geocodeAddressCoordinates, isValidCep, type AddressCoordinates, type AddressWithCoordinates } from "@/services/viacep";
 import { getBestDeliveryDistanceKm } from "@/services/distance";
@@ -35,6 +36,7 @@ export type DeliveryQuoteResult = {
     city?: string;
     state?: string;
   };
+  configurationFingerprint?: string;
 };
 
 type QueryExecutor = typeof query;
@@ -60,8 +62,8 @@ const quoteRequestSchema = z.object({
     state: z.string().max(2).optional().nullable(),
   }),
   customerCoordinates: z.object({
-    lat: z.number(),
-    lng: z.number(),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
   }).optional().nullable(),
 }).refine((value) => value.storeId || value.slug, {
   message: "Informe storeId ou slug.",
@@ -71,6 +73,26 @@ const onlyDigits = (value?: string | null) => String(value || "").replace(/\D/g,
 const upper = (value?: string | null) => String(value || "").trim().toUpperCase();
 const clean = (value?: string | null) => String(value || "").trim();
 const money = (value: unknown) => Number(Number(value || 0).toFixed(2));
+
+export const deliveryConfigurationFingerprint = (store: any, settings: any, zones: any[]) =>
+  crypto.createHash("sha256").update(JSON.stringify({
+    store: [
+      store?.id, store?.is_active, store?.is_suspended, store?.latitude, store?.longitude,
+      store?.zip_code, store?.address, store?.address_number, store?.neighborhood, store?.city, store?.state,
+    ],
+    settings: [
+      settings?.allow_delivery, settings?.delivery_radius_km, settings?.free_delivery_above,
+      settings?.avg_prep_time_minutes,
+    ],
+    zones: [...zones]
+      .sort((left, right) => String(left?.id || "").localeCompare(String(right?.id || "")))
+      .map((zone) => [
+        zone?.id, zone?.is_active, zone?.zip_start, zone?.zip_end, zone?.city, zone?.state,
+        zone?.neighborhood, zone?.priority, zone?.fee, zone?.fee_per_km, zone?.min_fee,
+        zone?.max_fee, zone?.min_order, zone?.max_radius_km, zone?.base_prep_time,
+        zone?.minutes_per_km, zone?.additional_region_time,
+      ]),
+  })).digest("hex");
 
 const readNumber = (value: unknown) => {
   if (value === null || value === undefined || value === "") return null;
@@ -102,19 +124,18 @@ const normalizeAddress = (address: DeliveryQuoteInput["address"]) => ({
   state: upper(address.state).slice(0, 2),
 });
 
-const shouldResolveCep = (address: ReturnType<typeof normalizeAddress>) =>
-  isValidCep(address.cep) && (!address.city || !address.state || !address.neighborhood || !address.street);
-
 const mergeCepAddress = (
   address: ReturnType<typeof normalizeAddress>,
   cepAddress: AddressWithCoordinates,
 ) => ({
   ...address,
-  cep: onlyDigits(cepAddress.cep) || address.cep,
-  street: address.street || clean(cepAddress.street),
-  neighborhood: address.neighborhood || upper(cepAddress.neighborhood),
-  city: address.city || upper(cepAddress.city),
-  state: address.state || upper(cepAddress.state).slice(0, 2),
+  // The requested CEP is the trust anchor for the lookup. Never let an
+  // inconsistent provider response silently move the quote to another range.
+  cep: address.cep || onlyDigits(cepAddress.cep),
+  street: clean(cepAddress.street) || address.street,
+  neighborhood: upper(cepAddress.neighborhood) || address.neighborhood,
+  city: upper(cepAddress.city) || address.city,
+  state: upper(cepAddress.state).slice(0, 2) || address.state,
 });
 
 const addressForGeocode = (address: ReturnType<typeof normalizeAddress>) => ({
@@ -203,8 +224,8 @@ export const quoteDelivery = async (
 
   let address = normalizeAddress(input.address);
   let cepCoordinates: AddressCoordinates | null = null;
-  if (!address.cep && (!address.city || !address.state || !address.street || !address.number)) {
-    return unavailable("Informe um CEP ou endereco completo para calcular a entrega.");
+  if (!isValidCep(address.cep)) {
+    return unavailable("Informe um CEP valido para calcular a entrega.");
   }
 
   const { rows: zones } = await runQuery(
@@ -213,9 +234,12 @@ export const quoteDelivery = async (
      WHERE store_id = $1 AND COALESCE(is_active, true) IS TRUE`,
     [input.storeId],
   );
+  const configurationFingerprint = deliveryConfigurationFingerprint(store, settings, zones);
   const resolveCepIntoAddress = async () => {
     try {
       const resolvedAddress = await cepLookup(address.cep);
+      const resolvedCep = onlyDigits(resolvedAddress.cep);
+      if (resolvedCep && resolvedCep !== address.cep) return false;
       address = mergeCepAddress(address, resolvedAddress);
       const lat = readNumber(resolvedAddress.lat);
       const lng = readNumber(resolvedAddress.lng);
@@ -228,16 +252,19 @@ export const quoteDelivery = async (
     }
   };
 
-  let region = findBestRegion(zones, address);
-  if (!region && shouldResolveCep(address)) {
-    if (await resolveCepIntoAddress()) {
-      region = findBestRegion(zones, address);
-    }
+  // CEP data is resolved server-side even when the client sent a complete address.
+  // This prevents a client from pairing a valid delivery zone with another city/street.
+  if (!await resolveCepIntoAddress()) {
+    return unavailable("Nao foi possivel validar o CEP informado. Tente novamente.", {
+      normalizedAddress: { cep: address.cep },
+    });
   }
-  if (region && shouldResolveCep(address)) await resolveCepIntoAddress();
+  const region = findBestRegion(zones, address);
 
   let storeCoordinates = readCoordinates(store);
-  let customerCoordinates = input.customerCoordinates || cepCoordinates;
+  // Client GPS coordinates are UX hints only. Pricing and radius checks use
+  // coordinates derived from the server-normalized delivery address.
+  let customerCoordinates: AddressCoordinates | null = cepCoordinates;
   let distanceKm: number | null = null;
 
   const resolveDistanceKm = async () => {
@@ -339,6 +366,7 @@ export const quoteDelivery = async (
     source: "region",
     ...(distanceKm === null ? { reason: "Frete validado pela faixa de CEP." } : {}),
     normalizedAddress: address,
+    configurationFingerprint,
   };
 };
 

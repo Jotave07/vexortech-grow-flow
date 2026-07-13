@@ -21,6 +21,20 @@ export type AddressCoordinates = {
   lng: number;
 };
 
+export const isValidCoordinates = (
+  coordinates: Partial<AddressCoordinates> | null | undefined,
+): coordinates is AddressCoordinates => Boolean(
+  coordinates
+  && typeof coordinates.lat === "number"
+  && Number.isFinite(coordinates.lat)
+  && coordinates.lat >= -90
+  && coordinates.lat <= 90
+  && typeof coordinates.lng === "number"
+  && Number.isFinite(coordinates.lng)
+  && coordinates.lng >= -180
+  && coordinates.lng <= 180
+);
+
 export type AddressWithCoordinates = ViaCepAddress & Partial<AddressCoordinates> & {
   number?: string;
   reference?: string;
@@ -128,7 +142,7 @@ const enrichAddressWithCoordinates = async (normalizedCep: string, address: ViaC
       state: address.state,
       zipCode: normalizedCep,
     });
-    return googleCoordinates ? { ...address, ...googleCoordinates } : address;
+    return isValidCoordinates(googleCoordinates) ? { ...address, ...googleCoordinates } : address;
   }
 };
 
@@ -192,6 +206,7 @@ const fetchBrasilApiAddress = async (normalizedCep: string): Promise<AddressWith
 
   const lat = Number(payload.location?.coordinates?.latitude);
   const lng = Number(payload.location?.coordinates?.longitude);
+  const coordinates = { lat, lng };
 
   return {
     ...normalizeAddress({
@@ -201,7 +216,7 @@ const fetchBrasilApiAddress = async (normalizedCep: string): Promise<AddressWith
       city: payload.city,
       state: payload.state,
     }),
-    ...(Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : {}),
+    ...(isValidCoordinates(coordinates) ? coordinates : {}),
   };
 };
 
@@ -218,6 +233,10 @@ export const buildAddressLabel = (address: Partial<AddressWithCoordinates>) => {
 };
 
 export const calculateDistanceKm = (origin: AddressCoordinates, destination: AddressCoordinates) => {
+  if (!isValidCoordinates(origin) || !isValidCoordinates(destination)) {
+    throw new ViaCepError("unexpected_response", "Coordenadas invalidas para calcular a distancia.");
+  }
+
   const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
   const earthRadiusKm = 6371;
   const latDiff = toRadians(destination.lat - origin.lat);
@@ -239,7 +258,7 @@ export const isWithinDeliveryRadius = (
   destination: AddressCoordinates | null | undefined,
   radiusKm: number | null | undefined,
 ) => {
-  if (!origin || !destination || radiusKm === null || radiusKm === undefined) {
+  if (!isValidCoordinates(origin) || !isValidCoordinates(destination) || radiusKm === null || radiusKm === undefined || !Number.isFinite(radiusKm) || radiusKm < 0) {
     return false;
   }
 
@@ -266,7 +285,7 @@ export const geocodeAddress = async (
 
 export const geocodeAddressCoordinates = async (address: GeocodeAddressInput): Promise<AddressCoordinates | null> => {
   const googleCoordinates = await geocodeAddressWithGoogle(address);
-  if (googleCoordinates) return googleCoordinates;
+  if (isValidCoordinates(googleCoordinates)) return googleCoordinates;
 
   const queryParts = [
     address.street && address.number ? `${address.street}, ${address.number}` : address.street,
@@ -300,7 +319,8 @@ export const geocodeAddressCoordinates = async (address: GeocodeAddressInput): P
     const match = payload[0];
     const lat = Number(match?.lat);
     const lng = Number(match?.lon);
-    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+    const coordinates = { lat, lng };
+    return isValidCoordinates(coordinates) ? coordinates : null;
   } catch {
     return null;
   }
@@ -310,6 +330,72 @@ const GEOLOCATION_ERROR_MESSAGES: Record<number, string> = {
   1: "Permissao de localizacao negada. Verifique as configuracoes do navegador.",
   2: "Localizacao indisponivel no momento. Verifique o GPS e tente novamente.",
   3: "Tempo esgotado ao buscar localizacao. Tente novamente.",
+};
+
+class BrowserGeolocationError extends ViaCepError {
+  readonly geolocationCode: number;
+
+  constructor(code: number, message: string) {
+    super("network_error", message);
+    this.name = "BrowserGeolocationError";
+    this.geolocationCode = code;
+  }
+}
+
+export const reverseGeocodeCoordinates = async (
+  currentCoordinates: AddressCoordinates,
+): Promise<AddressWithCoordinates> => {
+  if (!isValidCoordinates(currentCoordinates)) {
+    throw new ViaCepError("unexpected_response", "Coordenadas invalidas. Informe o CEP manualmente.");
+  }
+
+  const googleAddress = await reverseGeocodeWithGoogle(currentCoordinates);
+  if (googleAddress) {
+    return {
+      ...googleAddress,
+      cep: googleAddress.cep ? formatCep(googleAddress.cep) : "",
+      ...currentCoordinates,
+    };
+  }
+
+  let response: Response;
+  try {
+    const url = new URL(NOMINATIM_REVERSE_URL);
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("accept-language", "pt-BR");
+    url.searchParams.set("lat", String(currentCoordinates.lat));
+    url.searchParams.set("lon", String(currentCoordinates.lng));
+    response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "HypeDelivery/1.0 (hype-delivery@vexortech.com.br)",
+      },
+    });
+  } catch {
+    throw new ViaCepError("network_error", "Nao foi possivel transformar sua localizacao em endereco.");
+  }
+
+  if (!response.ok) throw new ViaCepError("network_error", "O servico de localizacao nao respondeu como esperado.");
+  const payload = (await response.json()) as NominatimReverseResponse;
+  const reverseAddress = payload.address ?? {};
+  const postcode = normalizeCep(reverseAddress.postcode ?? "");
+  if (postcode.length === 8) {
+    try {
+      const cepAddress = await fetchAddressByCep(postcode);
+      return { ...cepAddress, ...currentCoordinates };
+    } catch { /* preserve the reverse-geocoded address below */ }
+  }
+  const isoState = reverseAddress["ISO3166-2-lvl4"];
+  const state = reverseAddress.state_code || (isoState?.includes("-") ? isoState.split("-").pop() : reverseAddress.state);
+  return {
+    cep: postcode ? formatCep(postcode) : "",
+    street: reverseAddress.road ?? reverseAddress.pedestrian ?? reverseAddress.residential ?? "",
+    neighborhood: reverseAddress.suburb ?? reverseAddress.neighbourhood ?? reverseAddress.city_district ?? "",
+    city: reverseAddress.city ?? reverseAddress.town ?? reverseAddress.village ?? reverseAddress.municipality ?? "",
+    state: (state ?? "").toUpperCase().slice(0, 2),
+    ...currentCoordinates,
+  };
 };
 
 export const fetchAddressFromCurrentLocation = async (): Promise<AddressWithCoordinates> => {
@@ -324,7 +410,7 @@ export const fetchAddressFromCurrentLocation = async (): Promise<AddressWithCoor
         (position) => resolve(position.coords),
         (err) => {
           const message = GEOLOCATION_ERROR_MESSAGES[err.code] || `Erro ao acessar localizacao (codigo ${err.code}).`;
-          reject(new ViaCepError("network_error", message));
+          reject(new BrowserGeolocationError(err.code, message));
         },
         opts,
       );
@@ -341,87 +427,26 @@ export const fetchAddressFromCurrentLocation = async (): Promise<AddressWithCoor
     });
   } catch (firstError) {
     // If first attempt was a timeout or position unavailable, retry with even looser constraints
-    const msg = firstError instanceof ViaCepError ? firstError.message : "";
-    if (msg.includes("codigo 2") || msg.includes("codigo 3")) {
-      try {
-        coordinates = await requestPosition({
-          enableHighAccuracy: false,
-          maximumAge: 600000, // 10-minute cache
-          timeout: 15000,
-        });
-      } catch {
-        throw firstError;
-      }
+    if (firstError instanceof BrowserGeolocationError && [2, 3].includes(firstError.geolocationCode)) {
+      coordinates = await requestPosition({
+        enableHighAccuracy: false,
+        maximumAge: 600000, // 10-minute cache
+        timeout: 15000,
+      });
     } else {
       throw firstError;
     }
   }
 
-  const googleAddress = await reverseGeocodeWithGoogle({
-    lat: coordinates.latitude,
-    lng: coordinates.longitude,
-  });
-  if (googleAddress) {
-    return {
-      ...googleAddress,
-      cep: googleAddress.cep ? formatCep(googleAddress.cep) : "",
-      lat: coordinates.latitude,
-      lng: coordinates.longitude,
-    };
-  }
-
-  let response: Response;
-
-  try {
-    const url = new URL(NOMINATIM_REVERSE_URL);
-    url.searchParams.set("format", "jsonv2");
-    url.searchParams.set("addressdetails", "1");
-    url.searchParams.set("accept-language", "pt-BR");
-    url.searchParams.set("lat", String(coordinates.latitude));
-    url.searchParams.set("lon", String(coordinates.longitude));
-    response = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "HypeDelivery/1.0 (hype-delivery@vexortech.com.br)",
-      },
-    });
-  } catch {
-    throw new ViaCepError("network_error", "Nao foi possivel transformar sua localizacao em endereco.");
-  }
-
-  if (!response.ok) {
-    throw new ViaCepError("network_error", "O servico de localizacao nao respondeu como esperado.");
-  }
-
-  const payload = (await response.json()) as NominatimReverseResponse;
-  const reverseAddress = payload.address ?? {};
-  const postcode = normalizeCep(reverseAddress.postcode ?? "");
-
-  if (postcode.length === 8) {
-    try {
-      const cepAddress = await fetchAddressByCep(postcode);
-      return {
-        ...cepAddress,
-        lat: coordinates.latitude,
-        lng: coordinates.longitude,
-      };
-    } catch {
-      // Keep the reverse-geocoded address below when CEP lookup is unavailable.
-    }
-  }
-
-  const isoState = reverseAddress["ISO3166-2-lvl4"];
-  const state = reverseAddress.state_code || (isoState?.includes("-") ? isoState.split("-").pop() : reverseAddress.state);
-
-  return {
-    cep: postcode ? formatCep(postcode) : "",
-    street: reverseAddress.road ?? reverseAddress.pedestrian ?? reverseAddress.residential ?? "",
-    neighborhood: reverseAddress.suburb ?? reverseAddress.neighbourhood ?? reverseAddress.city_district ?? "",
-    city: reverseAddress.city ?? reverseAddress.town ?? reverseAddress.village ?? reverseAddress.municipality ?? "",
-    state: (state ?? "").toUpperCase().slice(0, 2),
+  const currentCoordinates = {
     lat: coordinates.latitude,
     lng: coordinates.longitude,
   };
+  if (!isValidCoordinates(currentCoordinates)) {
+    throw new ViaCepError("unexpected_response", "O navegador retornou coordenadas invalidas. Tente informar o CEP manualmente.");
+  }
+
+  return reverseGeocodeCoordinates(currentCoordinates);
 };
 
 const formatCep = (value: string) => {

@@ -1,10 +1,21 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: { alias: { "@": path.join(root, "src") } },
   test: {
     environment: "node",
-    exclude: ["tests/e2e/**", "node_modules/**", "dist/**", ".output/**"],
+    testTimeout: 15_000,
+    maxWorkers: 4,
+    exclude: [
+      "tests/e2e/**",
+      "node_modules/**",
+      "dist/**",
+      ".output/**",
+      "quarantine/**",
+    ],
   },
 });

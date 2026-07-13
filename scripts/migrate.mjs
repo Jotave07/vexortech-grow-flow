@@ -19,7 +19,10 @@ const loadDotEnv = () => {
     const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/);
     if (!match || process.env[match[1]]) continue;
     let value = match[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     process.env[match[1]] = value;
@@ -37,7 +40,9 @@ const buildConnectionString = () => {
   const port = clean(process.env.POSTGRES_PORT) || "5432";
 
   if (!host || !database || !user || !password) {
-    throw new Error("DATABASE_URL ou POSTGRES_HOST/POSTGRES_DATABASE/POSTGRES_USER/POSTGRES_PASSWORD obrigatorio para migrar.");
+    throw new Error(
+      "DATABASE_URL ou POSTGRES_HOST/POSTGRES_DATABASE/POSTGRES_USER/POSTGRES_PASSWORD obrigatorio para migrar.",
+    );
   }
 
   return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
@@ -58,8 +63,38 @@ const getSslConfig = (connectionString) => {
     clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
 
   return {
-    rejectUnauthorized: rejectUnauthorizedEnv ? rejectUnauthorizedEnv !== "false" : sslMode !== "no-verify",
+    rejectUnauthorized: rejectUnauthorizedEnv
+      ? rejectUnauthorizedEnv !== "false"
+      : sslMode !== "no-verify",
   };
+};
+
+const getPgClientConfig = (connectionString) => {
+  const rootCertPath =
+    clean(process.env.DATABASE_SSL_ROOT_CERT) || clean(process.env.POSTGRES_SSL_ROOT_CERT);
+  if (!rootCertPath) {
+    return { connectionString, ssl: getSslConfig(connectionString) };
+  }
+  if (!path.isAbsolute(rootCertPath)) {
+    throw new Error("DATABASE_SSL_ROOT_CERT deve ser um caminho absoluto.");
+  }
+  const rejectUnauthorized =
+    clean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED) ||
+    clean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED);
+  if (rejectUnauthorized?.toLowerCase() === "false") {
+    throw new Error(
+      "DATABASE_SSL_ROOT_CERT nao pode ser combinado com SSL sem validacao de certificado.",
+    );
+  }
+  fs.accessSync(rootCertPath, fs.constants.R_OK);
+
+  // pg-connection-string gives URL SSL parameters precedence over the explicit
+  // `ssl` object. Inject the pinned CA into the URL so verify-full cannot be
+  // silently replaced by an older sslmode already present in DATABASE_URL.
+  const configuredUrl = new URL(connectionString);
+  configuredUrl.searchParams.set("sslmode", "verify-full");
+  configuredUrl.searchParams.set("sslrootcert", rootCertPath);
+  return { connectionString: configuredUrl.toString() };
 };
 
 const ensureMigrationTable = async (client) => {
@@ -85,33 +120,23 @@ const compatibleChecksums = new Map([
   ],
   [
     "20260521180000_generic_pix_gateway.sql",
-    [
-      "60b5593a6ff0642622145cffaa04df687c5905847cc6d6ed87a96c0b090f31a0",
-    ],
+    ["60b5593a6ff0642622145cffaa04df687c5905847cc6d6ed87a96c0b090f31a0"],
   ],
   [
     "20260521190000_orders_delivery_evolution.sql",
-    [
-      "26c339fbdc1217abb1941fe8f9eaf55f8c0b3f2c6a225e0ccc857a568b1d842d",
-    ],
+    ["26c339fbdc1217abb1941fe8f9eaf55f8c0b3f2c6a225e0ccc857a568b1d842d"],
   ],
   [
     "20260522153000_order_number_defaults.sql",
-    [
-      "e9b1d80f8615c1c1e7f04b87ea9697895280d8b9800c9671cd0c7a3315033d17",
-    ],
+    ["e9b1d80f8615c1c1e7f04b87ea9697895280d8b9800c9671cd0c7a3315033d17"],
   ],
   [
     "20260522154000_public_order_address_fields.sql",
-    [
-      "e4202434a5bcfbd93779375b9470e57cc1166793c911073c8b5738b3d9c61fc5",
-    ],
+    ["e4202434a5bcfbd93779375b9470e57cc1166793c911073c8b5738b3d9c61fc5"],
   ],
   [
     "20260526110000_subscription_and_manual_pix.sql",
-    [
-      "f2f09fa7e291c63e93dd093c466ef860890633ecfbb2e08c5263e54414e9b677",
-    ],
+    ["f2f09fa7e291c63e93dd093c466ef860890633ecfbb2e08c5263e54414e9b677"],
   ],
   [
     "20260527102000_store_profile_and_plan_safety.sql",
@@ -122,49 +147,72 @@ const compatibleChecksums = new Map([
   ],
   [
     "20260619145104_plan_monthly_order_limit.sql",
-    [
-      "7bf2b051ee2485ae551f12ddbb511d6b6fdfc56d27d936972e5fdbb19f368f8a",
-    ],
+    ["7bf2b051ee2485ae551f12ddbb511d6b6fdfc56d27d936972e5fdbb19f368f8a"],
   ],
   [
     "20260617120000_supabase_auth_storage_maps.sql",
-    [
-      "75ca2b74e286fe6e8f99260cf3a869919843d87a83486e06cd1d7b2556ca0a54",
-    ],
+    ["75ca2b74e286fe6e8f99260cf3a869919843d87a83486e06cd1d7b2556ca0a54"],
   ],
   [
     "20260617163500_store_public_profile_columns.sql",
-    [
-      "9529517da4cad10d11f21fb5cd78d885dc5ba9652388e47094c1e518c3d22805",
-    ],
+    ["9529517da4cad10d11f21fb5cd78d885dc5ba9652388e47094c1e518c3d22805"],
   ],
   [
     "20260618082000_store_contract_columns.sql",
-    [
-      "44194f92a730286c7668def7a496dbef3a1a2cbcd37f9d4496dbd227463d167a",
-    ],
+    ["44194f92a730286c7668def7a496dbef3a1a2cbcd37f9d4496dbd227463d167a"],
   ],
   [
     "20260618090000_subscriptions_provider_column.sql",
-    [
-      "8cbd0c4bf012afb208c6564b55913b3a35b2629ce06951b8ae3071587ea8ba73",
-    ],
+    ["8cbd0c4bf012afb208c6564b55913b3a35b2629ce06951b8ae3071587ea8ba73"],
   ],
 ]);
 
 const migrationFiles = () => {
   const dir = path.join(root, "db", "migrations");
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir)
+  return fs
+    .readdirSync(dir)
     .filter((file) => file.endsWith(".sql"))
     .sort()
     .map((file) => path.join(dir, file));
 };
 
+const migrationStatements = (content) => {
+  if (!content.includes("-- migrate:split-statements")) return [content];
+  return content
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((statement) => statement.trim())
+    .filter(Boolean)
+    .map((statement) => `${statement};`);
+};
+
+const repairInvalidConcurrentIndex = async (client, statement) => {
+  const match = statement.match(
+    /CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)/i,
+  );
+  if (!match) return;
+  const { rows } = await client.query(
+    `SELECT ns.nspname AS schema_name, cls.relname AS index_name
+     FROM pg_catalog.pg_index idx
+     JOIN pg_catalog.pg_class cls ON cls.oid = idx.indexrelid
+     JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+     WHERE cls.relname = $1 AND idx.indisvalid = false`,
+    [match[1]],
+  );
+  for (const row of rows) {
+    const schemaName = String(row.schema_name).replaceAll('"', '""');
+    const indexName = String(row.index_name).replaceAll('"', '""');
+    console.warn(
+      `Dropping invalid concurrent index ${row.schema_name}.${row.index_name} before retry.`,
+    );
+    await client.query(`DROP INDEX CONCURRENTLY IF EXISTS "${schemaName}"."${indexName}"`);
+  }
+};
+
 loadDotEnv();
 
 const connectionString = buildConnectionString();
-const client = new Client({ connectionString, ssl: getSslConfig(connectionString) });
+const client = new Client(getPgClientConfig(connectionString));
 
 try {
   await client.connect();
@@ -190,12 +238,19 @@ try {
       if (rows[0].checksum !== fileChecksum && !legacyChecksums.includes(rows[0].checksum)) {
         throw new Error(`Migration ${name} ja foi aplicada com checksum diferente.`);
       }
-      console.log(rows[0].checksum === fileChecksum ? `Skipping ${name}` : `Skipping ${name} (compatible legacy checksum)`);
+      console.log(
+        rows[0].checksum === fileChecksum
+          ? `Skipping ${name}`
+          : `Skipping ${name} (compatible legacy checksum)`,
+      );
       continue;
     }
 
     console.log(`Applying ${name}`);
-    await client.query(content);
+    for (const statement of migrationStatements(content)) {
+      await repairInvalidConcurrentIndex(client, statement);
+      await client.query(statement);
+    }
     await client.query(
       "INSERT INTO public.schema_migrations (version, name, checksum) VALUES ($1::text, $2::text, $3::text)",
       [version, name, fileChecksum],

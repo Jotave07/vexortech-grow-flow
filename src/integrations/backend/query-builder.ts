@@ -91,6 +91,20 @@ export class LocalQueryBuilder<T = any> implements PromiseLike<BackendResult<T>>
     return this;
   }
 
+  ilike(column: string, pattern: string) {
+    this.filters.push({ op: "ilike", column, pattern });
+    return this;
+  }
+
+  or(filters: readonly QueryFilter[]) {
+    if (!Array.isArray(filters) || filters.length === 0) {
+      throw new TypeError("O filtro .or() requer uma lista estruturada de condicoes");
+    }
+
+    this.filters.push({ op: "or", filters: [...filters] });
+    return this;
+  }
+
   order(column: string, options?: Omit<QueryOrder, "column">) {
     this.orders.push({ column, ...(options || {}) });
     return this;

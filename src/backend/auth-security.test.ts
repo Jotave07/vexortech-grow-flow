@@ -1,6 +1,37 @@
-import { describe, expect, it } from "vitest";
-import { resolveActorAdmin, sanitizePublicSignupMetadata } from "./auth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const dbMocks = vi.hoisted(() => ({
+  query: vi.fn(),
+  withTransaction: vi.fn(),
+}));
+
+vi.mock("./db", () => ({
+  query: dbMocks.query,
+  quoteIdent: (value: string) => `"${value}"`,
+  withTransaction: dbMocks.withTransaction,
+}));
+
+import {
+  assertActiveMerchantSubscription,
+  resolveActorAdmin,
+  sanitizePublicSignupMetadata,
+} from "./auth";
 import { assertSafePatchForNonAdmin } from "./query";
+
+const storeId = "11111111-1111-4111-8111-111111111111";
+const merchantActor = (overrides: Record<string, unknown> = {}) =>
+  ({
+    user: { id: "owner-user" },
+    profile: { store_id: storeId, is_exempt: true },
+    roles: new Set(["store_owner"]),
+    admin: false,
+    ownedStoreIds: [storeId],
+    ...overrides,
+  }) as any;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("backend authorization hardening", () => {
   it("forces public signups to start as customer even if a role is supplied", () => {
@@ -8,11 +39,29 @@ describe("backend authorization hardening", () => {
       full_name: "Mallory",
       account_type: "super_admin",
       role: "admin",
+      is_admin: true,
     })).toMatchObject({
       full_name: "Mallory",
       account_type: "customer",
       role: "customer",
     });
+    expect(sanitizePublicSignupMetadata({ is_admin: true })).not.toHaveProperty("is_admin");
+  });
+
+  it("never grants platform admin from an environment e-mail allowlist", () => {
+    const previous = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "admin@example.com";
+    try {
+      expect(resolveActorAdmin({
+        email: "admin@example.com",
+        profileRole: "customer",
+        profileStoreId: null,
+        roleRows: [],
+      })).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = previous;
+    }
   });
 
   it("does not treat store-scoped admin roles as platform admin", () => {
@@ -75,5 +124,42 @@ describe("backend authorization hardening", () => {
     expect(() => assertSafePatchForNonAdmin("stores", "update", { is_verified: true })).toThrow(
       "Campo de loja protegido",
     );
+    expect(() => assertSafePatchForNonAdmin("stores", "insert", { is_verified: true })).toThrow(
+      "Campo de loja protegido",
+    );
+    expect(() => assertSafePatchForNonAdmin("stores", "insert", { owner_user_id: "self" })).not.toThrow();
+  });
+});
+
+describe("merchant subscription authorization", () => {
+  it("keeps the platform admin bypass without consulting the store", async () => {
+    await expect(
+      assertActiveMerchantSubscription(
+        merchantActor({ admin: true, profile: { store_id: storeId, is_exempt: false } }),
+        storeId,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(dbMocks.query).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["suspended", { is_active: true, is_suspended: true }],
+    ["inactive", { is_active: false, is_suspended: false }],
+  ])("blocks an exempt owner when the store is %s", async (_label, storeState) => {
+    dbMocks.query.mockResolvedValueOnce({ rows: [storeState] });
+
+    await expect(
+      assertActiveMerchantSubscription(merchantActor(), storeId),
+    ).rejects.toThrow("Loja inativa ou suspensa");
+  });
+
+  it("keeps courtesy active for an operational store without requiring a paid plan", async () => {
+    dbMocks.query.mockResolvedValueOnce({
+      rows: [{ is_active: true, is_suspended: false, plan_id: null, status: null }],
+    });
+
+    await expect(assertActiveMerchantSubscription(merchantActor(), storeId)).resolves.toBeUndefined();
+    expect(dbMocks.query).toHaveBeenCalledWith(expect.stringContaining("s.is_active"), [storeId]);
   });
 });

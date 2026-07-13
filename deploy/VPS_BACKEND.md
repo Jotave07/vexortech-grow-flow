@@ -21,13 +21,19 @@ Obrigatorias em producao:
 NODE_ENV=production
 PORT=3000
 PUBLIC_APP_URL=https://hypedelivery.com.br
+PARTNER_APP_URL=https://parceiros.hypedelivery.com.br
+APP_ALLOWED_ORIGINS=https://hypedelivery.com.br,https://www.hypedelivery.com.br,https://parceiros.hypedelivery.com.br
+AUTH_FLOW_SECRET=gere-um-segredo-aleatorio-com-pelo-menos-32-caracteres
+HOST=127.0.0.1
+TRUSTED_PROXY_IPS=127.0.0.1,::1
 
 DATABASE_URL=postgres://usuario:senha@host.supabase.co:5432/postgres
-DATABASE_SSL_REJECT_UNAUTHORIZED=false
+DATABASE_SSL_ROOT_CERT=/etc/vexortech/supabase-root-2021.crt
+DATABASE_SSL_REJECT_UNAUTHORIZED=true
 
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
-SUPABASE_SECRET_KEY=sb_secret_xxx
+SUPABASE_SECRET_KEY=REPLACE_WITH_SUPABASE_SECRET_KEY
 
 GOOGLE_MAPS_API_KEY=
 ASAAS_API_KEY=
@@ -41,20 +47,18 @@ EVOLUTION_INSTANCE=
 EVOLUTION_AUTOMATION_PHONE=
 ```
 
-## Build e servico
+Baixe o CA do projeto pelo painel Supabase, valide a origem e instale-o em
+`/etc/vexortech/supabase-root-2021.crt` com dono `root:www-data` e modo `0640`.
+Use o mesmo caminho no ambiente de migration. Quando `DATABASE_SSL_ROOT_CERT`
+esta definido, a aplicacao força `sslmode=verify-full`; nao combine essa opcao
+com `DATABASE_SSL_REJECT_UNAUTHORIZED=false`.
 
-```bash
-npm ci
-npm run typecheck
-npm test
-npm run build
-npm run db:migrate
-npm run db:check
-sudo cp deploy/vexortech.service /etc/systemd/system/vexortech.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now vexortech
-curl -f "$PUBLIC_APP_URL/api/health"
-```
+## Build, migration e servico
+
+O unico procedimento autorizado e o [runbook de deploy](../DEPLOY_RUNBOOK.md). Ele
+exige gate local, artefato versionado, backup verificavel, migration antes do corte,
+candidata em `127.0.0.1:3101`, troca blue/green e rollback automatico. Nao execute
+`db:migrate`, nao sobrescreva a unit e nao reinicie o servico fora dessa sequencia.
 
 ## Nginx
 

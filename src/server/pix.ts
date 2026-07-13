@@ -19,7 +19,7 @@ const emvSafe = (value: string, max: number) =>
   String(value || "")
     .toUpperCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .substring(0, max);
 
 const sanitizeTxid = (value: string, max: number) =>
@@ -33,7 +33,7 @@ const sanitizeDescription = (value: string, max: number) =>
   String(value || "")
     .toUpperCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^A-Za-z0-9 $%*+\-./:]/g, " ")
     .trim()
     .substring(0, max);

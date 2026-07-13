@@ -65,7 +65,7 @@ describe("manual Pix order payment service", () => {
 
   it("reuses an existing pending manual Pix payment", async () => {
     const { deps } = createDeps({
-      existingPayment: { id: "local-payment", status: "pendente" },
+      existingPayment: { id: "local-payment", status: "pendente", provider: "manual_pix" },
     });
 
     const result = await createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, deps as any);
@@ -83,12 +83,34 @@ describe("manual Pix order payment service", () => {
 
   it("approves pending Pix manually and is idempotent for paid orders", async () => {
     const { deps } = createDeps({
-      existingPayment: { id: "local-payment", status: "pendente" },
+      existingPayment: { id: "local-payment", status: "pendente", provider: "manual_pix" },
     });
 
     const result = await approveManualPixPayment({ orderId: order.id, storeId: order.store_id }, "token", deps as any);
 
     expect(result).toMatchObject({ success: true, status: "paid" });
     expect(deps.notifyStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects manual approval for a payment managed by a gateway", async () => {
+    const { deps } = createDeps({
+      existingPayment: { id: "gateway-payment", status: "pendente", provider: "asaas-central" },
+    });
+
+    await expect(
+      approveManualPixPayment({ orderId: order.id, storeId: order.store_id }, "token", deps as any),
+    ).rejects.toThrow("nao possui uma cobranca PIX manual");
+    expect(deps.notifyStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects manual approval for a store using the central financial account", async () => {
+    const { deps } = createDeps({
+      orderOverride: { store_financeiro_ativo: true },
+      existingPayment: { id: "local-payment", status: "pendente", provider: "manual_pix" },
+    });
+
+    await expect(
+      approveManualPixPayment({ orderId: order.id, storeId: order.store_id }, "token", deps as any),
+    ).rejects.toThrow("conta central");
   });
 });

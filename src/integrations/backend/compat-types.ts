@@ -38,7 +38,9 @@ export type OAuthProvider = "google" | "apple";
 export type QueryFilter =
   | { op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte"; column: string; value: unknown }
   | { op: "in"; column: string; values: unknown[] }
-  | { op: "is"; column: string; value: unknown };
+  | { op: "is"; column: string; value: unknown }
+  | { op: "ilike"; column: string; pattern: string }
+  | { op: "and" | "or"; filters: QueryFilter[] };
 
 export type QueryOrder = {
   column: string;

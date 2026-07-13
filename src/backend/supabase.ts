@@ -57,6 +57,120 @@ export const fetchSupabaseUserByToken = async (token?: string) => {
   }
 };
 
+/**
+ * Public sign-up must go through the regular GoTrue endpoint. In particular, do
+ * not fall back to the secret key here: `/admin/users` auto-confirms accounts
+ * and a secret-key backed public route would let callers bypass e-mail proof.
+ */
+export const signUpSupabaseUser = async (
+  email: string,
+  password: string,
+  metadata: Record<string, unknown>,
+  redirectTo?: string,
+  pkce?: { codeChallenge: string; codeChallengeMethod?: "s256" },
+) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.publishableKey) {
+    throw new Error("SUPABASE_PUBLISHABLE_KEY obrigatoria para cadastro publico.");
+  }
+
+  const url = new URL(`${config.url}/auth/v1/signup`);
+  if (redirectTo) url.searchParams.set("redirect_to", redirectTo);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: config.publishableKey,
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      data: metadata,
+      code_challenge: pkce?.codeChallenge,
+      code_challenge_method: pkce?.codeChallengeMethod || (pkce?.codeChallenge ? "s256" : undefined),
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.msg || payload?.message || "Erro ao criar usuario no Supabase Auth.");
+  }
+  return payload;
+};
+
+export const signInSupabaseUser = async (email: string, password: string) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.publishableKey) {
+    throw new Error("Supabase Auth nao configurado para login.");
+  }
+  const response = await fetch(`${config.url}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: config.publishableKey },
+    body: JSON.stringify({ email, password }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error_description || payload?.msg || payload?.message || "E-mail ou senha incorretos.");
+  return payload;
+};
+
+export const refreshSupabaseSession = async (refreshToken: string) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.publishableKey) throw new Error("Supabase Auth nao configurado.");
+  const response = await fetch(`${config.url}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: config.publishableKey },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error_description || payload?.message || "Sessao expirada.");
+  return payload;
+};
+
+export const signOutSupabaseSession = async (accessToken: string) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.publishableKey || !accessToken) return;
+  const response = await fetch(`${config.url}/auth/v1/logout`, {
+    method: "POST",
+    headers: { apikey: config.publishableKey, Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok && response.status !== 401) throw new Error("Nao foi possivel encerrar a sessao.");
+};
+
+export const createSupabaseOAuthUrl = (
+  provider: "google" | "apple",
+  redirectTo: string,
+  pkce?: { codeChallenge: string; codeChallengeMethod?: "s256" },
+) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url) throw new Error("Supabase Auth nao configurado.");
+  const url = new URL(`${config.url}/auth/v1/authorize`);
+  url.searchParams.set("provider", provider);
+  url.searchParams.set("redirect_to", redirectTo);
+  if (pkce?.codeChallenge) {
+    url.searchParams.set("code_challenge", pkce.codeChallenge);
+    url.searchParams.set("code_challenge_method", pkce.codeChallengeMethod || "s256");
+  }
+  return url.toString();
+};
+
+export const exchangeSupabaseAuthCode = async (authCode: string, codeVerifier: string) => {
+  const config = getSupabaseServerConfig();
+  if (!config.url || !config.publishableKey) throw new Error("Supabase Auth nao configurado.");
+  if (!authCode || !codeVerifier) throw new Error("Codigo de autenticacao ou verificador PKCE ausente.");
+  const response = await fetch(`${config.url}/auth/v1/token?grant_type=pkce`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: config.publishableKey },
+    body: JSON.stringify({ auth_code: authCode, code_verifier: codeVerifier }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error_description || payload?.msg || payload?.message || "Codigo de autenticacao invalido ou expirado.");
+  }
+  return payload;
+};
+
+/** Server-only provisioning primitive. Never expose this function directly in a public action. */
 export const createSupabaseAuthUser = async (
   email: string,
   password: string,
@@ -160,7 +274,11 @@ export const listSupabaseAuthUsers = async () => {
   return Array.isArray(payload?.users) ? payload.users : [];
 };
 
-export const sendSupabasePasswordRecoveryEmail = async (email: string, redirectTo?: string) => {
+export const sendSupabasePasswordRecoveryEmail = async (
+  email: string,
+  redirectTo?: string,
+  pkce?: { codeChallenge: string; codeChallengeMethod?: "s256" },
+) => {
   const config = getSupabaseServerConfig();
   const apiKey = config.publishableKey || config.secretKey;
   if (!config.url || !apiKey) {
@@ -176,7 +294,11 @@ export const sendSupabasePasswordRecoveryEmail = async (email: string, redirectT
       "Content-Type": "application/json",
       apikey: apiKey,
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({
+      email,
+      code_challenge: pkce?.codeChallenge,
+      code_challenge_method: pkce?.codeChallengeMethod || (pkce?.codeChallenge ? "s256" : undefined),
+    }),
   });
 
   const payload = await response.json().catch(() => ({}));

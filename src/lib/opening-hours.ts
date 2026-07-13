@@ -1,5 +1,3 @@
-import { format, getDay } from "date-fns";
-
 export type BusinessHours = {
   [key: string]: {
     open: string;
@@ -47,9 +45,8 @@ export function isStoreOpen(businessHours: BusinessHours, manualStatus?: boolean
   if (!businessHours) return false;
 
   const now = getBrazilDate();
-  const currentDayIndex = getDay(now);
-  const currentTime = toMinutes(format(now, "HH:mm"));
-  if (currentTime === null) return false;
+  const currentDayIndex = now.getDay();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
 
   const todayName = DAYS_MAP[currentDayIndex];
   const today = businessHours[todayName];
@@ -78,8 +75,8 @@ export function getNextOpeningTime(businessHours: BusinessHours): string {
   if (!businessHours) return "Indisponível";
 
   const now = getBrazilDate();
-  const currentDay = getDay(now);
-  const currentTime = toMinutes(format(now, "HH:mm")) ?? 0;
+  const currentDay = now.getDay();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
 
   for (let i = 0; i < 7; i++) {
     const nextDay = (currentDay + i) % 7;

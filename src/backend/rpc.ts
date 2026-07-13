@@ -12,7 +12,13 @@ const errorResult = (message: string): BackendResult => ({ data: null, error: { 
 export const executeRpc = async (name: string, args: Record<string, unknown> = {}, ctx: RpcContext = {}) => {
   try {
     if (name === "is_vexor_admin") {
-      const userId = args._user_id || args.user_id;
+      const actor = ctx.admin ? null : await getActor(ctx.token);
+      if (!ctx.admin && !actor) return errorResult("RPC nao autorizado.");
+      const userId = String(args._user_id || args.user_id || actor?.user.id || "");
+      if (!userId) return errorResult("Usuario nao informado.");
+      if (!ctx.admin && !actor?.admin && userId !== actor?.user.id) {
+        return errorResult("Nao autorizado a consultar privilegios de outro usuario.");
+      }
       const { rows } = await query(`SELECT public.is_vexor_admin($1::uuid) AS value`, [userId]);
       return { data: Boolean(rows[0]?.value), error: null };
     }

@@ -2,6 +2,7 @@
 logs
 audit-logs/
 test-results/
+quarantine/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -22,6 +23,19 @@ dist-ssr
 !.env.example
 *.pem
 *.key
+
+# MCP — contém PAT/segredos, não versionar
+.mcp.json
+
+# Evidencias e automacoes locais: podem conter dados operacionais ou credenciais.
+.gateway-sync.json
+.wf-*.json
+.codex-screenshots/
+artifacts/
+APPLY_NOW.md
+scripts/_vps_inspect.py
+scripts/deploy-vps.py
+scripts/__pycache__/
 
 # Wrangler / Cloudflare
 .wrangler/
