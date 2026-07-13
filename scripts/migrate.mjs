@@ -108,7 +108,13 @@ const ensureMigrationTable = async (client) => {
   `);
 };
 
-const checksum = (content) => crypto.createHash("sha256").update(content).digest("hex");
+// Git archives can be produced from Windows or Linux worktrees. Treat line
+// endings as transport detail so an already-applied SQL migration keeps the
+// same identity across both platforms.
+const checksum = (content) => crypto
+  .createHash("sha256")
+  .update(content.replace(/\r\n?/g, "\n"))
+  .digest("hex");
 
 const compatibleChecksums = new Map([
   [
