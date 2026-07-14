@@ -1,6 +1,6 @@
 import path from "node:path";
 import pg from "pg";
-import { validateRuntimeEnv } from "./env";
+import { isSupabaseEdgeRuntime, validateRuntimeEnv } from "./env";
 
 const { Pool } = pg;
 
@@ -32,13 +32,31 @@ const buildConnectionString = () => {
   return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 };
 
+const parsedConnectionUrl = (connectionString: string) => {
+  try {
+    return new URL(connectionString);
+  } catch {
+    return null;
+  }
+};
+
+const isSupabaseDatabaseHost = (connectionString: string) => {
+  const hostname = parsedConnectionUrl(connectionString)?.hostname.toLowerCase() || "";
+  return (
+    hostname === "supabase.co" ||
+    hostname.endsWith(".supabase.co") ||
+    hostname === "supabase.com" ||
+    hostname.endsWith(".supabase.com")
+  );
+};
+
 const getSslConfig = (connectionString: string) => {
-  const sslMode = connectionString.match(/[?&]sslmode=([^&]+)/i)?.[1]?.toLowerCase();
+  const sslMode = parsedConnectionUrl(connectionString)?.searchParams.get("sslmode")?.toLowerCase();
   const explicitSsl = clean(process.env.DATABASE_SSL) || clean(process.env.POSTGRES_SSL);
   const shouldUseSsl =
     (sslMode !== undefined && sslMode !== "disable") ||
     explicitSsl === "true" ||
-    /supabase\.co/i.test(connectionString);
+    isSupabaseDatabaseHost(connectionString);
 
   if (!shouldUseSsl) return undefined;
 
@@ -57,7 +75,24 @@ export const getPgPoolConfig = (connectionString: string): pg.PoolConfig => {
   const rootCertPath =
     clean(process.env.DATABASE_SSL_ROOT_CERT) || clean(process.env.POSTGRES_SSL_ROOT_CERT);
   if (!rootCertPath) {
-    return { connectionString, ssl: getSslConfig(connectionString) };
+    const ssl = getSslConfig(connectionString);
+    if (!ssl) return { connectionString, ssl };
+
+    // node-postgres lets SSL query parameters replace the explicit `ssl`
+    // object. Remove them after validation so certificate verification cannot
+    // silently degrade to driver-specific sslmode semantics.
+    const configuredUrl = new URL(connectionString);
+    const sslParameters = new Set([
+      "sslmode",
+      "sslcert",
+      "sslkey",
+      "sslrootcert",
+      "uselibpqcompat",
+    ]);
+    for (const name of [...configuredUrl.searchParams.keys()]) {
+      if (sslParameters.has(name.toLowerCase())) configuredUrl.searchParams.delete(name);
+    }
+    return { connectionString: configuredUrl.toString(), ssl };
   }
   if (!path.isAbsolute(rootCertPath)) {
     throw new Error("DATABASE_SSL_ROOT_CERT deve ser um caminho absoluto.");
@@ -87,7 +122,7 @@ export const getPool = () => {
     const connectionString = buildConnectionString();
     g.__hypePgPool = new Pool({
       ...getPgPoolConfig(connectionString),
-      max: Number(process.env.POSTGRES_POOL_MAX || 10),
+      max: isSupabaseEdgeRuntime() ? 1 : Number(process.env.POSTGRES_POOL_MAX || 10),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
     });

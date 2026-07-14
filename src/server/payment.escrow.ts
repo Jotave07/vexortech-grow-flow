@@ -2,7 +2,7 @@
  * Escrow na confirmacao do pagamento (modelo central).
  *
  * Quando um pagamento PIX e confirmado (PAYMENT_RECEIVED) e a loja opera no
- * modelo central (financeiro_ativo), registramos no ledger:
+ * modelo central (identificado pelo provider imutavel do pagamento), registramos no ledger:
  *   - ENTRADA_PIX     (credito, total do pedido)
  *   - TAXA_PLATAFORMA (credito da plataforma)
  * e marcamos o repasse como AGUARDANDO_ENTREGA (segura o valor ate a entrega).
@@ -23,7 +23,7 @@ type EscrowOrder = {
 /**
  * Aplica o escrow para um pedido recem-pago. Recebe o client da transacao em
  * andamento (o webhook ja esta dentro de withTransaction).
- * Retorna { applied:false } silenciosamente quando a loja nao e central.
+ * O chamador deve invocar somente para um pagamento provider='asaas-central'.
  */
 export const applyPaymentEscrow = async (
   client: Db,
@@ -32,12 +32,12 @@ export const applyPaymentEscrow = async (
   asaasEventId?: string | null,
 ): Promise<{ applied: boolean; platformFee?: number }> => {
   const { rows } = await client.query(
-    `SELECT financeiro_ativo, taxa_percentual_plataforma, taxa_fixa_plataforma
+    `SELECT taxa_percentual_plataforma, taxa_fixa_plataforma
        FROM public.store_settings WHERE store_id = $1 LIMIT 1`,
     [order.store_id],
   );
   const settings = rows[0];
-  if (!settings?.financeiro_ativo) return { applied: false };
+  if (!settings) return { applied: false };
 
   const { platformFee } = calcularTaxaPlataforma({
     totalPaid: order.total,

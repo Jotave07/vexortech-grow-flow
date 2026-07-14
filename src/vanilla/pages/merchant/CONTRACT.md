@@ -43,6 +43,8 @@ Regras de entrega persistem todos os campos usados por `quote-delivery`: faixa d
 
 Todas seguem o envelope `{ data, error }`; `error.message` é apresentado de forma recuperável. URLs externas de cobrança devem ser oferecidas como link explícito ao usuário, pois `ctx.navigate` é reservado às rotas da aplicação.
 
+Quando uma operação autenticada recebe um envelope de sessão inválida, expirada, não autenticada ou não autorizada, o cliente solicita uma única renovação pelo cookie HttpOnly, repete a operação uma vez e nunca expõe tokens ao JavaScript. Se a renovação também falhar, a identidade local é limpa e a rota do lojista direciona ao login preservando `redirect`; falhas técnicas de sessão não podem ser apresentadas como pendência de assinatura. Lojistas isentos ainda precisam ter uma loja ativa e não suspensa, mas não consultam `subscriptions` para entrar nas demais rotas.
+
 ## CSP e acessibilidade
 
 `merchant.css` é importado como asset estático. Nenhuma página injeta `<style>`, usa atributo `style`, `innerHTML`, React, Tailwind ou biblioteca de componentes. Tabelas têm cabeçalhos e legendas, diálogos têm nome acessível, estados assíncronos usam regiões vivas e os controles permanecem operáveis por teclado. A prévia de cores é desenhada em `canvas` com alternativa textual acessível; raios usam `meter`, rótulo e valor numérico, sem depender apenas da cor.

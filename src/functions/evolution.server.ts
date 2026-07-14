@@ -1,5 +1,6 @@
 import { query } from "@/backend/db";
 import { backendAdmin } from "@/integrations/backend/client.server";
+import { fetchWithTimeout, isHttpRequestTimeoutError } from "@/server/http-timeout";
 import type { Order, Store, OrderItem, OrderItemOption, StoreSettings } from "@/types";
 
 const clean = (value?: string | null): string => {
@@ -9,6 +10,7 @@ const clean = (value?: string | null): string => {
 
 const APP_NAME = process.env.VITE_APP_NAME || "Delivery";
 const APP_URL = clean(process.env.PUBLIC_APP_URL);
+export const EVOLUTION_REQUEST_TIMEOUT_MS = 15_000;
 
 const getEvolutionConfig = () => ({
   baseUrl: clean(process.env.EVOLUTION_API_URL).replace(/\/$/, ""),
@@ -244,12 +246,20 @@ const sendEvolutionText = async (
   if (!config.baseUrl) return { sent: false, reason: "missing_base_url" };
   if (!config.apiKey) return { sent: false, reason: "missing_api_key" };
 
-  const instance = await fetchEvolutionInstance(
-    config.baseUrl,
-    config.apiKey,
-    config.instance,
-    config.automationPhone || preferredInstancePhone,
-  );
+  let instance: string;
+  try {
+    instance = await fetchEvolutionInstance(
+      config.baseUrl,
+      config.apiKey,
+      config.instance,
+      config.automationPhone || preferredInstancePhone,
+    );
+  } catch (error) {
+    return {
+      sent: false,
+      reason: isHttpRequestTimeoutError(error) ? "timeout" : "network_error",
+    };
+  }
   if (!instance) return { sent: false, reason: "missing_sender_instance" };
 
   const url = `${config.baseUrl}/message/sendText/${encodeURIComponent(instance)}`;
@@ -258,32 +268,47 @@ const sendEvolutionText = async (
     apikey: config.apiKey,
   };
 
-  let response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      number: normalizeBrazilianPhone(phone),
-      text,
-      delay: 700,
-      linkPreview: false,
-    }),
-  });
+  try {
+    let response = await fetchWithTimeout(
+      url,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          number: normalizeBrazilianPhone(phone),
+          text,
+          delay: 700,
+          linkPreview: false,
+        }),
+      },
+      EVOLUTION_REQUEST_TIMEOUT_MS,
+    );
 
-  if (!response.ok && [400, 404, 422].includes(response.status)) {
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        number: normalizeBrazilianPhone(phone),
-        textMessage: { text },
-        delay: 700,
-        linkPreview: false,
-      }),
-    });
+    if (!response.ok && [400, 404, 422].includes(response.status)) {
+      response = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            number: normalizeBrazilianPhone(phone),
+            textMessage: { text },
+            delay: 700,
+            linkPreview: false,
+          }),
+        },
+        EVOLUTION_REQUEST_TIMEOUT_MS,
+      );
+    }
+
+    if (!response.ok) return { sent: false, reason: `http_${response.status}` };
+    return { sent: true, instance };
+  } catch (error) {
+    return {
+      sent: false,
+      reason: isHttpRequestTimeoutError(error) ? "timeout" : "network_error",
+    };
   }
-
-  if (!response.ok) return { sent: false, reason: `http_${response.status}` };
-  return { sent: true, instance };
 };
 
 interface EvolutionInstance {
@@ -307,9 +332,11 @@ const fetchEvolutionInstance = async (
   preferredPhone?: string,
 ): Promise<string> => {
   try {
-    const response = await fetch(`${baseUrl}/instance/fetchInstances`, {
-      headers: { apikey: apiKey },
-    });
+    const response = await fetchWithTimeout(
+      `${baseUrl}/instance/fetchInstances`,
+      { headers: { apikey: apiKey } },
+      EVOLUTION_REQUEST_TIMEOUT_MS,
+    );
     if (!response.ok) return preferredInstance ?? "";
     const payload: EvolutionInstance | EvolutionInstance[] = await response.json();
     const instances: EvolutionInstance[] = Array.isArray(payload)
@@ -355,7 +382,8 @@ const fetchEvolutionInstance = async (
     if (connected) return getInstanceName(connected);
     if (named) return getInstanceName(named);
     return preferredInstance ?? getInstanceName(instances[0]) ?? "";
-  } catch {
+  } catch (error) {
+    if (isHttpRequestTimeoutError(error)) throw error;
     return preferredInstance ?? "";
   }
 };

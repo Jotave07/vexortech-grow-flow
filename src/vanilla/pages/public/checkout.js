@@ -26,7 +26,7 @@ import {
 } from "./shared.js";
 
 const STORE_COLUMNS = "id, name, public_name, slug, city, state, logo_url, is_active, is_suspended";
-const SETTINGS_COLUMNS = "store_id, accept_orders_when_closed, accept_pix, accept_cash, accept_card_on_delivery, allow_delivery, allow_pickup, avg_prep_time_minutes, business_hours, delivery_fee, free_delivery_above, is_open, min_order_amount, min_order_value";
+const SETTINGS_COLUMNS = "store_id, accept_orders_when_closed, accept_pix, pix_checkout_available, accept_cash, accept_card_on_delivery, allow_delivery, allow_pickup, avg_prep_time_minutes, business_hours, delivery_fee, free_delivery_above, is_open, min_order_amount, min_order_value";
 
 const PAYMENT_METHODS = Object.freeze({
   pix: "PIX",
@@ -62,9 +62,9 @@ function normalizeDocument(value) {
   return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 14);
 }
 
-function paymentChoices(settings) {
+export function paymentChoices(settings) {
   const methods = [];
-  if (settings?.accept_pix) methods.push("pix");
+  if (settings?.pix_checkout_available) methods.push("pix");
   if (settings?.accept_cash) methods.push("dinheiro");
   if (settings?.accept_card_on_delivery) methods.push("cartao_credito_entrega", "cartao_debito_entrega");
   return methods;
@@ -362,6 +362,7 @@ function renderCheckoutForm(ctx, root, store, settings, cart) {
   let quoteTimer = 0;
   let cepLookupTimer = 0;
   let cepController = null;
+  let cepLookupSequence = 0;
   const addressInputs = [zipCode, street, number, neighborhood, city, stateInput];
   const scheduleQuote = () => {
     globalThis.clearTimeout(quoteTimer);
@@ -423,11 +424,13 @@ function renderCheckoutForm(ctx, root, store, settings, cart) {
 
   const runCepLookup = async () => {
     cepController?.abort();
-    cepController = new AbortController();
+    const controller = new AbortController();
+    const sequence = ++cepLookupSequence;
+    cepController = controller;
     setButtonBusy(cepButton, true, "Buscando…");
     try {
       const address = await lookupCep(ctx, zipCode.value);
-      if (cepController.signal.aborted) return;
+      if (controller.signal.aborted || sequence !== cepLookupSequence || root.pageSignal.aborted) return;
       zipCode.value = address.zipCode;
       street.value = address.street;
       neighborhood.value = address.neighborhood;
@@ -437,11 +440,13 @@ function renderCheckoutForm(ctx, root, store, settings, cart) {
       toast(ctx, "Endereço localizado. Informe o número para calcular a entrega.", "success");
       scheduleQuote();
     } catch (error) {
-      if (error?.name !== "AbortError") {
+      if (!controller.signal.aborted && sequence === cepLookupSequence && !root.pageSignal.aborted && error?.name !== "AbortError") {
         setFieldError(zipCode, error.message || "CEP não encontrado.");
         zipCode.focus();
       }
-    } finally { setButtonBusy(cepButton, false); }
+    } finally {
+      if (sequence === cepLookupSequence && !root.pageSignal.aborted) setButtonBusy(cepButton, false);
+    }
   };
   cepButton.addEventListener("click", () => {
     globalThis.clearTimeout(cepLookupTimer);
@@ -536,6 +541,14 @@ function renderCheckoutForm(ctx, root, store, settings, cart) {
           return;
         }
       }
+      const requestedChange = Number(changeFor.value || 0);
+      const confirmedTotal = cart.getTotals().subtotal + (state.orderType === "entrega" ? Number(quote?.fee || 0) : 0);
+      if (state.paymentMethod === "dinheiro" && requestedChange > 0 && requestedChange < confirmedTotal) {
+        setFieldError(changeFor, "O valor para troco deve ser igual ou maior que o total confirmado.");
+        errorArea.replaceChildren(alertBox("Revise o troco depois do cálculo final da entrega.", "warning"));
+        changeFor.focus();
+        return;
+      }
       const payload = {
         storeId: store.id,
         idempotencyKey,
@@ -575,11 +588,15 @@ function renderCheckoutForm(ctx, root, store, settings, cart) {
       state.submitted = true;
       state.dirty = false;
       cart.clear();
-      toast(ctx, "Pedido criado com sucesso.", "success");
-      if (state.paymentMethod === "pix") {
+      if (checkout.terminalStatus) {
+        toast(ctx, "Este pedido ja foi encerrado. Abrindo o acompanhamento.", "warning");
+        ctx.navigate(salesPath(ctx, `/pedido/${encodeURIComponent(checkout.publicToken)}`));
+      } else if (state.paymentMethod === "pix") {
+        toast(ctx, "Pedido criado com sucesso.", "success");
         replaceMain(root, pixSuccess(ctx, checkout, checkout.payment || {}));
         root.querySelector("h1")?.focus?.();
       } else {
+        toast(ctx, "Pedido criado com sucesso.", "success");
         ctx.navigate(salesPath(ctx, `/pedido/${encodeURIComponent(checkout.publicToken)}`));
       }
     } catch (error) {

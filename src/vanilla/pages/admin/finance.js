@@ -34,6 +34,27 @@ export function subscriptionSummary(subscriptions) {
   };
 }
 
+const ADMIN_BLOCKABLE_TRANSFER_STATUSES = new Set([
+  "NAO_LIBERADO",
+  "AGUARDANDO_ENTREGA",
+  "LIBERADO",
+  "FALHOU",
+]);
+
+export function financialOrderActions(order) {
+  const transferLedgerLocked = ["PROCESSANDO", "CONFIRMADO"].includes(
+    order.transfer_movement_status,
+  );
+  return {
+    releaseTransfer: order.transfer_status === "LIBERADO" && !transferLedgerLocked,
+    retryTransfer:
+      order.transfer_status === "FALHOU" && order.transfer_movement_status === "FALHOU",
+    retryRefund: order.refund_status === "FALHOU" && order.refund_movement_status === "FALHOU",
+    blockTransfer:
+      ADMIN_BLOCKABLE_TRANSFER_STATUSES.has(order.transfer_status) && !transferLedgerLocked,
+  };
+}
+
 export function renderAdminFinance(ctx) {
   const page = createAdminPage(ctx, {
     title: "Financeiro",
@@ -51,10 +72,13 @@ export function renderAdminFinance(ctx) {
     withBusy(control, async () => {
       if (!(await confirmAction(ctx, copy))) return;
       const result = await ctx.api.fn(name, { orderId: order.id, reason: copy.reason });
-      if (result.error || result.data?.error)
+      if (result.error || result.data?.error || result.data?.ok === false)
         return toast(
           ctx,
-          result.error?.message || result.data?.error || "Operacao financeira falhou.",
+          result.error?.message ||
+            result.data?.error ||
+            result.data?.reason ||
+            "Operacao financeira falhou.",
           "error",
         );
       toast(ctx, "Operacao financeira solicitada com sucesso.", "success");
@@ -64,7 +88,21 @@ export function renderAdminFinance(ctx) {
   function renderFinancial() {
     const rows = financialOrders.map((order) => {
       const actions = [];
-      if (order.transfer_status === "FALHOU") {
+      const allowedActions = financialOrderActions(order);
+      if (allowedActions.releaseTransfer) {
+        const release = button(ctx, "Liberar repasse", {
+          primary: true,
+          onClick: () =>
+            runAction("admin-release-transfer", order, release, {
+              title: `Liberar repasse do pedido #${order.order_number}?`,
+              message:
+                "O servidor exigira pagamento PIX Asaas central e entrada confirmada no ledger antes de iniciar o repasse.",
+              confirmLabel: "Liberar repasse",
+            }),
+        });
+        actions.push(release);
+      }
+      if (allowedActions.retryTransfer) {
         const retry = button(ctx, "Reprocessar repasse", {
           onClick: () =>
             runAction("admin-retry-transfer", order, retry, {
@@ -76,7 +114,7 @@ export function renderAdminFinance(ctx) {
         });
         actions.push(retry);
       }
-      if (order.refund_status === "FALHOU") {
+      if (allowedActions.retryRefund) {
         const retry = button(ctx, "Reprocessar reembolso", {
           onClick: () =>
             runAction("admin-retry-refund", order, retry, {
@@ -88,7 +126,7 @@ export function renderAdminFinance(ctx) {
         });
         actions.push(retry);
       }
-      if (["LIBERADO", "PROCESSANDO", "FALHOU"].includes(order.transfer_status)) {
+      if (allowedActions.blockTransfer) {
         const block = button(ctx, "Bloquear repasse", {
           danger: true,
           onClick: () =>

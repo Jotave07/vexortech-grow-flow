@@ -136,8 +136,9 @@ describe("backend query SQL generation", () => {
 
     const settingsSql = publicBaseColumnsSql("store_settings", "*");
     expect(settingsSql).toContain("'[configured]'");
-    expect(settingsSql).not.toContain('"asaas_api_key"');
-    expect(settingsSql).not.toContain('"payment_gateway_api_key"');
+    expect(settingsSql).toContain('AS "pix_checkout_available"');
+    expect(settingsSql).not.toContain('AS "asaas_api_key"');
+    expect(settingsSql).not.toContain('AS "payment_gateway_api_key"');
     expect(() => publicBaseColumnsSql("store_settings", "payment_gateway_config")).toThrow(
       "Coluna nao disponivel",
     );

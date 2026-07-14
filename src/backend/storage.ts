@@ -1,4 +1,5 @@
 import path from "node:path";
+import { Buffer } from "node:buffer";
 import { assertActiveMerchantSubscription, getActor } from "./auth";
 import { parseBearerToken } from "./db";
 import {
@@ -113,7 +114,8 @@ export const serveStorageFile = async (bucket: string, objectPath: string, reque
   const object = await downloadObjectFromSupabaseStorage(safeBucket, safeObjectPath);
   if (!object || object.contentType === "application/octet-stream") return new Response("Not found", { status: 404 });
   const fileName = path.basename(safeObjectPath).replace(/[\r\n"]/g, "_") || "arquivo";
-  return new Response(object.bytes, {
+  const responseBytes = Uint8Array.from(object.bytes);
+  return new Response(responseBytes, {
     headers: {
       "Cache-Control": "private, max-age=300",
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,

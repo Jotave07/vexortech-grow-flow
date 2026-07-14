@@ -24,6 +24,8 @@ export const BUSINESS_DAYS = Object.freeze([
 
 const DEFAULT_PRIMARY = "#b2d83f";
 const DEFAULT_SECONDARY = "#303938";
+const MAX_DELIVERY_BASE_FEE = 1_000;
+const MAX_DELIVERY_FEE_PER_KM = 100;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
@@ -34,6 +36,16 @@ const finiteNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+const finiteDeliveryAmount = (value) =>
+  ["number", "string"].includes(typeof value) && text(value) ? finiteNumber(value, NaN) : NaN;
+
+export function deliveryPricingFormValues(settings = {}) {
+  const baseFee = Math.max(0, finiteNumber(settings.delivery_base_fee, 0));
+  const feePerKm = Math.max(0, finiteNumber(settings.delivery_fee_per_km, 0));
+  const legacyFee = Math.max(0, finiteNumber(settings.delivery_fee, 0));
+  const hasCurrentPricing = baseFee > 0 || feePerKm > 0 || legacyFee === 0;
+  return { baseFee: hasCurrentPricing ? baseFee : legacyFee, feePerKm };
+}
 
 const randomId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -142,9 +154,13 @@ export function buildSettingsRequest(values, businessHours = buildBusinessHours(
   const prepTime = finiteNumber(values.avg_prep_time_minutes, NaN);
   const minimumOrder = finiteNumber(values.min_order_value, NaN);
   const radius = text(values.delivery_radius_km) ? finiteNumber(values.delivery_radius_km, NaN) : null;
+  const deliveryBaseFee = finiteDeliveryAmount(values.delivery_base_fee);
+  const deliveryFeePerKm = finiteDeliveryAmount(values.delivery_fee_per_km);
   if (!Number.isFinite(prepTime) || prepTime < 1 || prepTime > 240) throw new Error("O preparo médio deve ficar entre 1 e 240 minutos.");
   if (!Number.isFinite(minimumOrder) || minimumOrder < 0) throw new Error("O pedido mínimo não pode ser negativo.");
   if (radius !== null && (!Number.isFinite(radius) || radius <= 0 || radius > 500)) throw new Error("O raio deve ficar entre 0,1 e 500 km.");
+  if (!Number.isFinite(deliveryBaseFee) || deliveryBaseFee < 0 || deliveryBaseFee > MAX_DELIVERY_BASE_FEE) throw new Error("A taxa base deve ficar entre R$ 0,00 e R$ 1.000,00.");
+  if (!Number.isFinite(deliveryFeePerKm) || deliveryFeePerKm < 0 || deliveryFeePerKm > MAX_DELIVERY_FEE_PER_KM) throw new Error("A taxa por km deve ficar entre R$ 0,00 e R$ 100,00.");
 
   const pixType = String(values.pix_key_type || "KEY").toUpperCase();
   const pixKey = normalizePixKey(pixType, values.pix_key);
@@ -181,6 +197,8 @@ export function buildSettingsRequest(values, businessHours = buildBusinessHours(
       accept_cash: Boolean(values.accept_cash),
       accept_card_on_delivery: Boolean(values.accept_card_on_delivery),
       delivery_radius_km: radius,
+      delivery_base_fee: Math.round(deliveryBaseFee * 100) / 100,
+      delivery_fee_per_km: Math.round(deliveryFeePerKm * 100) / 100,
       business_hours: businessHours,
     },
   };
@@ -360,7 +378,7 @@ export function render(ctx) {
           .select("id, name, public_name, whatsapp, whatsapp_number, phone, logo_url, cover_url, description, zip_code, address, address_number, address_complement, neighborhood, city, state, primary_color, secondary_color")
           .eq("id", storeId).maybeSingle(), null),
         dataOf(ctx.api.from("store_settings")
-          .select("store_id, avg_prep_time_minutes, min_order_value, is_open, allow_delivery, allow_pickup, accept_orders_when_closed, accept_pix, pix_key, pix_key_type, payment_instructions, accept_cash, accept_card_on_delivery, delivery_radius_km, business_hours")
+          .select("store_id, avg_prep_time_minutes, min_order_value, is_open, allow_delivery, allow_pickup, accept_orders_when_closed, accept_pix, pix_key, pix_key_type, payment_instructions, accept_cash, accept_card_on_delivery, delivery_radius_km, delivery_base_fee, delivery_fee_per_km, delivery_fee, business_hours")
           .eq("store_id", storeId).maybeSingle(), null),
       ]);
       if (!state.store) throw new Error("Loja não encontrada.");
@@ -376,6 +394,7 @@ export function render(ctx) {
     const store = state.store;
     const settings = state.settings;
     const businessHours = normalizeBusinessHours(settings.business_hours);
+    const deliveryPricing = deliveryPricingFormValues(settings);
     const form = h(ctx, "form", { className: "merchant-form merchant-settings", novalidate: "" });
     const markDirty = () => { state.dirty = true; };
 
@@ -406,7 +425,9 @@ export function render(ctx) {
       h(ctx, "div", { className: "merchant-form__grid" },
         controlField(ctx, { name: "avg_prep_time_minutes", label: "Preparo médio (min)", type: "number", value: settings.avg_prep_time_minutes ?? 30, min: 1, max: 240, required: true }, { inputmode: "numeric" }),
         controlField(ctx, { name: "min_order_value", label: "Pedido mínimo", type: "number", value: settings.min_order_value ?? 0, min: 0, step: 0.01 }, { inputmode: "decimal" }),
-        controlField(ctx, { name: "delivery_radius_km", label: "Raio máximo (km)", type: "number", value: settings.delivery_radius_km ?? "", min: 0.1, max: 500, step: 0.1, hint: "Limite global. Regiões podem definir um raio menor em Entregas." }, { inputmode: "decimal" })),
+        controlField(ctx, { name: "delivery_radius_km", label: "Raio máximo (km)", type: "number", value: settings.delivery_radius_km ?? "", min: 0.1, max: 500, step: 0.1, hint: "Limite global. Regiões podem definir um raio menor em Entregas." }, { inputmode: "decimal" }),
+        controlField(ctx, { name: "delivery_base_fee", label: "Taxa base (R$)", type: "number", value: deliveryPricing.baseFee, min: 0, max: MAX_DELIVERY_BASE_FEE, step: 0.01, required: true, hint: "Valor inicial do frete dentro do raio." }, { inputmode: "decimal" }),
+        controlField(ctx, { name: "delivery_fee_per_km", label: "Adicional por km (R$)", type: "number", value: deliveryPricing.feePerKm, min: 0, max: MAX_DELIVERY_FEE_PER_KM, step: 0.01, required: true, hint: "Somado à taxa base pela distância calculada." }, { inputmode: "decimal" })),
       h(ctx, "div", { className: "merchant-choice-grid" },
         field(ctx, { name: "is_open", label: "Loja aberta agora", type: "checkbox", value: settings.is_open ?? true, hint: "O status manual prevalece sobre os horários informativos." }),
         field(ctx, { name: "allow_delivery", label: "Oferecer entrega", type: "checkbox", value: settings.allow_delivery ?? true }),

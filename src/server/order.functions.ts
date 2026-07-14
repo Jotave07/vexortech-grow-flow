@@ -38,40 +38,98 @@ const paymentMethods = [
   "cartao_debito_entrega",
 ] as const;
 
+const terminalOrderStatuses = new Set([
+  "cancelado",
+  "cancelled",
+  "expirado",
+  "expired",
+  "finalizado",
+  "completed",
+  "entregue",
+  "delivered",
+]);
+
+const isTerminalOrderStatus = (status: unknown) =>
+  terminalOrderStatuses.has(
+    String(status || "")
+      .trim()
+      .toLowerCase(),
+  );
+
 const checkoutInputSchema = z.object({
   storeId: z.string().uuid(),
   idempotencyKey: z.string().min(8).max(160),
-  items: z.array(z.object({
-    productId: z.string().uuid(),
-    quantity: z.number().int().positive().max(99),
-    notes: z.string().max(500).optional().nullable(),
-    options: z.array(z.object({
-      optionId: z.string().uuid(),
-      itemId: z.string().uuid(),
-    })).default([]),
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.number().int().positive().max(99),
+        notes: z.string().max(500).optional().nullable(),
+        options: z
+          .array(
+            z.object({
+              optionId: z.string().uuid(),
+              itemId: z.string().uuid(),
+            }),
+          )
+          .default([]),
+      }),
+    )
+    .min(1),
   customer: z.object({
     name: z.string().min(1).max(160),
     document: z.string().max(32).optional().nullable(),
     phone: z.string().min(8).max(32),
     email: z.string().email().optional().nullable(),
   }),
-  delivery: z.object({
-    type: z.enum(["entrega", "retirada"]),
-    zipCode: z.string().max(16).optional().nullable(),
-    street: z.string().max(200).optional().nullable(),
-    number: z.string().max(40).optional().nullable(),
-    complement: z.string().max(120).optional().nullable(),
-    neighborhood: z.string().max(120).optional().nullable(),
-    city: z.string().max(120).optional().nullable(),
-    state: z.string().max(2).optional().nullable(),
-    regionId: z.string().uuid().optional().nullable(),
-    reference: z.string().max(180).optional().nullable(),
-    customerCoordinates: z.object({
-      lat: z.number(),
-      lng: z.number(),
-    }).optional().nullable(),
-  }),
+  delivery: z
+    .object({
+      type: z.enum(["entrega", "retirada"]),
+      zipCode: z.string().max(16).optional().nullable(),
+      street: z.string().max(200).optional().nullable(),
+      number: z.string().max(40).optional().nullable(),
+      complement: z.string().max(120).optional().nullable(),
+      neighborhood: z.string().max(120).optional().nullable(),
+      city: z.string().max(120).optional().nullable(),
+      state: z.string().max(2).optional().nullable(),
+      regionId: z.string().uuid().optional().nullable(),
+      reference: z.string().max(180).optional().nullable(),
+      customerCoordinates: z
+        .object({
+          lat: z.number().min(-90).max(90),
+          lng: z.number().min(-180).max(180),
+        })
+        .optional()
+        .nullable(),
+    })
+    .superRefine((delivery, context) => {
+      if (delivery.type !== "entrega") return;
+      const requiredTextFields = [
+        ["street", delivery.street, "Informe a rua ou avenida para entrega."],
+        ["number", delivery.number, "Informe o numero ou S/N para entrega."],
+        ["neighborhood", delivery.neighborhood, "Informe o bairro para entrega."],
+        ["city", delivery.city, "Informe a cidade para entrega."],
+      ] as const;
+      for (const [field, value, message] of requiredTextFields) {
+        if (!String(value || "").trim()) {
+          context.addIssue({ code: "custom", path: [field], message });
+        }
+      }
+      if (!/^\d{8}$/.test(String(delivery.zipCode || "").replace(/\D/g, ""))) {
+        context.addIssue({
+          code: "custom",
+          path: ["zipCode"],
+          message: "Informe um CEP valido com 8 digitos para entrega.",
+        });
+      }
+      if (!/^[A-Za-z]{2}$/.test(String(delivery.state || "").trim())) {
+        context.addIssue({
+          code: "custom",
+          path: ["state"],
+          message: "Informe uma UF valida com 2 letras para entrega.",
+        });
+      }
+    }),
   paymentMethod: z.enum(paymentMethods),
   changeFor: z.number().nonnegative().optional().nullable(),
   couponCode: z.string().max(80).optional().nullable(),
@@ -82,7 +140,10 @@ const checkoutInputSchema = z.object({
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
 
 const onlyDigits = (value?: string | null) => String(value || "").replace(/\D/g, "");
-const upper = (value?: string | null) => String(value || "").trim().toUpperCase();
+const upper = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
 const money = (value: unknown) => Number(Number(value || 0).toFixed(2));
 
 const buildOrderNotes = (input: CheckoutInput) => {
@@ -99,7 +160,10 @@ const optionLimits = (group: any) => {
 const isPaymentMethodAccepted = (settings: any, method: CheckoutInput["paymentMethod"]) => {
   if (method === "pix") {
     const hasManualKey = Boolean(String(settings.pix_key || "").trim());
-    return Boolean(settings.accept_pix) && (hasManualKey || Boolean(settings.financeiro_ativo) || hasPixGatewayConfig(settings));
+    return (
+      Boolean(settings.accept_pix) &&
+      (hasManualKey || Boolean(settings.financeiro_ativo) || hasPixGatewayConfig(settings))
+    );
   }
   if (method === "dinheiro") return Boolean(settings.accept_cash);
   return Boolean(settings.accept_card_on_delivery);
@@ -133,7 +197,12 @@ const loadProductsContext = async (client: DbClient, storeId: string, productIds
   return { products, groups, optionItems };
 };
 
-const calculateItems = (input: CheckoutInput, products: any[], groups: any[], optionItems: any[]) => {
+const calculateItems = (
+  input: CheckoutInput,
+  products: any[],
+  groups: any[],
+  optionItems: any[],
+) => {
   const productsById = new Map(products.map((product) => [product.id, product]));
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const optionItemsById = new Map(optionItems.map((item) => [item.id, item]));
@@ -163,22 +232,31 @@ const calculateItems = (input: CheckoutInput, products: any[], groups: any[], op
         throw new Error(`Opcao duplicada em "${product.name}".`);
       }
       uniqueSelections.add(selectionKey);
-      selectedByGroup.set(selected.optionId, [...(selectedByGroup.get(selected.optionId) || []), selected]);
+      selectedByGroup.set(selected.optionId, [
+        ...(selectedByGroup.get(selected.optionId) || []),
+        selected,
+      ]);
     }
 
     for (const group of productGroups) {
       const selected = selectedByGroup.get(group.id) || [];
       const { min, max } = optionLimits(group);
-      const activeItems = optionItems.filter((item) => item.option_id === group.id && item.is_active !== false);
-      if (min > 0 && activeItems.length === 0) throw new Error(`Produto "${product.name}" esta sem opcoes disponiveis.`);
-      if (selected.length < min) throw new Error(`Falta escolher "${group.name}" em "${product.name}".`);
-      if (selected.length > max) throw new Error(`Limite de "${group.name}" excedido em "${product.name}".`);
+      const activeItems = optionItems.filter(
+        (item) => item.option_id === group.id && item.is_active !== false,
+      );
+      if (min > 0 && activeItems.length === 0)
+        throw new Error(`Produto "${product.name}" esta sem opcoes disponiveis.`);
+      if (selected.length < min)
+        throw new Error(`Falta escolher "${group.name}" em "${product.name}".`);
+      if (selected.length > max)
+        throw new Error(`Limite de "${group.name}" excedido em "${product.name}".`);
     }
 
     const selectedOptions = cartItem.options.map((selected) => {
       const group = groupsById.get(selected.optionId);
       const optionItem = optionItemsById.get(selected.itemId);
-      if (!group || group.product_id !== product.id) throw new Error(`Opcao invalida em "${product.name}".`);
+      if (!group || group.product_id !== product.id)
+        throw new Error(`Opcao invalida em "${product.name}".`);
       if (!optionItem || optionItem.option_id !== group.id || optionItem.is_active === false) {
         throw new Error(`Opcao indisponivel em "${product.name}".`);
       }
@@ -193,7 +271,14 @@ const calculateItems = (input: CheckoutInput, products: any[], groups: any[], op
     const optionsTotal = money(selectedOptions.reduce((sum, option) => sum + option.extraPrice, 0));
     const itemSubtotal = money((unitPrice + optionsTotal) * cartItem.quantity);
     subtotal = money(subtotal + itemSubtotal);
-    calculatedItems.push({ input: cartItem, product, unitPrice, optionsTotal, subtotal: itemSubtotal, options: selectedOptions });
+    calculatedItems.push({
+      input: cartItem,
+      product,
+      unitPrice,
+      optionsTotal,
+      subtotal: itemSubtotal,
+      options: selectedOptions,
+    });
   }
 
   return { calculatedItems, subtotal };
@@ -216,18 +301,26 @@ const loadCoupon = async (client: DbClient, storeId: string, couponCode?: string
 const calculateDiscount = (coupon: any, subtotal: number) => {
   if (!coupon) return 0;
   if (coupon.is_active === false) throw new Error("Cupom inativo.");
-  if (coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now()) throw new Error("Cupom expirado.");
-  if (coupon.usage_limit !== null && coupon.usage_limit !== undefined && Number(coupon.usage_count || 0) >= Number(coupon.usage_limit)) {
+  if (coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now())
+    throw new Error("Cupom expirado.");
+  if (
+    coupon.usage_limit !== null &&
+    coupon.usage_limit !== undefined &&
+    Number(coupon.usage_count || 0) >= Number(coupon.usage_limit)
+  ) {
     throw new Error("Cupom esgotado.");
   }
   const minOrder = money(coupon.min_order_value ?? 0);
-  if (subtotal < minOrder) throw new Error(`Cupom valido para pedidos acima de R$ ${minOrder.toFixed(2)}.`);
+  if (subtotal < minOrder)
+    throw new Error(`Cupom valido para pedidos acima de R$ ${minOrder.toFixed(2)}.`);
 
   const raw =
     coupon.discount_type === "percentual"
       ? (subtotal * Number(coupon.discount_value || 0)) / 100
       : Number(coupon.discount_value || 0);
-  const capped = coupon.max_discount_amount ? Math.min(raw, Number(coupon.max_discount_amount)) : raw;
+  const capped = coupon.max_discount_amount
+    ? Math.min(raw, Number(coupon.max_discount_amount))
+    : raw;
   return money(Math.min(capped, subtotal));
 };
 
@@ -241,22 +334,33 @@ const createOrUpdateCustomer = async (client: DbClient, input: CheckoutInput, ac
     [input.storeId, actor.user.id],
   );
 
+  const hasDeliveryAddress = input.delivery.type === "entrega";
   const values = [
     input.storeId,
     actor.user.id,
     upper(input.customer.name),
     onlyDigits(input.customer.phone),
     normalizeDocument(input.customer.document || ""),
-    upper(input.delivery.street),
-    input.delivery.number || null,
-    upper(input.delivery.neighborhood),
-    upper(input.delivery.city),
-    upper(input.delivery.state),
-    onlyDigits(input.delivery.zipCode),
-    input.delivery.complement?.trim() || null,
+    hasDeliveryAddress ? upper(input.delivery.street) : null,
+    hasDeliveryAddress ? input.delivery.number || null : null,
+    hasDeliveryAddress ? upper(input.delivery.neighborhood) : null,
+    hasDeliveryAddress ? upper(input.delivery.city) : null,
+    hasDeliveryAddress ? upper(input.delivery.state) : null,
+    hasDeliveryAddress ? onlyDigits(input.delivery.zipCode) : null,
+    hasDeliveryAddress ? input.delivery.complement?.trim() || null : null,
   ];
 
   if (existingRows[0]) {
+    if (!hasDeliveryAddress) {
+      const { rows } = await client.query(
+        `UPDATE public.customers
+         SET full_name = $1, name = $1, phone = $2, document = $3
+         WHERE id = $4
+         RETURNING *`,
+        [...values.slice(2, 5), existingRows[0].id],
+      );
+      return rows[0];
+    }
     const { rows } = await client.query(
       `UPDATE public.customers
        SET full_name = $1, name = $1, phone = $2, document = $3, street = $4,
@@ -274,9 +378,9 @@ const createOrUpdateCustomer = async (client: DbClient, input: CheckoutInput, ac
        store_id, user_id, full_name, name, phone, document, street, number,
        neighborhood, city, state, zip_code, complement, registration_completed
      )
-     VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+     VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING *`,
-    values,
+    [...values, hasDeliveryAddress],
   );
   return rows[0];
 };
@@ -332,7 +436,9 @@ export const createCheckoutOrderForActor = async (
   deps: CheckoutDeps = defaultDeps,
 ) => {
   const input = checkoutInputSchema.parse(rawInput);
-  const resolvedCustomerDocument = normalizeDocument(actor.profile?.document || input.customer.document || "");
+  const resolvedCustomerDocument = normalizeDocument(
+    actor.profile?.document || input.customer.document || "",
+  );
   if (resolvedCustomerDocument && !isValidDocument(resolvedCustomerDocument)) {
     throw new Error("CPF ou CNPJ invalido.");
   }
@@ -342,6 +448,16 @@ export const createCheckoutOrderForActor = async (
     .digest("hex");
 
   const finalizeOrder = async (order: any) => {
+    if (isTerminalOrderStatus(order.status)) {
+      return {
+        orderId: order.id,
+        publicToken: order.public_token,
+        orderNumber: order.order_number,
+        payment: null,
+        terminalStatus: String(order.status).toLowerCase(),
+      };
+    }
+
     let payment = null;
     if (order.payment_method === "pix") {
       try {
@@ -374,7 +490,8 @@ export const createCheckoutOrderForActor = async (
   // menu, delivery provider or store availability.
   const existingOrder = await deps.withTransaction(async (client) => {
     const { rows } = await client.query(
-      `SELECT o.id, o.store_id, o.public_token, o.payment_method, o.order_number, o.checkout_payload_hash
+      `SELECT o.id, o.store_id, o.public_token, o.payment_method, o.order_number, o.status,
+              o.checkout_payload_hash
        FROM public.orders o
        JOIN public.customers c ON c.id = o.customer_id
        WHERE o.idempotency_key = $1 AND o.store_id = $2 AND c.user_id = $3
@@ -385,7 +502,10 @@ export const createCheckoutOrderForActor = async (
   });
   if (existingOrder) {
     if (!existingOrder.public_token) throw new Error("Pedido existente sem token publico.");
-    if (existingOrder.checkout_payload_hash && existingOrder.checkout_payload_hash !== checkoutPayloadHash) {
+    if (
+      existingOrder.checkout_payload_hash &&
+      existingOrder.checkout_payload_hash !== checkoutPayloadHash
+    ) {
       throw new Error("Esta chave de idempotencia ja foi usada com outro carrinho.");
     }
     return finalizeOrder(existingOrder);
@@ -398,50 +518,54 @@ export const createCheckoutOrderForActor = async (
     const context = await loadProductsContext(client, input.storeId, previewProductIds);
     return calculateItems(input, context.products, context.groups, context.optionItems).subtotal;
   });
-  const quotedDelivery = input.delivery.type === "retirada"
-    ? {
-        fee: 0,
-        regionId: null,
-        estimatedMin: null,
-        estimatedMax: null,
-        source: "pickup",
-        distanceKm: null,
-        normalizedAddress: null,
-        configurationFingerprint: null,
-      }
-    : await deps.quoteDelivery({
-        storeId: input.storeId,
-        subtotal: quotedSubtotal,
-        address: {
-          cep: input.delivery.zipCode,
-          street: input.delivery.street,
-          number: input.delivery.number,
-          complement: input.delivery.complement,
-          neighborhood: input.delivery.neighborhood,
-          city: input.delivery.city,
-          state: input.delivery.state,
-        },
-        customerCoordinates: input.delivery.customerCoordinates || null,
-      }).then((quote) => {
-        if (!quote.available) throw new Error(quote.reason || "Regiao nao atendida.");
-        return {
-          fee: quote.fee,
-          regionId: quote.regionId || null,
-          estimatedMin: quote.estimatedMin || null,
-          estimatedMax: quote.estimatedMax || null,
-          source: quote.source,
-          distanceKm: quote.distanceKm || null,
-          normalizedAddress: quote.normalizedAddress || null,
-          configurationFingerprint: quote.configurationFingerprint || null,
-        };
-      });
+  const quotedDelivery =
+    input.delivery.type === "retirada"
+      ? {
+          fee: 0,
+          regionId: null,
+          estimatedMin: null,
+          estimatedMax: null,
+          source: "pickup",
+          distanceKm: null,
+          normalizedAddress: null,
+          configurationFingerprint: null,
+        }
+      : await deps
+          .quoteDelivery({
+            storeId: input.storeId,
+            subtotal: quotedSubtotal,
+            address: {
+              cep: input.delivery.zipCode,
+              street: input.delivery.street,
+              number: input.delivery.number,
+              complement: input.delivery.complement,
+              neighborhood: input.delivery.neighborhood,
+              city: input.delivery.city,
+              state: input.delivery.state,
+            },
+            customerCoordinates: input.delivery.customerCoordinates || null,
+          })
+          .then((quote) => {
+            if (!quote.available) throw new Error(quote.reason || "Regiao nao atendida.");
+            return {
+              fee: quote.fee,
+              regionId: quote.regionId || null,
+              estimatedMin: quote.estimatedMin || null,
+              estimatedMax: quote.estimatedMax || null,
+              source: quote.source,
+              distanceKm: quote.distanceKm || null,
+              normalizedAddress: quote.normalizedAddress || null,
+              configurationFingerprint: quote.configurationFingerprint || null,
+            };
+          });
 
   const order = await deps.withTransaction(async (client) => {
-    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [`checkout:${input.idempotencyKey}`]);
-    await client.query(
-      `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`,
-      [`customer:${input.storeId}:${actor.user.id}`],
-    );
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [
+      `checkout:${input.idempotencyKey}`,
+    ]);
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [
+      `customer:${input.storeId}:${actor.user.id}`,
+    ]);
 
     const { rows: stores } = await client.query(
       `SELECT * FROM public.stores
@@ -451,7 +575,8 @@ export const createCheckoutOrderForActor = async (
     );
     const store = stores[0];
     if (!store || store.is_suspended) throw new Error("Loja indisponivel.");
-    if (store.owner_user_id === actor.user.id) throw new Error("Dono da loja nao pode comprar de si mesmo.");
+    if (store.owner_user_id === actor.user.id)
+      throw new Error("Dono da loja nao pode comprar de si mesmo.");
 
     const { rows: settingsRows } = await client.query(
       `SELECT * FROM public.store_settings WHERE store_id = $1 LIMIT 1 FOR SHARE`,
@@ -459,11 +584,18 @@ export const createCheckoutOrderForActor = async (
     );
     const settings = settingsRows[0];
     if (!settings) throw new Error("Configuracoes da loja nao encontradas.");
-    if (!isStoreOpen(settings.business_hours, settings.is_open) && !settings.accept_orders_when_closed) {
+    if (
+      !isStoreOpen(settings.business_hours, settings.is_open) &&
+      !settings.accept_orders_when_closed
+    ) {
       throw new Error("Loja fechada.");
     }
     if (!isPaymentMethodAccepted(settings, input.paymentMethod)) {
-      throw new Error(input.paymentMethod === "pix" ? "PIX nao habilitado para esta loja." : "Forma de pagamento indisponivel.");
+      throw new Error(
+        input.paymentMethod === "pix"
+          ? "PIX nao habilitado para esta loja."
+          : "Forma de pagamento indisponivel.",
+      );
     }
     if (input.delivery.type === "retirada" && !settings.allow_pickup) {
       throw new Error("Retirada indisponivel para esta loja.");
@@ -472,22 +604,38 @@ export const createCheckoutOrderForActor = async (
       if (!settings.allow_delivery) throw new Error("Entrega indisponivel para esta loja.");
       const { rows: deliveryZones } = await client.query(
         `SELECT * FROM public.delivery_zones
-         WHERE store_id = $1 AND COALESCE(is_active, true) IS TRUE
+         WHERE store_id = $1 AND is_active IS TRUE
          FOR SHARE`,
         [input.storeId],
       );
       const currentFingerprint = deliveryConfigurationFingerprint(store, settings, deliveryZones);
-      if (!quotedDelivery.configurationFingerprint || currentFingerprint !== quotedDelivery.configurationFingerprint) {
-        throw new Error("As condicoes de entrega mudaram durante o checkout. Calcule o frete novamente.");
+      if (
+        !quotedDelivery.configurationFingerprint ||
+        currentFingerprint !== quotedDelivery.configurationFingerprint
+      ) {
+        throw new Error(
+          "As condicoes de entrega mudaram durante o checkout. Calcule o frete novamente.",
+        );
       }
     }
     if (onlyDigits(input.customer.phone).length < 10) throw new Error("WhatsApp invalido.");
 
     const productIds = [...new Set(input.items.map((item) => item.productId))];
-    const { products, groups, optionItems } = await loadProductsContext(client, input.storeId, productIds);
+    const { products, groups, optionItems } = await loadProductsContext(
+      client,
+      input.storeId,
+      productIds,
+    );
     const { calculatedItems, subtotal } = calculateItems(input, products, groups, optionItems);
     if (subtotal !== quotedSubtotal) {
       throw new Error("O cardapio mudou durante o checkout. Revise o carrinho e tente novamente.");
+    }
+    const minimumOrder = Number(settings.min_order_value ?? settings.min_order_amount ?? 0);
+    if (!Number.isFinite(minimumOrder) || minimumOrder < 0) {
+      throw new Error("O pedido minimo da loja esta configurado incorretamente.");
+    }
+    if (subtotal < minimumOrder) {
+      throw new Error(`Pedido minimo de R$ ${minimumOrder.toFixed(2)} nao atingido.`);
     }
     const delivery = quotedDelivery;
     const coupon = await loadCoupon(client, input.storeId, input.couponCode);
@@ -497,12 +645,17 @@ export const createCheckoutOrderForActor = async (
       throw new Error("Troco precisa ser maior ou igual ao total do pedido.");
     }
 
-    const customer = await createOrUpdateCustomer(client, {
-      ...input,
-      customer: { ...input.customer, document: resolvedCustomerDocument || null },
-    }, actor);
+    const customer = await createOrUpdateCustomer(
+      client,
+      {
+        ...input,
+        customer: { ...input.customer, document: resolvedCustomerDocument || null },
+      },
+      actor,
+    );
     const { rows: existingOrders } = await client.query(
-      `SELECT id, store_id, public_token, payment_method, order_number, checkout_payload_hash
+      `SELECT id, store_id, public_token, payment_method, order_number, status,
+              checkout_payload_hash
        FROM public.orders
        WHERE idempotency_key = $1 AND store_id = $2 AND customer_id = $3
        LIMIT 1
@@ -511,16 +664,20 @@ export const createCheckoutOrderForActor = async (
     );
     if (existingOrders[0]) {
       if (!existingOrders[0].public_token) throw new Error("Pedido existente sem token publico.");
-      if (existingOrders[0].checkout_payload_hash && existingOrders[0].checkout_payload_hash !== checkoutPayloadHash) {
+      if (
+        existingOrders[0].checkout_payload_hash &&
+        existingOrders[0].checkout_payload_hash !== checkoutPayloadHash
+      ) {
         throw new Error("Esta chave de idempotencia ja foi usada com outro carrinho.");
       }
       return existingOrders[0];
     }
 
     const status = input.paymentMethod === "pix" ? "aguardando_pagamento" : "novo";
-    const address = input.delivery.type === "entrega"
-      ? `${upper(input.delivery.street)}, ${input.delivery.number}${input.delivery.complement ? ` (${upper(input.delivery.complement)})` : ""} - ${upper(input.delivery.neighborhood)}`
-      : "RETIRADA";
+    const address =
+      input.delivery.type === "entrega"
+        ? `${upper(delivery.normalizedAddress?.street || input.delivery.street)}, ${input.delivery.number}${input.delivery.complement ? ` (${upper(input.delivery.complement)})` : ""} - ${upper(delivery.normalizedAddress?.neighborhood || input.delivery.neighborhood)}`
+        : "RETIRADA";
 
     const orderNotes = buildOrderNotes(input);
     const deliveryReference = input.delivery.reference?.trim() || input.reference?.trim() || null;
@@ -540,7 +697,7 @@ export const createCheckoutOrderForActor = async (
          $20, $21, $22, $23, $24, $25, $26, $27,
          $28, $29, $30, $31, $32, $33, $34
        )
-       RETURNING id, store_id, public_token, payment_method, order_number`,
+       RETURNING id, store_id, public_token, payment_method, order_number, status`,
       [
         input.storeId,
         customer.id,
@@ -589,7 +746,10 @@ export const createCheckoutOrderForActor = async (
     );
 
     if (coupon) {
-      await client.query(`UPDATE public.coupons SET usage_count = COALESCE(usage_count, 0) + 1 WHERE id = $1`, [coupon.id]);
+      await client.query(
+        `UPDATE public.coupons SET usage_count = COALESCE(usage_count, 0) + 1 WHERE id = $1`,
+        [coupon.id],
+      );
     }
 
     return newOrder;

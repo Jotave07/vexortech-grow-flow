@@ -6,6 +6,7 @@ const publishRealtimeMock = vi.fn();
 const cancelSubscriptionMock = vi.fn();
 const updateSubscriptionMock = vi.fn();
 const getSubscriptionMock = vi.fn();
+const refundCancelledOrderMock = vi.hoisted(() => vi.fn());
 const storeId = "11111111-1111-4111-8111-111111111111";
 const eventRowId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -31,6 +32,11 @@ vi.mock("@/server/asaas.server", () => ({
   },
 }));
 
+vi.mock("@/server/refund.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/refund.service")>();
+  return { ...actual, refundCancelledOrder: refundCancelledOrderMock };
+});
+
 const makeRequest = (body: any, token = "secret") =>
   new Request("http://localhost/api/webhooks/asaas", {
     method: "POST",
@@ -49,9 +55,11 @@ describe("Asaas webhook", () => {
     cancelSubscriptionMock.mockReset();
     updateSubscriptionMock.mockReset();
     getSubscriptionMock.mockReset();
+    refundCancelledOrderMock.mockReset();
     cancelSubscriptionMock.mockResolvedValue({ success: true });
     updateSubscriptionMock.mockResolvedValue({ success: true });
     getSubscriptionMock.mockResolvedValue({ status: "ACTIVE", nextDueDate: "2026-08-15" });
+    refundCancelledOrderMock.mockResolvedValue({ ok: true, status: "PROCESSANDO", amount: 42.5 });
     process.env = { ...oldEnv, NODE_ENV: "test", ASAAS_WEBHOOK_SECRET: "secret" };
     queryMock.mockImplementation(successfulClaimQuery);
     withTransactionMock.mockImplementation(async (fn: any) => fn({ query: queryMock }));
@@ -1134,6 +1142,245 @@ describe("Asaas webhook", () => {
     );
   });
 
+  it("serializes a late payment after cancellation, schedules one durable refund and acks the duplicate once", async () => {
+    let insertAttempts = 0;
+    let processed = false;
+    let committed = false;
+    queryMock.mockImplementation(async (sql: string) => {
+      if (sql.includes("INSERT INTO public.payment_events")) {
+        insertAttempts += 1;
+        return { rows: insertAttempts === 1 ? [{ id: eventRowId }] : [] };
+      }
+      if (sql.includes("WITH candidate AS")) return { rows: [] };
+      if (sql.includes("retry_after_seconds")) {
+        return { rows: [{ id: eventRowId, processed, retry_after_seconds: 45 }] };
+      }
+      if (sql.includes("SET processed = true")) {
+        processed = true;
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+    const order = {
+      id: "order-1",
+      status: "cancelado",
+      payment_status: "cancelado",
+      transfer_status: "CANCELADO",
+      refund_status: "NAO_APLICAVEL",
+    };
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("SET LOCAL lock_timeout") || sql.includes("pg_advisory_xact_lock")) {
+          return { rows: [] };
+        }
+        if (sql.includes("SELECT p.*, o.id AS order_exists")) {
+          return {
+            rows: [
+              {
+                id: "local-payment",
+                order_id: order.id,
+                store_id: "store-1",
+                status: "pendente",
+                order_total: 42.5,
+                order_status: order.status,
+                order_payment_status: order.payment_status,
+                order_transfer_status: order.transfer_status,
+                order_refund_status: order.refund_status,
+                provider: "asaas-central",
+              },
+            ],
+          };
+        }
+        if (sql.includes("UPDATE public.payment_events")) return { rows: [] };
+        if (sql.includes("UPDATE public.payments")) {
+          return { rows: [{ id: "local-payment", status: "pago" }] };
+        }
+        if (sql.includes("SET payment_status = 'estorno_pendente'")) {
+          Object.assign(order, {
+            payment_status: "estorno_pendente",
+            transfer_status: "BLOQUEADO",
+            refund_status: "PENDENTE",
+          });
+          return { rows: [{ ...order }] };
+        }
+        if (sql.includes("FROM public.store_settings")) {
+          return {
+            rows: [
+              {
+                financeiro_ativo: true,
+                taxa_percentual_plataforma: 10,
+                taxa_fixa_plataforma: 0,
+              },
+            ],
+          };
+        }
+        if (sql.includes("INSERT INTO public.financial_movements")) {
+          return { rows: [{ id: `movement-${String(params[2])}`, status: params[5] }] };
+        }
+        if (sql.includes("SET transfer_status = CASE")) return { rows: [] };
+        throw new Error(`SQL inesperado no webhook tardio: ${sql}`);
+      }),
+    };
+    withTransactionMock.mockImplementation(async (fn: any) => {
+      const outcome = await fn(client);
+      committed = true;
+      return outcome;
+    });
+    refundCancelledOrderMock.mockImplementation(async () => {
+      expect(committed).toBe(true);
+      return { ok: true, status: "PROCESSANDO", amount: 42.5 };
+    });
+    const { handleAsaasWebhook } = await import("./webhooks");
+    const payload = {
+      id: "evt_late_payment",
+      event: "PAYMENT_CONFIRMED",
+      payment: { id: "pay_late", externalReference: order.id, value: 42.5 },
+    };
+
+    const first = await handleAsaasWebhook(makeRequest(payload));
+    const duplicate = await handleAsaasWebhook(makeRequest(payload));
+
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({
+      success: true,
+      latePaymentRefund: { required: true, automatic: true, status: "PROCESSANDO" },
+    });
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toMatchObject({
+      success: true,
+      duplicate: true,
+      processed: true,
+    });
+    expect(order).toMatchObject({
+      status: "cancelado",
+      payment_status: "estorno_pendente",
+      transfer_status: "BLOQUEADO",
+      refund_status: "PENDENTE",
+    });
+    expect(withTransactionMock).toHaveBeenCalledTimes(1);
+    expect(refundCancelledOrderMock).toHaveBeenCalledTimes(1);
+    expect(refundCancelledOrderMock).toHaveBeenCalledWith(order.id, {
+      reason: "Pagamento PIX recebido apos o cancelamento",
+    });
+
+    const lockIndex = client.query.mock.calls.findIndex(([sql]) =>
+      String(sql).includes("pg_advisory_xact_lock"),
+    );
+    const orderReadIndex = client.query.mock.calls.findIndex(([sql]) =>
+      String(sql).includes("SELECT p.*, o.id AS order_exists"),
+    );
+    expect(lockIndex).toBeGreaterThanOrEqual(0);
+    expect(lockIndex).toBeLessThan(orderReadIndex);
+    expect(client.query.mock.calls[lockIndex]?.[1]).toEqual(["order-financial:order-1"]);
+    expect(
+      client.query.mock.calls.some(
+        ([sql]) =>
+          String(sql).includes("UPDATE public.orders") &&
+          String(sql).includes("payment_status = 'pago'"),
+      ),
+    ).toBe(false);
+    const refundMovement = client.query.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes("INSERT INTO public.financial_movements") &&
+        params?.[2] === "REEMBOLSO_CLIENTE",
+    );
+    expect(refundMovement?.[0]).toContain("ON CONFLICT (idempotency_key) DO NOTHING");
+    expect(refundMovement?.[1]?.[5]).toBe("PENDENTE");
+    expect(refundMovement?.[1]?.[12]).toBe("REEMBOLSO_ORDER_order-1");
+    expect(
+      client.query.mock.calls.some(
+        ([sql, params]) =>
+          String(sql).includes("INSERT INTO public.financial_movements") &&
+          params?.[2] === "TAXA_PLATAFORMA",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps a non-central late payment canceled and records manual reconciliation durably", async () => {
+    const order = {
+      id: "order-1",
+      status: "cancelado",
+      payment_status: "cancelado",
+      transfer_status: "CANCELADO",
+      refund_status: "NAO_APLICAVEL",
+    };
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("SET LOCAL lock_timeout") || sql.includes("pg_advisory_xact_lock")) {
+          return { rows: [] };
+        }
+        if (sql.includes("SELECT p.*, o.id AS order_exists")) {
+          return {
+            rows: [
+              {
+                id: "local-payment",
+                order_id: order.id,
+                store_id: "store-1",
+                status: "pendente",
+                order_total: 42.5,
+                order_status: order.status,
+              },
+            ],
+          };
+        }
+        if (sql.includes("UPDATE public.payment_events")) return { rows: [] };
+        if (sql.includes("UPDATE public.payments")) {
+          return { rows: [{ id: "local-payment", status: "pago" }] };
+        }
+        if (sql.includes("SET payment_status = 'estorno_pendente'")) {
+          Object.assign(order, {
+            payment_status: "estorno_pendente",
+            transfer_status: "BLOQUEADO",
+            refund_status: "PENDENTE",
+          });
+          return { rows: [{ ...order }] };
+        }
+        if (sql.includes("FROM public.store_settings")) {
+          return { rows: [{ financeiro_ativo: false }] };
+        }
+        if (sql.includes("INSERT INTO public.financial_movements")) {
+          return { rows: [{ id: "refund-pending", status: params[5] }] };
+        }
+        throw new Error(`SQL inesperado na conciliacao manual: ${sql}`);
+      }),
+    };
+    withTransactionMock.mockImplementation(async (fn: any) => fn(client));
+    const { handleAsaasWebhook } = await import("./webhooks");
+
+    const response = await handleAsaasWebhook(
+      makeRequest({
+        id: "evt_late_manual",
+        event: "PAYMENT_RECEIVED",
+        payment: { id: "pay_late", externalReference: order.id, value: 42.5 },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      latePaymentRefund: {
+        required: true,
+        automatic: false,
+        status: "PENDENTE_RECONCILIACAO",
+      },
+    });
+    expect(order).toMatchObject({
+      status: "cancelado",
+      payment_status: "estorno_pendente",
+      transfer_status: "BLOQUEADO",
+      refund_status: "PENDENTE",
+    });
+    expect(refundCancelledOrderMock).not.toHaveBeenCalled();
+    expect(
+      client.query.mock.calls.some(
+        ([sql, params]) =>
+          String(sql).includes("INSERT INTO public.financial_movements") &&
+          params?.[2] === "REEMBOLSO_CLIENTE" &&
+          params?.[5] === "PENDENTE",
+      ),
+    ).toBe(true);
+  });
+
   it("revokes a platform subscription on refund without touching the order transaction", async () => {
     let committed = false;
     withTransactionMock.mockImplementation(async (fn: any) => {
@@ -1477,10 +1724,95 @@ describe("Asaas webhook", () => {
     );
   });
 
+  it("preserva repasse ENVIADO e sinaliza conflito explicito em chargeback fora de banda", async () => {
+    queryMock.mockImplementation(successfulClaimQuery);
+    const order = {
+      id: "order-1",
+      status: "entregue",
+      payment_status: "pago",
+      transfer_status: "ENVIADO",
+      refund_status: "NAO_SOLICITADO",
+    };
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("SET LOCAL lock_timeout") || sql.includes("pg_advisory_xact_lock")) {
+          return { rows: [] };
+        }
+        if (sql.includes("SELECT p.*, o.id AS order_exists")) {
+          return {
+            rows: [
+              {
+                id: "local-payment",
+                order_id: order.id,
+                store_id: "store-1",
+                provider: "asaas-central",
+                status: "pago",
+                order_total: 100,
+                order_status: order.status,
+                order_payment_status: order.payment_status,
+                order_transfer_status: order.transfer_status,
+                order_refund_status: order.refund_status,
+              },
+            ],
+          };
+        }
+        if (sql.includes("UPDATE public.payment_events")) return { rows: [] };
+        if (sql.includes("UPDATE public.payments")) {
+          return { rows: [{ id: "local-payment", status: "estornado" }] };
+        }
+        if (sql.includes("FROM public.financial_movements WHERE idempotency_key")) {
+          return String(params[0]).startsWith("REPASSE_")
+            ? { rows: [{ id: "transfer-movement", status: "CONFIRMADO" }] }
+            : { rows: [] };
+        }
+        if (sql.includes("refund_status = 'FALHOU'")) {
+          Object.assign(order, { payment_status: "estornado", refund_status: "FALHOU" });
+          return { rows: [{ ...order }] };
+        }
+        throw new Error(`SQL inesperado no chargeback financeiro: ${sql}`);
+      }),
+    };
+    withTransactionMock.mockImplementation(async (fn: any) => fn(client));
+    const { handleAsaasWebhook } = await import("./webhooks");
+
+    const response = await handleAsaasWebhook(
+      makeRequest({
+        id: "evt_chargeback_after_transfer",
+        event: "PAYMENT_CHARGEBACK_REQUESTED",
+        payment: { id: "pay_1", externalReference: order.id, value: 100 },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, financialConflict: true });
+    expect(order).toMatchObject({
+      transfer_status: "ENVIADO",
+      payment_status: "estornado",
+      refund_status: "FALHOU",
+    });
+    expect(client.query).not.toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE public.financial_movements"),
+      expect.any(Array),
+    );
+    consoleError.mockRestore();
+  });
+
   it("reconciles partial refunds from cumulative DONE items instead of the charge value", async () => {
     queryMock.mockImplementation(successfulClaimQuery);
+    const order = {
+      id: "order-1",
+      store_id: "store-1",
+      total: 42.5,
+      refunded_amount: 5,
+      status: "cancelado",
+      payment_method: "pix",
+      payment_status: "estornado",
+      transfer_status: "BLOQUEADO",
+      refund_status: "PROCESSANDO",
+    };
     const client = {
-      query: vi.fn(async (sql: string) => {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
         if (sql.includes("SELECT p.*, o.id AS order_exists")) {
           return {
             rows: [
@@ -1490,15 +1822,41 @@ describe("Asaas webhook", () => {
                 store_id: "store-1",
                 status: "pago",
                 order_total: 42.5,
+                provider: "asaas-central",
               },
             ],
           };
         }
-        if (sql.includes("SELECT id, total, refunded_amount")) {
-          return { rows: [{ id: "order-1", total: 42.5, refunded_amount: 5 }] };
+        if (sql.includes("SELECT *") && sql.includes("FROM public.orders WHERE id")) {
+          return { rows: [{ ...order }] };
+        }
+        if (sql.includes("FROM public.payments") && sql.includes("ORDER BY created_at ASC")) {
+          return {
+            rows: [
+              {
+                id: "local-payment",
+                provider: "asaas-central",
+                status: "estornado",
+                amount: 42.5,
+                external_id: "pay_1",
+                asaas_id: "pay_1",
+              },
+            ],
+          };
+        }
+        if (sql.includes("type = 'ENTRADA_PIX'") && sql.includes("FOR UPDATE")) {
+          return { rows: [{ id: "entry-1", status: "CONFIRMADO", amount: 42.5 }] };
+        }
+        if (sql.includes("FROM public.financial_movements WHERE idempotency_key")) {
+          return String(params[0]).startsWith("REEMBOLSO_")
+            ? { rows: [{ id: "refund-movement", status: "PROCESSANDO" }] }
+            : { rows: [] };
         }
         if (sql.includes("UPDATE public.payments"))
           return { rows: [{ id: "local-payment", status: "estornado" }] };
+        if (sql.includes("UPDATE public.financial_movements")) {
+          return { rows: [{ id: "refund-movement", status: "CONFIRMADO" }] };
+        }
         if (sql.includes("UPDATE public.orders"))
           return {
             rows: [{ id: "order-1", refunded_amount: 12, refund_status: "ESTORNADO_PARCIAL" }],
@@ -1529,8 +1887,22 @@ describe("Asaas webhook", () => {
     expect(response.status).toBe(200);
     expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining("refunded_amount = GREATEST"),
-      ["order-1", 12, false, "evt_partial_2"],
+      ["order-1", 12, false, "evt_partial_2", false],
     );
+    const partialUpdate = client.query.mock.calls.find(([sql]) =>
+      String(sql).includes("refunded_amount = GREATEST"),
+    );
+    expect(partialUpdate?.[0]).toContain(
+      "refund_status IN ('NAO_SOLICITADO','NAO_APLICAVEL','PENDENTE','PROCESSANDO','ESTORNADO_PARCIAL','FALHOU')",
+    );
+    expect(partialUpdate?.[0]).toContain(
+      "transfer_status NOT IN ('PROCESSANDO','ENVIADO')",
+    );
+    const lockCalls = client.query.mock.calls.filter(([sql]) =>
+      String(sql).includes("pg_advisory_xact_lock"),
+    );
+    expect(lockCalls.length).toBeGreaterThanOrEqual(2);
+    expect(lockCalls.every(([, params]) => params?.[0] === "order-financial:order-1")).toBe(true);
   });
 
   it("returns 503 with Retry-After when a crashed or concurrent claim is still unprocessed", async () => {

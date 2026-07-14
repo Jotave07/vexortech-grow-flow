@@ -3,6 +3,7 @@ import {
   createSupabaseAuthUser,
   createSupabaseOAuthUrl,
   exchangeSupabaseAuthCode,
+  getSupabaseServerConfig,
   signUpSupabaseUser,
 } from "./supabase";
 
@@ -11,12 +12,14 @@ const ENV_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "VITE_SUPABASE_URL",
   "SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_PUBLISHABLE_KEYS",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "VITE_SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_ANON_KEY",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "VITE_SUPABASE_ANON_KEY",
   "SUPABASE_SECRET_KEY",
+  "SUPABASE_SECRET_KEYS",
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_SERVICE_KEY",
 ] as const;
@@ -54,6 +57,17 @@ describe.sequential("Supabase auth endpoint separation", () => {
     expect(url).toBe("https://project.supabase.co/auth/v1/signup");
     expect(init.headers).toMatchObject({ apikey: "sb_publishable_public" });
     expect(init.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("reads the current hosted Edge plural key dictionaries", () => {
+    process.env.SUPABASE_PUBLISHABLE_KEYS = JSON.stringify({ default: "sb_publishable_edge" });
+    process.env.SUPABASE_SECRET_KEYS = JSON.stringify({ default: "sb_secret_edge" });
+
+    expect(getSupabaseServerConfig()).toMatchObject({
+      url: "https://project.supabase.co",
+      publishableKey: "sb_publishable_edge",
+      secretKey: "sb_secret_edge",
+    });
   });
 
   it("does not fall back to a secret key for public signup", async () => {

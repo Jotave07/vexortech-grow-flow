@@ -13,6 +13,8 @@
  * em erro retorna { errors: [{ description }] } (mesmo contrato do client legado).
  */
 
+import { fetchWithTimeout, isHttpRequestTimeoutError } from "./http-timeout";
+
 const ENV = (process.env.ASAAS_ENVIRONMENT || "production").trim().toLowerCase();
 const BASE_URL =
   ENV === "sandbox"
@@ -20,9 +22,42 @@ const BASE_URL =
     : "https://www.asaas.com/api/v3";
 
 const platformKey = () => (process.env.ASAAS_API_KEY || "").trim();
+export const ASAAS_CENTRAL_REQUEST_TIMEOUT_MS = 25_000;
 
-export type AsaasError = { errors: Array<{ code?: string; description: string }> };
+export type AsaasError = {
+  errors: Array<{ code?: string; description: string }>;
+  status?: number;
+  retryable?: boolean;
+  ambiguous?: boolean;
+  reconciliationRequired?: boolean;
+  failureKind?: "timeout" | "cancelled" | "network" | "http_retryable" | "invalid_response";
+  timeout?: boolean;
+  cancelled?: boolean;
+};
 export const isAsaasError = (v: any): v is AsaasError => Boolean(v?.errors?.length);
+export const isAmbiguousAsaasResult = (value: unknown): value is AsaasError => {
+  const result = value as AsaasError | null | undefined;
+  return Boolean(
+    result?.errors?.length &&
+      result.retryable === true &&
+      result.ambiguous === true &&
+      result.reconciliationRequired === true,
+  );
+};
+
+const isAmbiguousHttpStatus = (status: number) =>
+  status >= 500 || status === 408 || status === 425 || status === 429;
+
+const ambiguousFailure = (
+  description: string,
+  patch: Omit<AsaasError, "errors" | "retryable" | "ambiguous" | "reconciliationRequired">,
+): AsaasError => ({
+  ...patch,
+  retryable: true,
+  ambiguous: true,
+  reconciliationRequired: true,
+  errors: [{ description }],
+});
 
 const errDescription = (data: any, fallback: string) =>
   String(data?.errors?.[0]?.description || data?.message || fallback);
@@ -33,7 +68,7 @@ const mask = (s?: string | null) => {
   return `${v.slice(0, 2)}***${v.slice(-2)}`;
 };
 
-type ReqOptions = { idempotencyKey?: string };
+type ReqOptions = { idempotencyKey?: string; signal?: AbortSignal };
 
 const request = async (
   endpoint: string,
@@ -63,33 +98,103 @@ const request = async (
   };
 
   try {
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: options?.signal,
+      },
+      ASAAS_CENTRAL_REQUEST_TIMEOUT_MS,
+    );
 
     let data: any;
+    let invalidJson = false;
     try {
       data = await response.json();
     } catch {
-      data = { message: "Resposta invalida do gateway" };
+      invalidJson = true;
+      data = undefined;
+    }
+
+    if (invalidJson) {
+      console.error(
+        JSON.stringify({ ...logBase, event: "asaas.invalid_response", status: response.status }),
+      );
+      return ambiguousFailure(
+        "Resposta inconclusiva do gateway de pagamento. Reconciliacao obrigatoria.",
+        { status: response.status, failureKind: "invalid_response" },
+      );
     }
 
     if (!response.ok) {
       console.error(JSON.stringify({ ...logBase, event: "asaas.error", status: response.status }));
+      if (isAmbiguousHttpStatus(response.status)) {
+        return ambiguousFailure(
+          "Resposta inconclusiva do gateway de pagamento. Reconciliacao obrigatoria.",
+          { status: response.status, failureKind: "http_retryable" },
+        );
+      }
       return {
+        status: response.status,
+        retryable: false,
+        ambiguous: false,
+        reconciliationRequired: false,
         errors: data?.errors || [{ description: data?.message || `Erro ${response.status} no Asaas` }],
       };
+    }
+
+    if (method === "POST" && !String(data?.id ?? "").trim()) {
+      console.error(
+        JSON.stringify({ ...logBase, event: "asaas.invalid_structure", status: response.status }),
+      );
+      return ambiguousFailure(
+        "Resposta inconclusiva do gateway de pagamento. Reconciliacao obrigatoria.",
+        { status: response.status, failureKind: "invalid_response" },
+      );
     }
 
     if (process.env.SQL_DEBUG === "true") {
       console.debug(JSON.stringify({ ...logBase, event: "asaas.ok", status: response.status }));
     }
     return data;
-  } catch (error: any) {
-    console.error(JSON.stringify({ ...logBase, event: "asaas.network_error", message: error?.message }));
-    return { errors: [{ description: "Falha na comunicacao com o gateway de pagamento." }] };
+  } catch (error: unknown) {
+    if (isHttpRequestTimeoutError(error)) {
+      console.error(
+        JSON.stringify({
+          ...logBase,
+          event: "asaas.timeout",
+          timeoutMs: ASAAS_CENTRAL_REQUEST_TIMEOUT_MS,
+        }),
+      );
+      return ambiguousFailure(
+        "Tempo esgotado na comunicacao com o gateway de pagamento.",
+        {
+          failureKind: "timeout",
+          timeout: true,
+        },
+      );
+    }
+
+    if (options?.signal?.aborted) {
+      console.error(JSON.stringify({ ...logBase, event: "asaas.cancelled" }));
+      return ambiguousFailure("Comunicacao com o gateway de pagamento cancelada.", {
+        failureKind: "cancelled",
+        cancelled: true,
+      });
+    }
+
+    console.error(
+      JSON.stringify({
+        ...logBase,
+        event: "asaas.network_error",
+        error: error instanceof Error ? error.name : "unknown_error",
+      }),
+    );
+    return ambiguousFailure("Falha na comunicacao com o gateway de pagamento.", {
+      failureKind: "network",
+    });
   }
 };
 
@@ -132,8 +237,12 @@ export const asaasCentral = {
   getPixQrCode: (paymentId: string) => request(`/payments/${paymentId}/pixQrCode`, "GET"),
   getPayment: (paymentId: string) => request(`/payments/${paymentId}`, "GET"),
 
-  refundPayment: (paymentId: string, value: number, description: string) =>
-    request(`/payments/${paymentId}/refund`, "POST", { value, description }),
+  refundPayment: (
+    paymentId: string,
+    value: number,
+    description: string,
+    options?: ReqOptions,
+  ) => request(`/payments/${paymentId}/refund`, "POST", { value, description }, options),
 
   // ---- Repasse (transfer PIX para a chave do lojista) ----
   createPixTransfer: (

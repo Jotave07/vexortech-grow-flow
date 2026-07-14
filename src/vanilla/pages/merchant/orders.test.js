@@ -124,7 +124,7 @@ describe("merchant order external actions", () => {
 });
 
 describe("merchant order CSP and realtime implementation", () => {
-  it("uses lifecycle, SSE cleanup and polling without unsafe printing APIs", async () => {
+  it("uses lifecycle, private invalidation cleanup and polling without unsafe printing APIs", async () => {
     const [ordersSource, printSource] = await Promise.all([
       readFile(new URL("orders.js", import.meta.url), "utf8"),
       readFile(new URL("orders-print.js", import.meta.url), "utf8"),
@@ -132,6 +132,12 @@ describe("merchant order CSP and realtime implementation", () => {
     expect(ordersSource).toContain('ctx.api.fn("merchant-mark-delivered"');
     expect(ordersSource).toContain('ctx.api.fn("merchant-cancel-order"');
     expect(ordersSource).toContain("ctx.api.stream({");
+    expect(ordersSource).toContain("payload.invalidated === true");
+    expect(ordersSource).toContain("detectNew: true");
+    expect(ordersSource).not.toContain("REALTIME_STALE_MS");
+    expect(ordersSource).toContain("globalThis.setInterval");
+    expect(ordersSource).toContain("POLL_INTERVAL_MS");
+    expect(ordersSource).not.toContain('documentObject?.hidden || state.realtimeState === "online"');
     expect(ordersSource).toContain("state.streamStop?.()");
     expect(ordersSource).toContain("clearInterval");
     expect(ordersSource).toContain("soundEnabled: false");

@@ -1,3 +1,5 @@
+import { subscribePrivateOrderBroadcast } from "./realtime.js";
+
 const API_PATH = "/api/backend";
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -12,7 +14,7 @@ const messageOf = (body, fallback = "Erro na API.") => {
   return typeof candidate === "string" && candidate.trim() ? candidate : fallback;
 };
 
-const requiresRefresh = (body) => /sess[aãa]o.*expir|n[aãa]o autenticad|invalid_token|jwt|token inv[aáa]lid/i.test(messageOf(body, ""));
+const requiresRefresh = (body) => /sess[aãa]o.*expir|n[aãa]o autenticad|n[aãa]o autorizad|unauthoriz|invalid_token|jwt|token inv[aáa]lid/i.test(messageOf(body, ""));
 
 const errorEnvelope = (error) => ({
   data: null,
@@ -111,7 +113,7 @@ const upload = async (bucket, path, file, options = {}) => {
   }
 };
 
-const stream = ({ table, event = "*", filter, publicToken, onMessage, onStatus }) => {
+const legacySseStream = ({ table, event = "*", filter, publicToken, onMessage, onStatus }) => {
   const controller = new AbortController();
   const url = new URL(API_PATH, window.location.origin);
   url.searchParams.set("stream", "realtime");
@@ -150,6 +152,54 @@ const stream = ({ table, event = "*", filter, publicToken, onMessage, onStatus }
     }
   })();
   return () => controller.abort();
+};
+
+const storeIdFromFilter = (filter) => {
+  const match = String(filter || "").match(
+    /^store_id=eq\.([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i,
+  );
+  return match?.[1]?.toLowerCase() || "";
+};
+
+const privateOrderStream = ({ filter, onMessage, onStatus }) => {
+  const storeId = storeIdFromFilter(filter);
+  let stopped = false;
+  let stopBroadcast = null;
+
+  void (async () => {
+    try {
+      if (!storeId) throw new Error("Escopo da loja invalido para Realtime.");
+      const result = await request(
+        { kind: "function", name: "get-realtime-ticket", body: { storeId } },
+        { timeout: 15_000 },
+      );
+      if (stopped) return;
+      if (result?.error || !result?.data) {
+        throw new Error(messageOf(result, "Ticket Supabase Realtime indisponivel."));
+      }
+      stopBroadcast = subscribePrivateOrderBroadcast({
+        ticket: result.data,
+        onMessage,
+        onStatus,
+      });
+    } catch (error) {
+      if (!stopped) onStatus?.("error", error);
+    }
+  })();
+
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    stopBroadcast?.();
+  };
+};
+
+const stream = (options) => {
+  const storeId = storeIdFromFilter(options?.filter);
+  if (options?.table === "orders" && !options?.publicToken && storeId) {
+    return privateOrderStream(options);
+  }
+  return legacySseStream(options || {});
 };
 
 export const api = {

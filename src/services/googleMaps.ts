@@ -1,4 +1,5 @@
 import type { AddressCoordinates, GeocodeAddressInput, AddressWithCoordinates } from "@/services/viacep";
+import { fetchExternal } from "@/services/externalFetch";
 
 type GoogleGeocodeResult = {
   formatted_address?: string;
@@ -26,23 +27,13 @@ type DistanceMatrixResponse = {
   }>;
 };
 
-const readClientEnv = (key: string) =>
-  typeof import.meta !== "undefined"
-    ? (import.meta.env as Record<string, string | undefined>)?.[key]
-    : undefined;
-
 const readServerEnv = (key: string) => {
   if (typeof process === "undefined") return undefined;
   return process.env?.[key];
 };
 
 export const getGoogleMapsApiKey = () =>
-  readServerEnv("GOOGLE_MAPS_API_KEY") ||
-  readServerEnv("VITE_GOOGLE_MAPS_API_KEY") ||
-  readServerEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY") ||
-  readClientEnv("VITE_GOOGLE_MAPS_API_KEY") ||
-  readClientEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY") ||
-  "";
+  readServerEnv("GOOGLE_MAPS_API_KEY") || "";
 
 const hasUsableKey = () => Boolean(getGoogleMapsApiKey());
 
@@ -103,7 +94,7 @@ export const geocodeAddressWithGoogle = async (
     url.searchParams.set("language", "pt-BR");
     url.searchParams.set("key", getGoogleMapsApiKey());
 
-    const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    const response = await fetchExternal(url.toString(), { headers: { Accept: "application/json" } });
     if (!response.ok) return null;
     return firstCoordinates((await response.json()) as GoogleGeocodeResponse);
   } catch {
@@ -122,7 +113,7 @@ export const reverseGeocodeWithGoogle = async (
     url.searchParams.set("language", "pt-BR");
     url.searchParams.set("key", getGoogleMapsApiKey());
 
-    const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    const response = await fetchExternal(url.toString(), { headers: { Accept: "application/json" } });
     if (!response.ok) return null;
     const payload = (await response.json()) as GoogleGeocodeResponse;
     if (payload.status !== "OK" || !payload.results?.[0]) return null;
@@ -147,7 +138,7 @@ export const fetchGoogleDrivingDistanceKm = async (
     url.searchParams.set("language", "pt-BR");
     url.searchParams.set("key", getGoogleMapsApiKey());
 
-    const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    const response = await fetchExternal(url.toString(), { headers: { Accept: "application/json" } });
     if (!response.ok) return null;
     const payload = (await response.json()) as DistanceMatrixResponse;
     const element = payload.rows?.[0]?.elements?.[0];

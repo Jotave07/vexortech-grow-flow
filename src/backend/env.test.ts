@@ -25,7 +25,8 @@ describe("production runtime environment", () => {
     process.env = {
       ...originalEnv,
       NODE_ENV: "production",
-      DATABASE_URL: "postgresql://postgres:secret@db.example.com:5432/postgres",
+      DATABASE_URL:
+        "postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres",
       PUBLIC_APP_URL: "https://hypedelivery.com.br",
       NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
@@ -56,6 +57,12 @@ describe("production runtime environment", () => {
     delete process.env.ASAAS_API_KEY;
 
     expect(() => validateRuntimeEnv()).toThrow("ASAAS_API_KEY obrigatoria");
+  });
+
+  it("rejects a production database outside Supabase", () => {
+    process.env.DATABASE_URL = "postgresql://postgres:secret@db.example.com:5432/postgres";
+
+    expect(() => validateRuntimeEnv()).toThrow("deve pertencer ao projeto Supabase");
   });
 
   it("fails readiness when the PostgreSQL root certificate is absent", () => {
@@ -94,5 +101,106 @@ describe("production runtime environment", () => {
     process.env.POSTGRES_SSL_ROOT_CERT = certificatePath;
 
     expect(() => validateRuntimeEnv()).not.toThrow();
+  });
+
+  it("accepts hosted Edge TLS with plural Supabase keys and the restricted runtime role", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=require";
+    delete process.env.DATABASE_SSL_ROOT_CERT;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    delete process.env.SUPABASE_SECRET_KEY;
+    process.env.SUPABASE_URL = "https://project.supabase.co";
+    process.env.SUPABASE_PUBLISHABLE_KEYS = JSON.stringify({ default: "sb_publishable_edge" });
+    process.env.SUPABASE_SECRET_KEYS = JSON.stringify({ default: "sb_secret_edge_value_long_enough" });
+    process.env.EDGE_PROXY_SECRET = "edge-proxy-secret-0123456789abcdef";
+
+    expect(() => validateRuntimeEnv()).not.toThrow();
+  });
+
+  it("rejects hosted Edge startup without a strong reverse-proxy secret", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=require";
+    process.env.EDGE_PROXY_SECRET = "short";
+
+    expect(() => validateRuntimeEnv()).toThrow("EDGE_PROXY_SECRET de no minimo 32 caracteres");
+  });
+
+  it("does not accept POSTGRES_* as an Edge DATABASE_URL substitute", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    delete process.env.DATABASE_URL;
+    process.env.POSTGRES_HOST = "db.project.supabase.co";
+    process.env.POSTGRES_DATABASE = "postgres";
+    process.env.POSTGRES_USER = "vexortech_runtime";
+    process.env.POSTGRES_PASSWORD = "secret";
+
+    expect(() => validateRuntimeEnv()).toThrow("DATABASE_URL do papel restrito");
+  });
+
+  it("rejects the privileged default database role in hosted Edge", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://postgres.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=require";
+
+    expect(() => validateRuntimeEnv()).toThrow("papel restrito vexortech_runtime");
+  });
+
+  it("rejects a direct or session database port in hosted Edge", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:5432/postgres?sslmode=require";
+
+    expect(() => validateRuntimeEnv()).toThrow("pooler transacional na porta 6543");
+  });
+
+  it("rejects TLS disabling parameters in hosted Edge", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=no-verify";
+
+    expect(() => validateRuntimeEnv()).toThrow("deve validar TLS");
+  });
+
+  it("rejects a hosted Edge pooler URL without an explicit sslmode", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres";
+
+    expect(() => validateRuntimeEnv()).toThrow("sslmode explicito require, verify-ca ou verify-full");
+  });
+
+  it("rejects unknown or duplicated sslmode values in hosted Edge", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=prefer";
+
+    expect(() => validateRuntimeEnv()).toThrow("sslmode explicito require, verify-ca ou verify-full");
+
+    process.env.DATABASE_URL =
+      "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=require&sslmode=disable";
+    expect(() => validateRuntimeEnv()).toThrow("sslmode explicito require, verify-ca ou verify-full");
+  });
+
+  it.each(["require", "verify-ca", "verify-full"])(
+    "accepts the explicit hosted Edge sslmode %s",
+    (sslMode) => {
+      process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+      process.env.DATABASE_URL =
+        `postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=${sslMode}`;
+      process.env.EDGE_PROXY_SECRET = "edge-proxy-secret-0123456789abcdef";
+
+      expect(() => validateRuntimeEnv()).not.toThrow();
+    },
+  );
+
+  it("does not silently fall back to the privileged SUPABASE_DB_URL", () => {
+    process.env.DENO_DEPLOYMENT_ID = "project_hype-api_1";
+    delete process.env.DATABASE_URL;
+    process.env.SUPABASE_DB_URL =
+      "postgresql://postgres:secret@db.project.supabase.co:5432/postgres";
+
+    expect(() => validateRuntimeEnv()).toThrow("DATABASE_URL do papel restrito");
   });
 });

@@ -1,0 +1,14 @@
+{
+  "imports": {
+    "@/": "../../../src/",
+    "@types/node": "npm:@types/node@22.19.17",
+    "@types/pg": "npm:@types/pg@8.20.0",
+    "pg": "npm:pg@8.21.0",
+    "zod": "npm:zod@4.4.3"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom", "dom.iterable", "esnext"],
+    "types": ["@types/node", "@types/pg"]
+  },
+  "unstable": ["sloppy-imports"]
+}

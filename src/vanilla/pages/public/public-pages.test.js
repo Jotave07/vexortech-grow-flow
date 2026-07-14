@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeDocument, validDocument } from "./checkout.js";
+import { normalizeDocument, paymentChoices, validDocument } from "./checkout.js";
 import { routes as checkoutRoutes } from "./checkout.js";
 import { routes as homeRoutes } from "./home.js";
 import { routes as paymentRoutes } from "./payment.js";
@@ -17,6 +17,13 @@ describe("public page domain helpers", () => {
     expect(validDocument("12.ABC.345/01DE-36")).toBe(false);
     expect(validDocument("529.982.247-24")).toBe(false);
     expect(validDocument("")).toBe(true);
+  });
+
+  it("offers PIX only when the server confirms a real checkout path", () => {
+    expect(paymentChoices({ accept_pix: true, pix_checkout_available: false, accept_cash: true }))
+      .toEqual(["dinheiro"]);
+    expect(paymentChoices({ accept_pix: true, pix_checkout_available: true, accept_cash: false }))
+      .toEqual(["pix"]);
   });
 
   it("keeps tracking progress at the furthest known safe step", () => {

@@ -3,7 +3,7 @@ import { assertActiveMerchantSubscription, getActor, signUp } from "./auth";
 import { query, withTransaction } from "./db";
 import { publishRealtime } from "./realtime";
 import { createCheckoutOrderHandler } from "@/server/order.functions";
-import { quoteDeliveryHandler } from "@/server/delivery.service";
+import { quoteDeliveryHandler, resolveRadiusDeliveryPricing } from "@/server/delivery.service";
 import { updateOrderStatusHandler } from "@/server/order-status.service";
 import { approveManualPixPayment, getOrderPaymentInfoForOrder } from "@/server/asaas.service";
 import {
@@ -17,6 +17,7 @@ import {
 import {
   markOrderDelivered,
   cancelOrderByMerchant,
+  adminReleaseTransfer,
   adminRetryTransfer,
   adminRetryRefund,
   adminBlockTransfer,
@@ -29,6 +30,7 @@ import {
 } from "@/server/order.lifecycle";
 import { isValidDocument, normalizeDocument } from "@/lib/validators";
 import { deleteSupabaseAuthUser } from "./supabase";
+import { issueOrderRealtimeTicket } from "./realtime-ticket";
 import {
   fetchAddressByCep,
   isValidCoordinates,
@@ -37,6 +39,34 @@ import {
 
 const errorResult = (message: string): BackendResult => ({ data: null, error: { message } });
 const ok = (data: unknown): BackendResult => ({ data, error: null });
+const MAX_DELIVERY_BASE_FEE = 1_000;
+const MAX_DELIVERY_FEE_PER_KM = 100;
+const MAX_MIN_ORDER_VALUE = 1_000_000;
+const DECIMAL_INPUT = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+const UUID_INPUT = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const boundedNumber = (value: unknown, label: string, minimum: number, maximum: number) => {
+  const validType = typeof value === "number" || typeof value === "string";
+  const normalized = typeof value === "string" ? value.trim() : value;
+  if (
+    !validType ||
+    normalized === "" ||
+    (typeof normalized === "string" && !DECIMAL_INPUT.test(normalized))
+  ) {
+    throw new Error(`${label} deve ser informada com um numero valido.`);
+  }
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < minimum || parsed > maximum) {
+    throw new Error(`${label} deve ficar entre ${minimum} e ${maximum}.`);
+  }
+  return parsed;
+};
+
+const optionalDeliveryAmount = (value: unknown, label: string, maximum: number) => {
+  if (value === undefined) return undefined;
+  const parsed = boundedNumber(value, label, 0, maximum);
+  return Math.round(parsed * 100) / 100;
+};
 
 const requireAdmin = async (token?: string) => {
   const actor = await getActor(token);
@@ -56,12 +86,14 @@ export const invokeFunction = async (
   context: FunctionContext = {},
 ) => {
   try {
+    let merchantActor: Awaited<ReturnType<typeof getActor>> | undefined;
     if (
       name.startsWith("merchant-") ||
       name === "update-order-status" ||
       name === "approve-manual-pix"
     ) {
-      await assertActiveMerchantSubscription(await getActor(token), body?.storeId);
+      merchantActor = await getActor(token);
+      await assertActiveMerchantSubscription(merchantActor, body?.storeId);
     }
     if (name === "admin-create-store") return adminCreateStore(body, token);
     if (name === "admin-delete-store") return adminDeleteStore(body, token);
@@ -73,6 +105,14 @@ export const invokeFunction = async (
     }
     if (name === "create-own-store") return ok(await createOwnStore(body, token));
     if (name === "merchant-update-settings") return ok(await merchantUpdateSettings(body, token));
+    if (name === "merchant-remove-team-member") {
+      return ok(await merchantRemoveTeamMember(body, merchantActor));
+    }
+    if (name === "get-realtime-ticket") {
+      const actor = await getActor(token);
+      await assertActiveMerchantSubscription(actor, body?.storeId || body?.store_id);
+      return ok(await issueOrderRealtimeTicket(body, actor));
+    }
     if (name === "create-checkout-order") return createCheckoutOrderHandler(body, token);
     if (name === "quote-delivery") return ok(await quoteDeliveryHandler(body));
     if (name === "reverse-geocode") {
@@ -124,6 +164,8 @@ export const invokeFunction = async (
       return ok(await merchantUpdatePixConfig(body, await getActor(token)));
     if (name === "admin-retry-transfer")
       return ok(await adminRetryTransfer(body, await getActor(token)));
+    if (name === "admin-release-transfer")
+      return ok(await adminReleaseTransfer(body, await requireAdmin(token)));
     if (name === "admin-retry-refund")
       return ok(await adminRetryRefund(body, await getActor(token)));
     if (name === "admin-block-transfer")
@@ -226,6 +268,40 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
     throw new Error("Loja fora do escopo do usuario.");
   const storeInput = body?.store && typeof body.store === "object" ? body.store : {};
   const settingsInput = body?.settings && typeof body.settings === "object" ? body.settings : {};
+  const requestedDeliveryBaseFee = optionalDeliveryAmount(
+    settingsInput.delivery_base_fee,
+    "A taxa base",
+    MAX_DELIVERY_BASE_FEE,
+  );
+  const requestedDeliveryFeePerKm = optionalDeliveryAmount(
+    settingsInput.delivery_fee_per_km,
+    "A taxa por km",
+    MAX_DELIVERY_FEE_PER_KM,
+  );
+  const avgPrepTime = boundedNumber(
+    settingsInput.avg_prep_time_minutes ?? 30,
+    "O preparo medio",
+    1,
+    240,
+  );
+  if (!Number.isInteger(avgPrepTime))
+    throw new Error("O preparo medio deve ser informado em minutos inteiros.");
+  const minOrderValue = Math.round(
+    boundedNumber(
+      settingsInput.min_order_value ?? 0,
+      "O pedido minimo",
+      0,
+      MAX_MIN_ORDER_VALUE,
+    ) * 100,
+  ) / 100;
+  const deliveryRadiusKm =
+    settingsInput.delivery_radius_km === null ||
+    settingsInput.delivery_radius_km === undefined ||
+    settingsInput.delivery_radius_km === ""
+      ? null
+      : Math.round(
+          boundedNumber(settingsInput.delivery_radius_km, "O raio de entrega", 0.1, 500) * 100,
+        ) / 100;
   const text = (value: unknown, maximum: number) => {
     const normalized = String(value ?? "").trim();
     return normalized ? normalized.slice(0, maximum) : null;
@@ -280,7 +356,8 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
     throw new Error("Horarios de funcionamento invalidos.");
   const result = await withTransaction(async (client) => {
     const { rows: locked } = await client.query(
-      `SELECT s.id, ss.financeiro_ativo, ss.payment_gateway_api_key, ss.asaas_api_key
+      `SELECT s.id, ss.financeiro_ativo, ss.payment_gateway_api_key, ss.asaas_api_key,
+              ss.delivery_base_fee, ss.delivery_fee_per_km, ss.delivery_fee
        FROM public.stores s
        LEFT JOIN public.store_settings ss ON ss.store_id = s.id
        WHERE s.id = $1
@@ -288,6 +365,9 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
       [storeId],
     );
     if (!locked[0]) throw new Error("Loja nao encontrada.");
+    const currentDeliveryPricing = resolveRadiusDeliveryPricing(locked[0]);
+    const deliveryBaseFee = requestedDeliveryBaseFee ?? currentDeliveryPricing.baseFee;
+    const deliveryFeePerKm = requestedDeliveryFeePerKm ?? currentDeliveryPricing.feePerKm;
     if (
       settingsInput.accept_pix &&
       !text(settingsInput.pix_key, 500) &&
@@ -330,8 +410,9 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
          allow_delivery, allow_pickup, accept_orders_when_closed,
          accept_pix, pix_key, pix_key_type, payment_instructions,
          accept_cash, accept_card_on_delivery, whatsapp_number,
-         delivery_radius_km, business_hours, updated_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,now())
+         delivery_radius_km, delivery_base_fee, delivery_fee_per_km,
+         delivery_fee, business_hours, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,now())
        ON CONFLICT (store_id) DO UPDATE SET
          avg_prep_time_minutes=EXCLUDED.avg_prep_time_minutes,
          min_order_value=EXCLUDED.min_order_value, is_open=EXCLUDED.is_open,
@@ -343,11 +424,14 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
          accept_card_on_delivery=EXCLUDED.accept_card_on_delivery,
          whatsapp_number=EXCLUDED.whatsapp_number,
          delivery_radius_km=EXCLUDED.delivery_radius_km,
+         delivery_base_fee=EXCLUDED.delivery_base_fee,
+         delivery_fee_per_km=EXCLUDED.delivery_fee_per_km,
+         delivery_fee=EXCLUDED.delivery_fee,
          business_hours=EXCLUDED.business_hours, updated_at=now()`,
       [
         storeId,
-        Math.min(240, Math.max(1, Number(settingsInput.avg_prep_time_minutes || 30))),
-        Math.max(0, Number(settingsInput.min_order_value || 0)),
+        avgPrepTime,
+        minOrderValue,
         Boolean(settingsInput.is_open),
         Boolean(settingsInput.allow_delivery),
         Boolean(settingsInput.allow_pickup),
@@ -359,9 +443,10 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
         Boolean(settingsInput.accept_cash),
         Boolean(settingsInput.accept_card_on_delivery),
         whatsapp,
-        settingsInput.delivery_radius_km
-          ? Math.min(500, Math.max(0.1, Number(settingsInput.delivery_radius_km)))
-          : null,
+        deliveryRadiusKm,
+        deliveryBaseFee,
+        deliveryFeePerKm,
+        deliveryBaseFee,
         JSON.stringify(businessHours),
       ],
     );
@@ -375,6 +460,103 @@ const merchantUpdateSettings = async (body: any, token?: string) => {
     old: null,
   });
   return { success: true };
+};
+
+const merchantRemoveTeamMember = async (
+  body: any,
+  actor: Awaited<ReturnType<typeof getActor>> | undefined,
+) => {
+  if (!actor) throw new Error("Nao autenticado.");
+  const storeId = String(body?.storeId || "").trim();
+  const memberUserId = String(body?.memberUserId || "").trim();
+  if (!UUID_INPUT.test(storeId) || !UUID_INPUT.test(memberUserId)) {
+    throw new Error("Loja ou usuario invalido.");
+  }
+  if (
+    !actor.roles.has("store_owner") ||
+    !actor.ownedStoreIds.includes(storeId)
+  ) {
+    throw new Error("Somente o proprietario da loja pode remover membros.");
+  }
+  if (memberUserId === actor.user.id) {
+    throw new Error("O proprietario nao pode remover o proprio acesso.");
+  }
+
+  await withTransaction(async (client) => {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [
+      `store-team:${storeId}:${memberUserId}`,
+    ]);
+    const { rows: stores } = await client.query(
+      `SELECT owner_user_id
+       FROM public.stores
+       WHERE id = $1
+       FOR UPDATE`,
+      [storeId],
+    );
+    const store = stores[0];
+    if (!store || String(store.owner_user_id || "") !== actor.user.id) {
+      throw new Error("Somente o proprietario da loja pode remover membros.");
+    }
+    if (memberUserId === String(store.owner_user_id)) {
+      throw new Error("O proprietario da loja nao pode ser removido.");
+    }
+
+    const { rows: profiles } = await client.query(
+      `SELECT id, store_id, role
+       FROM public.profiles
+       WHERE user_id = $1
+       FOR UPDATE`,
+      [memberUserId],
+    );
+    const { rows: roles } = await client.query(
+      `SELECT id, role
+       FROM public.user_roles
+       WHERE user_id = $1
+         AND store_id = $2
+       FOR UPDATE`,
+      [memberUserId, storeId],
+    );
+    const profile = profiles[0];
+    const profileLinked = String(profile?.store_id || "") === storeId;
+    if (!profileLinked && !roles.length) {
+      throw new Error("Usuario nao esta vinculado a esta loja.");
+    }
+    if (
+      (profileLinked && profile?.role === "store_owner") ||
+      roles.some((role) => role.role === "store_owner")
+    ) {
+      throw new Error("O proprietario da loja nao pode ser removido.");
+    }
+    if (
+      (profileLinked && ["admin", "super_admin"].includes(String(profile?.role || ""))) ||
+      roles.some((role) => ["admin", "super_admin"].includes(String(role.role || "")))
+    ) {
+      throw new Error("Acesso administrativo legado exige revisao da plataforma.");
+    }
+
+    if (profileLinked) {
+      await client.query(
+        `UPDATE public.profiles
+         SET store_id = NULL,
+             role = CASE
+               WHEN role IN ('store_manager', 'store_attendant') THEN 'customer'
+               ELSE role
+             END,
+             updated_at = now()
+         WHERE user_id = $1
+           AND store_id = $2`,
+        [memberUserId, storeId],
+      );
+    }
+    await client.query(
+      `DELETE FROM public.user_roles
+       WHERE user_id = $1
+         AND store_id = $2`,
+      [memberUserId, storeId],
+    );
+  });
+
+  return { success: true, removedUserId: memberUserId };
 };
 
 const adminCreateStore = async (body: any, token?: string) => {
@@ -398,12 +580,17 @@ const adminCreateStore = async (body: any, token?: string) => {
     return errorResult("E-mail, senha, nome e slug sao obrigatorios.");
   if (document && !isValidDocument(document)) return errorResult("CPF ou CNPJ invalido.");
 
-  const created = (await signUp(email, password, {
-    full_name: fullName,
-    document,
-    account_type: "store_owner",
-    role: "store_owner",
-  })) as BackendResult<LocalSession>;
+  const created = (await signUp(
+    email,
+    password,
+    {
+      full_name: fullName,
+      document,
+      account_type: "store_owner",
+      role: "store_owner",
+    },
+    { grantStoreOwner: true },
+  )) as BackendResult<LocalSession>;
   if (created.error || !created.data?.user) return created;
 
   const user = created.data.user;

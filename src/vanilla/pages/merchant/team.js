@@ -1,5 +1,8 @@
 import { button, confirmAction, createPage, dataOf, getStoreId, h, requireMerchant, toast, withBusy } from "./core.js";
 
+const hasMemberRole = (member, expected) =>
+  expected.includes(member.role) || member.roles.some((role) => expected.includes(role.role));
+
 export function render(ctx) {
   const page = createPage(ctx, { title: "Equipe", description: "Revise quem possui acesso a loja e remova acessos que nao sao mais necessarios." });
   const state = { members: [] };
@@ -25,8 +28,10 @@ export function render(ctx) {
         h(ctx, "td", {}, member.roles.map((role) => role.role).join(", ") || member.role || "Colaborador"),
         h(ctx, "td", {}, member.user_id === ctx.auth.session?.user?.id
           ? "Voce"
-          : member.roles.some((role) => role.role === "store_owner") || member.role === "store_owner"
+          : hasMemberRole(member, ["store_owner"])
             ? "Proprietario"
+            : hasMemberRole(member, ["admin", "super_admin"])
+              ? "Acesso protegido"
             : button(ctx, "Remover acesso", { danger: true, onClick: (event) => remove(member, event.currentTarget) }))))));
     page.root.dataset.pageState = "ready";
     page.setContent(h(ctx, "div", { className: "merchant-table-wrap" }, table));
@@ -35,12 +40,10 @@ export function render(ctx) {
     if (!await confirmAction(ctx, `Remover o acesso de ${member.full_name ?? "este usuario"}?`)) return;
     await withBusy(control, async () => {
       try {
-        const [profileResult, roleResult] = await Promise.all([
-          ctx.api.from("profiles").update({ store_id: null }).eq("id", member.id),
-          ctx.api.from("user_roles").delete().eq("user_id", member.user_id).eq("store_id", getStoreId(ctx)),
-        ]);
-        if (profileResult?.error) throw new Error(profileResult.error.message);
-        if (roleResult?.error) throw new Error(roleResult.error.message);
+        await dataOf(ctx.api.fn("merchant-remove-team-member", {
+          storeId: getStoreId(ctx),
+          memberUserId: member.user_id,
+        }));
         toast(ctx, "Acesso removido.", "success");
         await load();
       } catch (error) { toast(ctx, error.message, "error"); }

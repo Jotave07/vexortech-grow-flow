@@ -1,5 +1,6 @@
 import { calculateDistanceKm, type AddressCoordinates } from "@/services/viacep";
 import { fetchGoogleDrivingDistanceKm } from "@/services/googleMaps";
+import { fetchExternal } from "@/services/externalFetch";
 
 const OSRM_ROUTE_URL = "https://router.project-osrm.org/route/v1/driving";
 
@@ -16,7 +17,7 @@ export const fetchDrivingDistanceKm = async (
     url.searchParams.set("alternatives", "false");
     url.searchParams.set("steps", "false");
 
-    const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    const response = await fetchExternal(url.toString(), { headers: { Accept: "application/json" } });
     if (!response.ok) return null;
 
     const payload = (await response.json()) as { routes?: Array<{ distance?: number }> };

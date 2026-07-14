@@ -137,6 +137,34 @@ describe("merchant access precedence", () => {
 
     await expect(requireActiveSubscription(ctx)).resolves.toBe(true);
     expect(selections.get("stores")).toBe("id, is_active, is_suspended");
+    expect(selections.has("subscriptions")).toBe(false);
+  });
+
+  it("sends an expired merchant session to login instead of billing", async () => {
+    const query = {
+      select() {
+        return this;
+      },
+      eq() {
+        return this;
+      },
+      async maybeSingle() {
+        return { data: null, error: { message: "Nao autorizado." } };
+      },
+    };
+    const ctx = {
+      path: "/lojista/categorias",
+      params: {},
+      auth: {
+        role: "store_owner",
+        profile: { store_id: "store-a", is_exempt: true },
+      },
+      api: { from: () => query },
+    };
+
+    await expect(requireActiveSubscription(ctx)).resolves.toBe(
+      "/lojista/entrar?redirect=%2Flojista%2Fcategorias",
+    );
   });
 });
 
@@ -367,6 +395,16 @@ describe("merchant subscription checkout", () => {
 });
 
 describe("merchant vanilla and CSP boundaries", () => {
+  it("removes team access only through the dedicated server function", async () => {
+    const source = await readFile(new URL("team.js", import.meta.url), "utf8");
+
+    expect(source).toContain('ctx.api.fn("merchant-remove-team-member"');
+    expect(source).toContain('hasMemberRole(member, ["admin", "super_admin"])');
+    expect(source).toContain('"Acesso protegido"');
+    expect(source).not.toContain('from("profiles").update');
+    expect(source).not.toContain('from("user_roles").delete');
+  });
+
   it("does not import component frameworks or use unsafe HTML sinks", async () => {
     const files = (await readdir(merchantDirectory)).filter(
       (name) => name.endsWith(".js") && !name.endsWith(".test.js"),

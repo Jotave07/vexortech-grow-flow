@@ -125,6 +125,13 @@ export const updateMovementStatus = async (
             fail_reason  = COALESCE($6, fail_reason),
             metadata_json = COALESCE($7::jsonb, metadata_json)
       WHERE ${whereCol} = $1
+        AND (
+          status = $2
+          OR (status = 'PENDENTE' AND $2 IN ('PROCESSANDO','CONFIRMADO','FALHOU','CANCELADO'))
+          OR (status = 'PROCESSANDO' AND $2 IN ('CONFIRMADO','FALHOU','CANCELADO'))
+          OR (status = 'FALHOU' AND $2 IN ('PROCESSANDO','CONFIRMADO','CANCELADO'))
+          OR (status = 'CANCELADO' AND $2 = 'CONFIRMADO')
+        )
       RETURNING *`,
     [
       whereVal,

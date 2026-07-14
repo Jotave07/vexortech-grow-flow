@@ -35,7 +35,22 @@ const defaultDeps: PaymentDeps = {
 
 const paidStatuses = new Set(["pago", "paid"]);
 const reusableStatuses = new Set(["payment_creating", "criando", "pendente", "pago", "paid"]);
-const blockedOrderStatuses = new Set(["cancelado", "cancelled", "finalizado", "delivered", "entregue"]);
+const blockedOrderStatuses = new Set([
+  "cancelado",
+  "cancelled",
+  "expirado",
+  "expired",
+  "finalizado",
+  "completed",
+  "delivered",
+  "entregue",
+]);
+
+const assertOrderOpenForPayment = (order: any) => {
+  if (blockedOrderStatuses.has(String(order?.status || "").trim().toLowerCase())) {
+    throw new Error("Pedido encerrado nao pode gerar ou reabrir pagamento.");
+  }
+};
 
 const todayIsoDate = () => new Date().toISOString().split("T")[0];
 
@@ -129,6 +144,7 @@ const reserveLocalPayment = async (
   const order = orders[0];
   if (!order) throw new Error("Pedido nao encontrado.");
   if (order.payment_method !== "pix") throw new Error("Pedido nao usa pagamento PIX.");
+  assertOrderOpenForPayment(order);
 
   const { rows: paymentRows } = await client.query(
     `SELECT *
@@ -195,6 +211,8 @@ const createOrFetchManualPayment = async (
   );
   const order = orders[0];
   if (!order) throw new Error("Pedido nao encontrado.");
+  if (order.payment_method !== "pix") throw new Error("Pedido nao usa pagamento PIX.");
+  assertOrderOpenForPayment(order);
   if (!String(order.pix_key || "").trim()) {
     throw new Error("Loja nao cadastrou a chave Pix para receber pedidos.");
   }
@@ -612,7 +630,7 @@ export const syncOrderPaymentStatus = async (
   const externalId = payment.external_id || payment.asaas_id;
   if (!externalId) return { status: "pending", message: "Pagamento nao encontrado" };
 
-  const central = Boolean(payment.financeiro_ativo);
+  const central = payment.provider === "asaas-central";
 
   // Obtem pagamento no gateway correto (central ou da loja).
   let gatewayPayment: any;

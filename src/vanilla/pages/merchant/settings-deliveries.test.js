@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildBusinessHours,
   buildSettingsRequest,
+  deliveryPricingFormValues,
   normalizeBusinessHours,
   normalizePixKey,
   settingsAssetPath,
@@ -34,6 +35,8 @@ const settingsValues = {
   avg_prep_time_minutes: "35",
   min_order_value: "20.50",
   delivery_radius_km: "12.5",
+  delivery_base_fee: "4.90",
+  delivery_fee_per_km: "1.25",
   is_open: true,
   allow_delivery: true,
   allow_pickup: true,
@@ -72,11 +75,35 @@ describe("merchant atomic settings", () => {
       avg_prep_time_minutes: 35,
       min_order_value: 20.5,
       delivery_radius_km: 12.5,
+      delivery_base_fee: 4.9,
+      delivery_fee_per_km: 1.25,
       pix_key_type: "CNPJ",
       pix_key: "ABCD1234567890",
       business_hours: hours,
     });
     expect(JSON.stringify(payload)).not.toMatch(/api_key|wallet|gateway/i);
+  });
+
+  it("validates radius pricing and keeps legacy fixed-fee stores editable", () => {
+    expect(deliveryPricingFormValues({
+      delivery_base_fee: 0,
+      delivery_fee_per_km: 0,
+      delivery_fee: 7.5,
+    })).toEqual({ baseFee: 7.5, feePerKm: 0 });
+    expect(deliveryPricingFormValues({
+      delivery_base_fee: 0,
+      delivery_fee_per_km: 2,
+      delivery_fee: 7.5,
+    })).toEqual({ baseFee: 0, feePerKm: 2 });
+
+    expect(() => buildSettingsRequest({ ...settingsValues, delivery_base_fee: "Infinity" }, {}))
+      .toThrow("taxa base");
+    expect(() => buildSettingsRequest({ ...settingsValues, delivery_base_fee: "-0.01" }, {}))
+      .toThrow("taxa base");
+    expect(() => buildSettingsRequest({ ...settingsValues, delivery_base_fee: false }, {}))
+      .toThrow("taxa base");
+    expect(() => buildSettingsRequest({ ...settingsValues, delivery_fee_per_km: "100.01" }, {}))
+      .toThrow("taxa por km");
   });
 
   it("validates Pix types while supporting the alphanumeric CNPJ format", () => {

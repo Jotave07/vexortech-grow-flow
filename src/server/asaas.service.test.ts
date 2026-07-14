@@ -81,6 +81,26 @@ describe("manual Pix order payment service", () => {
     ).rejects.toThrow("chave Pix");
   });
 
+  it.each(["cancelado", "expirado", "entregue"])(
+    "does not create or reopen payment for a terminal %s order",
+    async (status) => {
+      const { deps, client } = createDeps({
+        orderOverride: { status },
+        existingPayment: { id: "local-payment", status: "pendente", provider: "manual_pix" },
+      });
+
+      await expect(
+        createOrderPaymentForOrder({ orderId: order.id, storeId: order.store_id }, deps as any),
+      ).rejects.toThrow("Pedido encerrado");
+
+      const sql = client.query.mock.calls.map(([statement]) => String(statement)).join("\n");
+      expect(sql).not.toContain("FROM public.payments");
+      expect(sql).not.toContain("INSERT INTO public.payments");
+      expect(sql).not.toContain("UPDATE public.orders");
+      expect(deps.publishRealtime).not.toHaveBeenCalled();
+    },
+  );
+
   it("approves pending Pix manually and is idempotent for paid orders", async () => {
     const { deps } = createDeps({
       existingPayment: { id: "local-payment", status: "pendente", provider: "manual_pix" },

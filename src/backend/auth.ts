@@ -15,6 +15,11 @@ import {
 } from "./supabase";
 
 const PLATFORM_ADMIN_ROLES = new Set(["admin", "super_admin"]);
+const MERCHANT_ROLES = new Set(["store_owner", "store_manager", "store_attendant"]);
+const MERCHANT_STAFF_ROLES = new Set(["store_manager", "store_attendant"]);
+const TRUSTED_STORE_OWNER_GRANT = Symbol("trusted-store-owner-grant");
+
+type ApplicationRoleGrant = typeof TRUSTED_STORE_OWNER_GRANT;
 
 const userFromSupabaseAuthUser = (user: any): LocalUser => ({
   id: user.id,
@@ -81,6 +86,36 @@ export const resolveActorAdmin = (input: {
   return false;
 };
 
+export const resolveActorAccessibleStoreIds = (input: {
+  profileRole?: string | null;
+  profileStoreId?: string | null;
+  roleRows?: Array<{ role?: string | null; store_id?: string | null }>;
+  ownedStoreIds?: string[];
+}) => {
+  const ownedStoreIds = input.ownedStoreIds || [];
+  const ownedStoreIdSet = new Set(ownedStoreIds);
+  const accessibleStoreIds = new Set<string>();
+  const roles = new Set([
+    String(input.profileRole || ""),
+    ...(input.roleRows || []).map((row) => String(row.role || "")),
+  ]);
+  if (roles.has("store_owner")) {
+    for (const storeId of ownedStoreIds) accessibleStoreIds.add(storeId);
+  }
+  const addStoreAssignment = (role: unknown, storeId: unknown) => {
+    const normalizedRole = String(role || "");
+    const normalizedStoreId = String(storeId || "");
+    if (!normalizedStoreId) return;
+    if (MERCHANT_STAFF_ROLES.has(normalizedRole)) accessibleStoreIds.add(normalizedStoreId);
+    if (normalizedRole === "store_owner" && ownedStoreIdSet.has(normalizedStoreId)) {
+      accessibleStoreIds.add(normalizedStoreId);
+    }
+  };
+  addStoreAssignment(input.profileRole, input.profileStoreId);
+  for (const row of input.roleRows || []) addStoreAssignment(row.role, row.store_id);
+  return [...accessibleStoreIds];
+};
+
 export const getUserByToken = async (token?: string) => {
   const supabaseUser = await fetchSupabaseUserByToken(token);
   return supabaseUser ? userFromSupabaseAuthUser(supabaseUser) : null;
@@ -104,6 +139,13 @@ export const getActor = async (token?: string) => {
   const roles = new Set<string>();
   if (profileRows[0]?.role) roles.add(profileRows[0].role);
   for (const row of roleRows) if (row.role) roles.add(row.role);
+  const ownedStoreIds = (storeRows as Array<{ id: string }>).map((row) => row.id);
+  const accessibleStoreIds = resolveActorAccessibleStoreIds({
+    profileRole: profileRows[0]?.role,
+    profileStoreId: profileRows[0]?.store_id,
+    roleRows,
+    ownedStoreIds,
+  });
   const admin = resolveActorAdmin({
     email: user.email,
     profileRole: profileRows[0]?.role,
@@ -115,7 +157,8 @@ export const getActor = async (token?: string) => {
     profile: profileRows[0] || null,
     roles,
     admin,
-    ownedStoreIds: storeRows.map((row) => row.id),
+    ownedStoreIds,
+    accessibleStoreIds,
   };
 };
 
@@ -123,7 +166,7 @@ export const signUp = async (
   email: string,
   password: string,
   metadata: Record<string, unknown> = {},
-  options: { trustedRole?: boolean } = {},
+  options: { grantStoreOwner?: boolean } = {},
 ) => {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || password.length < 6) return errorResult("E-mail e senha de no minimo 6 caracteres sao obrigatorios.");
@@ -133,18 +176,14 @@ export const signUp = async (
     // This function is retained for authenticated, server-side provisioning
     // (for example, an admin creating a merchant). Public requests use
     // publicSignUp below and can never reach the Admin API.
-    const requestedRole = options.trustedRole === false
-      ? "customer"
-      : String(metadata.role || metadata.account_type || "customer");
-    const role = ["customer", "store_owner"].includes(requestedRole) ? requestedRole : "customer";
-    const safeMetadata = {
-      ...metadata,
-      account_type: role,
-      role,
-    };
+    const safeMetadata = sanitizePublicSignupMetadata(metadata);
     const supabaseUser = await createSupabaseAuthUser(normalizedEmail, password, safeMetadata);
     const user = userFromSupabaseAuthUser(supabaseUser);
-    await ensureApplicationUserRows(user, safeMetadata, role);
+    await ensureApplicationUserRows(
+      user,
+      safeMetadata,
+      options.grantStoreOwner ? TRUSTED_STORE_OWNER_GRANT : undefined,
+    );
     return { data: sessionEnvelope(user), error: null };
   } catch (error: any) {
     if (String(error?.message || "").toLowerCase().includes("already")) {
@@ -157,34 +196,137 @@ export const signUp = async (
 export const assertActiveMerchantSubscription = async (
   actor: Awaited<ReturnType<typeof getActor>>,
   requestedStoreId?: string | null,
+  options: {
+    execute?: (text: string, values?: unknown[]) => Promise<{ rows: any[] }>;
+    lock?: boolean;
+    requiredAccess?: "merchant" | "owner";
+    storeLock?: "share" | "update";
+  } = {},
 ) => {
   if (!actor) throw new Error("Nao autenticado.");
   if (actor.admin) return;
-  if (!actor.roles.has("store_owner")) return;
-  const storeId = String(requestedStoreId || actor.profile?.store_id || actor.ownedStoreIds[0] || "");
-  if (!storeId || !actor.ownedStoreIds.includes(storeId)) throw new Error("Loja fora do escopo do usuario.");
-  const { rows } = await query(
-    `SELECT s.is_active, s.is_suspended,
-            sub.status, sub.last_payment_status, sub.current_period_end,
-            pl.id AS plan_id
-     FROM public.stores s
-     LEFT JOIN LATERAL (
-       SELECT status, last_payment_status, current_period_end, plan_id
-       FROM public.subscriptions
-       WHERE store_id = s.id
-       ORDER BY created_at DESC
-       LIMIT 1
-     ) sub ON true
-     LEFT JOIN public.plans pl ON pl.id = sub.plan_id
-     WHERE s.id = $1
-     LIMIT 1`,
-    [storeId],
+  const execute = options.execute || query;
+  const requiredAccess = options.requiredAccess || "merchant";
+  const accessibleStoreIds = actor.accessibleStoreIds ||
+    (actor.roles.has("store_owner") ? actor.ownedStoreIds : []);
+  const profileStoreId = String(actor.profile?.store_id || "");
+  const storeId = String(
+    requestedStoreId ||
+      (accessibleStoreIds.includes(profileStoreId) ? profileStoreId : accessibleStoreIds[0]) ||
+      "",
   );
-  const state = rows[0];
+  if (!storeId) throw new Error("Loja fora do escopo do usuario.");
+
+  let state: any;
+  if (options.lock) {
+    const storeLock = options.storeLock === "update" ? "UPDATE" : "SHARE";
+    const { rows: stores } = await execute(
+      `SELECT owner_user_id, is_active, is_suspended
+       FROM public.stores
+       WHERE id = $1
+       FOR ${storeLock}`,
+      [storeId],
+    );
+    state = stores[0];
+    if (!state || state.is_active === false || state.is_suspended) {
+      throw new Error("Loja inativa ou suspensa.");
+    }
+
+    const ownsStore = String(state.owner_user_id || "") === actor.user.id;
+    let assignedAsStaff = false;
+    if (!ownsStore && requiredAccess === "merchant") {
+      const [{ rows: profiles }, { rows: roleRows }] = await Promise.all([
+        execute(
+          `SELECT role, store_id
+           FROM public.profiles
+           WHERE user_id = $1
+           FOR SHARE`,
+          [actor.user.id],
+        ),
+        execute(
+          `SELECT role, store_id
+           FROM public.user_roles
+           WHERE user_id = $1
+             AND store_id = $2
+           ORDER BY id
+           FOR SHARE`,
+          [actor.user.id, storeId],
+        ),
+      ]);
+      assignedAsStaff = [
+        ...profiles.filter((profile) => String(profile.store_id || "") === storeId),
+        ...roleRows,
+      ].some((row) => MERCHANT_STAFF_ROLES.has(String(row.role || "")));
+    }
+    if (!ownsStore && !assignedAsStaff) {
+      throw new Error(
+        requiredAccess === "owner"
+          ? "Somente o proprietario da loja pode realizar esta operacao."
+          : "Loja fora do escopo do usuario.",
+      );
+    }
+
+    const { rows: ownerProfiles } = state.owner_user_id
+      ? await execute(
+          `SELECT COALESCE(is_exempt, false) AS is_exempt
+           FROM public.profiles
+           WHERE user_id = $1
+           LIMIT 1
+           FOR SHARE`,
+          [state.owner_user_id],
+        )
+      : { rows: [] };
+    if (ownerProfiles[0]?.is_exempt === true) return;
+    const { rows: subscriptions } = await execute(
+      `SELECT sub.status, sub.last_payment_status, sub.current_period_end,
+              pl.id AS plan_id
+       FROM public.subscriptions sub
+       LEFT JOIN public.plans pl ON pl.id = sub.plan_id
+       WHERE sub.store_id = $1
+       ORDER BY sub.created_at DESC
+       LIMIT 1
+       FOR SHARE OF sub`,
+      [storeId],
+    );
+    state = { ...state, ...(subscriptions[0] || {}) };
+  } else {
+    if (![...actor.roles].some((role) => MERCHANT_ROLES.has(role))) {
+      throw new Error("Permissao de lojista necessaria.");
+    }
+    const ownsStore = actor.ownedStoreIds.includes(storeId);
+    const canAccess = requiredAccess === "owner" ? ownsStore : accessibleStoreIds.includes(storeId);
+    if (!canAccess) {
+      throw new Error(
+        requiredAccess === "owner"
+          ? "Somente o proprietario da loja pode realizar esta operacao."
+          : "Loja fora do escopo do usuario.",
+      );
+    }
+    const { rows } = await execute(
+      `SELECT s.is_active, s.is_suspended,
+              COALESCE(owner_profile.is_exempt, false) AS owner_is_exempt,
+              sub.status, sub.last_payment_status, sub.current_period_end,
+              pl.id AS plan_id
+       FROM public.stores s
+       LEFT JOIN public.profiles owner_profile ON owner_profile.user_id = s.owner_user_id
+       LEFT JOIN LATERAL (
+         SELECT status, last_payment_status, current_period_end, plan_id
+         FROM public.subscriptions
+         WHERE store_id = s.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) sub ON true
+       LEFT JOIN public.plans pl ON pl.id = sub.plan_id
+       WHERE s.id = $1
+       LIMIT 1`,
+      [storeId],
+    );
+    state = rows[0];
+  }
   if (!state || state.is_active === false || state.is_suspended) {
     throw new Error("Loja inativa ou suspensa.");
   }
-  if (actor.profile?.is_exempt) return;
+  if (state.owner_is_exempt === true) return;
   const paidPeriod = state?.status === "cancelada"
     && state.current_period_end
     && new Date(state.current_period_end).getTime() > Date.now();
@@ -213,7 +355,7 @@ export const publicSignUp = async (
     const supabaseUser = payload?.user || (payload?.id ? payload : null);
     if (!supabaseUser?.id) throw new Error("Supabase Auth nao retornou o usuario criado.");
     const user = userFromSupabaseAuthUser(supabaseUser);
-    await ensureApplicationUserRows(user, safeMetadata, "customer");
+    await ensureApplicationUserRows(user, safeMetadata);
     const accessToken = typeof payload?.access_token === "string" ? payload.access_token : "";
     return {
       data: {
@@ -242,17 +384,15 @@ export const publicMerchantSignUp = async (
     return errorResult("E-mail e senha de no minimo 8 caracteres sao obrigatorios.");
   }
   try {
-    const safeMetadata: Record<string, unknown> = {};
-    for (const field of PUBLIC_SIGNUP_METADATA_FIELDS) {
-      if (metadata[field] !== undefined) safeMetadata[field] = metadata[field];
-    }
-    safeMetadata.account_type = "store_owner";
-    safeMetadata.role = "store_owner";
+    // The Auth signup payload always remains a customer payload. Merchant
+    // authorization is granted only by this trusted server-side flow below;
+    // raw_user_meta_data is never an authorization source.
+    const safeMetadata = sanitizePublicSignupMetadata(metadata);
     const payload = await signUpSupabaseUser(normalizedEmail, password, safeMetadata, redirectTo, pkce);
     const supabaseUser = payload?.user || (payload?.id ? payload : null);
     if (!supabaseUser?.id) throw new Error("Supabase Auth nao retornou o usuario criado.");
     const user = userFromSupabaseAuthUser(supabaseUser);
-    await ensureApplicationUserRows(user, safeMetadata, "store_owner");
+    await ensureApplicationUserRows(user, safeMetadata, TRUSTED_STORE_OWNER_GRANT);
     const accessToken = typeof payload?.access_token === "string" ? payload.access_token : "";
     return { data: { user, session: accessToken ? sessionFromSupabasePayload(payload) : null }, error: null };
   } catch (error: any) {
@@ -263,9 +403,9 @@ export const publicMerchantSignUp = async (
 const ensureApplicationUserRows = async (
   user: LocalUser,
   metadata: Record<string, unknown>,
-  role: string,
+  roleGrant?: ApplicationRoleGrant,
 ) => {
-  const safeRole = ["customer", "store_owner"].includes(role) ? role : "customer";
+  const safeRole = roleGrant === TRUSTED_STORE_OWNER_GRANT ? "store_owner" : "customer";
   await withTransaction(async (client) => {
     await client.query(
       `INSERT INTO public.profiles (user_id, email, full_name, document, role)
@@ -275,8 +415,10 @@ const ensureApplicationUserRows = async (
        full_name = COALESCE(NULLIF(public.profiles.full_name, ''), EXCLUDED.full_name),
        document = COALESCE(NULLIF(public.profiles.document, ''), EXCLUDED.document),
        role = CASE
-         WHEN public.profiles.role IN ('super_admin', 'admin', 'store_owner') THEN public.profiles.role
-         ELSE EXCLUDED.role
+         WHEN EXCLUDED.role = 'store_owner'
+           AND COALESCE(NULLIF(public.profiles.role, ''), 'customer') = 'customer'
+           THEN 'store_owner'
+         ELSE COALESCE(NULLIF(public.profiles.role, ''), EXCLUDED.role)
        END,
        updated_at = now()`,
     [
@@ -290,7 +432,8 @@ const ensureApplicationUserRows = async (
     await client.query(
       `INSERT INTO public.user_roles (user_id, role)
      SELECT $1, $2
-     WHERE NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = $1)
+     WHERE $2::text = 'store_owner'
+        OR NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = $1)
      ON CONFLICT DO NOTHING`,
       [user.id, safeRole],
     );
@@ -302,7 +445,7 @@ export const signInWithPassword = async (email: string, password: string) => {
     if (!email.trim() || !password) return errorResult("Informe e-mail e senha.");
     const payload = await signInSupabaseUser(email.trim().toLowerCase(), password);
     const user = userFromSupabaseAuthUser(payload.user);
-    await ensureApplicationUserRows(user, user.user_metadata || {}, "customer");
+    await ensureApplicationUserRows(user, user.user_metadata || {});
     return { data: { user, session: sessionFromSupabasePayload(payload) }, error: null };
   } catch (error: any) {
     return errorResult(error?.message || "E-mail ou senha incorretos.", "invalid_credentials");
@@ -376,7 +519,11 @@ export const exchangeOAuthCode = async (code: string, pkce?: PkceContext, intent
     if (!pkce?.codeVerifier) return errorResult("Fluxo de autenticacao ausente ou expirado.", "invalid_pkce_flow");
     const payload = await exchangeSupabaseAuthCode(code, pkce.codeVerifier);
     const user = userFromSupabaseAuthUser(payload.user);
-    await ensureApplicationUserRows(user, user.user_metadata || {}, intentRole);
+    await ensureApplicationUserRows(
+      user,
+      user.user_metadata || {},
+      intentRole === "store_owner" ? TRUSTED_STORE_OWNER_GRANT : undefined,
+    );
     return { data: { user, session: sessionFromSupabasePayload(payload) }, error: null };
   } catch (error: any) {
     return errorResult(error?.message || "Codigo de autenticacao invalido ou expirado.", "invalid_auth_code");
@@ -386,7 +533,7 @@ export const exchangeOAuthCode = async (code: string, pkce?: PkceContext, intent
 export const sessionFromToken = async (token: string) => {
   const user = await getUserByToken(token);
   if (!user) return errorResult("Sessao invalida ou expirada.", "invalid_token");
-  await ensureApplicationUserRows(user, user.user_metadata || {}, "customer");
+  await ensureApplicationUserRows(user, user.user_metadata || {});
   return { data: sessionEnvelope(user, token), error: null };
 };
 

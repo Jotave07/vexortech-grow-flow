@@ -48,7 +48,6 @@ const ACTIVE_LOOKBACK_DAYS = 14;
 const TABLE_PAGE_SIZE = 15;
 const HISTORY_PAGE_SIZE = 25;
 const POLL_INTERVAL_MS = 20_000;
-const REALTIME_STALE_MS = 55_000;
 
 const paymentLabel = (method) => ({
   pix: "Pix",
@@ -88,7 +87,6 @@ export function render(ctx) {
     knownOrderIds: new Set(),
     notificationKeys: new Set(),
     realtimeState: "connecting",
-    lastRealtimeAt: 0,
     lastSync: null,
     streamStop: null,
     reconnectTimer: null,
@@ -806,8 +804,11 @@ export function render(ctx) {
   };
 
   const handleRealtimeMessage = (payload) => {
-    state.lastRealtimeAt = Date.now();
     if (payload?.table !== "orders" || !["INSERT", "UPDATE", "DELETE"].includes(payload.eventType)) return;
+    if (payload.invalidated === true) {
+      void load({ silent: true, detectNew: true });
+      return;
+    }
     const row = payload.new ?? payload.old;
     if (!row?.id) return;
     const previous = state.orders.find((order) => order.id === row.id);
@@ -843,13 +844,11 @@ export function render(ctx) {
       event: "*",
       filter: `store_id=eq.${getStoreId(ctx)}`,
       onMessage: (payload) => {
-        state.lastRealtimeAt = Date.now();
         handleRealtimeMessage(payload);
       },
       onStatus: (status) => {
         if (status === "connected") {
           state.realtimeState = "online";
-          state.lastRealtimeAt = Date.now();
           updateConnectionIndicator();
         } else {
           state.realtimeState = "offline";
@@ -866,12 +865,6 @@ export function render(ctx) {
     state.pollTimer = globalThis.setInterval?.(() => {
       const documentObject = ctx.ui?.document ?? globalThis.document;
       if (documentObject?.hidden) return;
-      const stale = state.realtimeState === "online" && Date.now() - state.lastRealtimeAt > REALTIME_STALE_MS;
-      if (stale) {
-        state.realtimeState = "offline";
-        updateConnectionIndicator();
-        scheduleReconnect();
-      }
       void load({ silent: true, detectNew: true });
     }, POLL_INTERVAL_MS);
   };

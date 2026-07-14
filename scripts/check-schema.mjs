@@ -970,18 +970,127 @@ const checks = [
     ],
   },
   {
-    label: "supabase auth profile trigger",
+    label: "Supabase Auth signup is customer-only and metadata cannot grant roles",
     sql: `
+      WITH auth_handler AS (
+        SELECT
+          function_state.oid,
+          function_state.prosrc,
+          function_state.prosecdef,
+          function_state.provolatile,
+          function_state.proconfig
+        FROM pg_catalog.pg_proc AS function_state
+        JOIN pg_catalog.pg_namespace AS function_schema
+          ON function_schema.oid = function_state.pronamespace
+        WHERE function_schema.nspname = 'public'
+          AND function_state.oid = to_regprocedure('public.handle_auth_user_created()')
+      ),
+      role_normalizer AS (
+        SELECT
+          function_state.oid,
+          function_state.prosrc,
+          function_state.prosecdef,
+          function_state.provolatile,
+          function_state.proconfig
+        FROM pg_catalog.pg_proc AS function_state
+        JOIN pg_catalog.pg_namespace AS function_schema
+          ON function_schema.oid = function_state.pronamespace
+        WHERE function_schema.nspname = 'public'
+          AND function_state.oid = to_regprocedure('public.normalize_signup_role(jsonb)')
+      )
       SELECT
-        to_regprocedure('public.handle_auth_user_created()') IS NOT NULL
-        AND (
-          to_regclass('auth.users') IS NULL
-          OR EXISTS (
-            SELECT 1
-            FROM pg_trigger
-            WHERE tgname = 'on_auth_user_created'
-              AND tgrelid = to_regclass('auth.users')
-          )
+        to_regclass('auth.users') IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM auth_handler
+          WHERE auth_handler.prosecdef IS TRUE
+            AND auth_handler.provolatile = 'v'
+            AND (
+              SELECT
+                count(*) = 1
+                AND bool_and(
+                  setting.value = ANY(
+                    ARRAY['search_path=', 'search_path=""']::text[]
+                  )
+                )
+              FROM unnest(COALESCE(auth_handler.proconfig, ARRAY[]::text[]))
+                AS setting(value)
+              WHERE setting.value LIKE 'search_path=%'
+            )
+            -- raw_user_meta_data may supply profile fields, but never an
+            -- authorization key. Check the stored function body without
+            -- selecting it, so the gate cannot print application data.
+            AND (
+              length(lower(auth_handler.prosrc))
+              - length(
+                replace(
+                  lower(auth_handler.prosrc),
+                  'raw_user_meta_data',
+                  ''
+                )
+              )
+            ) / length('raw_user_meta_data') = 2
+            AND auth_handler.prosrc !~* $unsafe_metadata$(?n)raw_user_meta_data[[:space:]]*(->>|->|#>>|#>|[[])[^,;)]*(role|account_type|user_type|is_admin|permissions?)$unsafe_metadata$
+            AND regexp_replace(
+              auth_handler.prosrc,
+              '[[:space:]"]',
+              '',
+              'g'
+            ) LIKE '%NULLIF(NEW.raw_user_meta_data->>''full_name'','''')%'
+            AND regexp_replace(
+              auth_handler.prosrc,
+              '[[:space:]"]',
+              '',
+              'g'
+            ) LIKE '%NULLIF(NEW.raw_user_meta_data->>''document'',''''),''customer'',now(),now()%'
+            AND regexp_replace(
+              auth_handler.prosrc,
+              '[[:space:]"]',
+              '',
+              'g'
+            ) LIKE '%role=COALESCE(NULLIF(public.profiles.role,''''),EXCLUDED.role)%'
+            AND regexp_replace(
+              auth_handler.prosrc,
+              '[[:space:]"]',
+              '',
+              'g'
+            ) LIKE '%INSERTINTOpublic.user_roles(user_id,role)VALUES(NEW.id,''customer'')ONCONFLICTDONOTHING%'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM role_normalizer
+          WHERE role_normalizer.prosecdef IS FALSE
+            AND role_normalizer.provolatile = 'i'
+            AND regexp_replace(
+              role_normalizer.prosrc,
+              '[[:space:];]',
+              '',
+              'g'
+            ) = 'SELECT''customer''::text'
+            AND (
+              SELECT
+                count(*) = 1
+                AND bool_and(
+                  setting.value = ANY(
+                    ARRAY['search_path=', 'search_path=""']::text[]
+                  )
+                )
+              FROM unnest(COALESCE(role_normalizer.proconfig, ARRAY[]::text[]))
+                AS setting(value)
+              WHERE setting.value LIKE 'search_path=%'
+            )
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_trigger AS trigger_state
+          CROSS JOIN auth_handler
+          WHERE trigger_state.tgname = 'on_auth_user_created'
+            AND trigger_state.tgrelid = to_regclass('auth.users')
+            AND trigger_state.tgfoid = auth_handler.oid
+            AND trigger_state.tgtype = 5
+            AND trigger_state.tgenabled = 'O'
+            AND trigger_state.tgisinternal IS FALSE
+            AND trigger_state.tgqual IS NULL
         ) AS ok
     `,
   },
@@ -990,7 +1099,7 @@ const checks = [
     sql: "SELECT to_regclass('public.user_roles_user_role_store_unique') IS NOT NULL AS ok",
   },
   {
-    label: "financial schema migration history",
+    label: "critical schema migration history",
     sql: `
       SELECT NOT EXISTS (
         SELECT 1
@@ -1000,7 +1109,17 @@ const checks = [
             ('20260624100000', '20260624100000_asaas_central_escrow.sql'),
             ('20260624110000', '20260624110000_checkout_integrity.sql'),
             ('20260713142207', '20260713142207_reconcile_financial_schema.sql'),
-            ('20260713153000', '20260713153000_provision_vexortech_runtime.sql')
+            ('20260713153000', '20260713153000_provision_vexortech_runtime.sql'),
+            ('20260714124758', '20260714124758_reject_untrusted_signup_roles.sql'),
+            ('20260714131354', '20260714131354_private_order_realtime_broadcast.sql'),
+            (
+              '20260714143000',
+              '20260714143000_store_settings_operational_constraints.sql'
+            ),
+            (
+              '20260714144500',
+              '20260714144500_delivery_zones_operational_constraints.sql'
+            )
         ) AS expected(version, name)
         WHERE NOT EXISTS (
           SELECT 1
@@ -1009,6 +1128,758 @@ const checks = [
             AND applied.name = expected.name
         )
       ) AS ok
+    `,
+  },
+  {
+    label: "ephemeral order Realtime ticket table has the exact private RLS contract",
+    sql: `
+      WITH private_table AS (
+        SELECT
+          table_relation.oid,
+          table_relation.relrowsecurity,
+          table_relation.relkind
+        FROM pg_catalog.pg_class AS table_relation
+        JOIN pg_catalog.pg_namespace AS table_schema
+          ON table_schema.oid = table_relation.relnamespace
+        WHERE table_schema.nspname = 'hype_private'
+          AND table_relation.relname = 'order_realtime_tickets'
+      ),
+      expected_columns(column_name, data_type, not_null, default_expression) AS (
+        VALUES
+          ('ticket_id'::name, 'uuid'::text, true, 'gen_random_uuid()'::text),
+          ('store_id'::name, 'uuid'::text, true, NULL::text),
+          ('actor_user_id'::name, 'uuid'::text, true, NULL::text),
+          ('created_at'::name, 'timestamp with time zone'::text, true, 'statement_timestamp()'::text),
+          ('expires_at'::name, 'timestamp with time zone'::text, true, NULL::text)
+      )
+      SELECT
+        to_regnamespace('hype_private') IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM private_table
+          WHERE private_table.relkind IN ('r', 'p')
+            AND private_table.relrowsecurity IS TRUE
+            AND (
+              SELECT count(*) = 5
+              FROM pg_catalog.pg_attribute AS actual_column
+              WHERE actual_column.attrelid = private_table.oid
+                AND actual_column.attnum > 0
+                AND actual_column.attisdropped IS FALSE
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM expected_columns AS expected_column
+              WHERE NOT EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_attribute AS actual_column
+                LEFT JOIN pg_catalog.pg_attrdef AS column_default
+                  ON column_default.adrelid = actual_column.attrelid
+                 AND column_default.adnum = actual_column.attnum
+                WHERE actual_column.attrelid = private_table.oid
+                  AND actual_column.attname = expected_column.column_name
+                  AND actual_column.attnum > 0
+                  AND actual_column.attisdropped IS FALSE
+                  AND pg_catalog.format_type(
+                    actual_column.atttypid,
+                    actual_column.atttypmod
+                  ) = expected_column.data_type
+                  AND actual_column.attnotnull = expected_column.not_null
+                  AND (
+                    (
+                      expected_column.default_expression IS NULL
+                      AND column_default.oid IS NULL
+                    )
+                    OR (
+                      expected_column.default_expression IS NOT NULL
+                      AND column_default.oid IS NOT NULL
+                      AND ${normalizedCatalogSql(
+                        "pg_catalog.pg_get_expr(column_default.adbin, column_default.adrelid, true)",
+                      )} = ${normalizedCatalogSql("expected_column.default_expression")}
+                    )
+                  )
+              )
+            )
+        ) AS ok
+    `,
+  },
+  {
+    label: "ephemeral order Realtime ticket constraints and indexes are exact",
+    sql: `
+      WITH private_table AS (
+        SELECT table_relation.oid
+        FROM pg_catalog.pg_class AS table_relation
+        JOIN pg_catalog.pg_namespace AS table_schema
+          ON table_schema.oid = table_relation.relnamespace
+        WHERE table_schema.nspname = 'hype_private'
+          AND table_relation.relname = 'order_realtime_tickets'
+          AND table_relation.relkind IN ('r', 'p')
+      ),
+      expected_foreign_keys(
+        constraint_name,
+        key_column,
+        referenced_schema,
+        referenced_table,
+        referenced_column
+      ) AS (
+        VALUES
+          (
+            'order_realtime_tickets_store_id_fkey'::name,
+            'store_id'::name,
+            'public'::name,
+            'stores'::name,
+            'id'::name
+          ),
+          (
+            'order_realtime_tickets_actor_user_id_fkey'::name,
+            'actor_user_id'::name,
+            'auth'::name,
+            'users'::name,
+            'id'::name
+          )
+      ),
+      expected_indexes(index_name, key_columns) AS (
+        VALUES
+          (
+            'order_realtime_tickets_store_expiry_idx'::name,
+            ARRAY['store_id', 'expires_at']::text[]
+          ),
+          (
+            'order_realtime_tickets_expiry_idx'::name,
+            ARRAY['expires_at']::text[]
+          )
+      )
+      SELECT EXISTS (
+        SELECT 1
+        FROM private_table
+        WHERE EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_constraint AS primary_key
+          WHERE primary_key.conrelid = private_table.oid
+            AND primary_key.conname = 'order_realtime_tickets_pkey'
+            AND primary_key.contype = 'p'
+            AND primary_key.convalidated IS TRUE
+            AND (
+              SELECT array_agg(key_column.attname::text ORDER BY key_state.ordinality)
+              FROM unnest(primary_key.conkey)
+                WITH ORDINALITY AS key_state(attnum, ordinality)
+              JOIN pg_catalog.pg_attribute AS key_column
+                ON key_column.attrelid = primary_key.conrelid
+               AND key_column.attnum = key_state.attnum
+            ) = ARRAY['ticket_id']::text[]
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM expected_foreign_keys AS expected_foreign_key
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_constraint AS foreign_key
+            JOIN pg_catalog.pg_class AS referenced_table
+              ON referenced_table.oid = foreign_key.confrelid
+            JOIN pg_catalog.pg_namespace AS referenced_schema
+              ON referenced_schema.oid = referenced_table.relnamespace
+            WHERE foreign_key.conrelid = private_table.oid
+              AND foreign_key.conname = expected_foreign_key.constraint_name
+              AND foreign_key.contype = 'f'
+              AND foreign_key.convalidated IS TRUE
+              AND foreign_key.confdeltype = 'c'
+              AND foreign_key.confupdtype = 'a'
+              AND foreign_key.confmatchtype = 's'
+              AND referenced_schema.nspname = expected_foreign_key.referenced_schema
+              AND referenced_table.relname = expected_foreign_key.referenced_table
+              AND (
+                SELECT array_agg(key_column.attname::name ORDER BY key_state.ordinality)
+                FROM unnest(foreign_key.conkey)
+                  WITH ORDINALITY AS key_state(attnum, ordinality)
+                JOIN pg_catalog.pg_attribute AS key_column
+                  ON key_column.attrelid = foreign_key.conrelid
+                 AND key_column.attnum = key_state.attnum
+              ) = ARRAY[expected_foreign_key.key_column]::name[]
+              AND (
+                SELECT array_agg(key_column.attname::name ORDER BY key_state.ordinality)
+                FROM unnest(foreign_key.confkey)
+                  WITH ORDINALITY AS key_state(attnum, ordinality)
+                JOIN pg_catalog.pg_attribute AS key_column
+                  ON key_column.attrelid = foreign_key.confrelid
+                 AND key_column.attnum = key_state.attnum
+              ) = ARRAY[expected_foreign_key.referenced_column]::name[]
+          )
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_constraint AS expiry_window
+          WHERE expiry_window.conrelid = private_table.oid
+            AND expiry_window.conname = 'order_realtime_tickets_expiry_window_chk'
+            AND expiry_window.contype = 'c'
+            AND expiry_window.convalidated IS TRUE
+            AND regexp_replace(
+              lower(
+                pg_catalog.pg_get_expr(
+                  expiry_window.conbin,
+                  expiry_window.conrelid,
+                  true
+                )
+              ),
+              '[[:space:]()]',
+              '',
+              'g'
+            ) = 'expires_at>created_atandexpires_at<=created_at+''00:15:00''::interval'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM expected_indexes AS expected_index
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_index AS index_state
+            JOIN pg_catalog.pg_class AS index_relation
+              ON index_relation.oid = index_state.indexrelid
+            JOIN pg_catalog.pg_namespace AS index_schema
+              ON index_schema.oid = index_relation.relnamespace
+            JOIN pg_catalog.pg_am AS access_method
+              ON access_method.oid = index_relation.relam
+            WHERE index_state.indrelid = private_table.oid
+              AND index_schema.nspname = 'hype_private'
+              AND index_relation.relname = expected_index.index_name
+              AND access_method.amname = 'btree'
+              AND index_state.indisvalid IS TRUE
+              AND index_state.indisready IS TRUE
+              AND index_state.indislive IS TRUE
+              AND index_state.indisunique IS FALSE
+              AND index_state.indpred IS NULL
+              AND index_state.indexprs IS NULL
+              AND index_state.indnatts = index_state.indnkeyatts
+              AND (
+                SELECT array_agg(
+                  pg_catalog.pg_get_indexdef(
+                    index_state.indexrelid,
+                    key_position,
+                    true
+                  )
+                  ORDER BY key_position
+                )
+                FROM generate_series(1, index_state.indnkeyatts)
+                  AS generated_key(key_position)
+              ) = expected_index.key_columns
+          )
+        )
+      ) AS ok
+    `,
+  },
+  {
+    label: "private order Realtime functions are hardened SECURITY DEFINER contracts",
+    sql: `
+      WITH expected_functions(
+        function_signature,
+        volatility,
+        returns_set,
+        result_type
+      ) AS (
+        VALUES
+          (
+            'hype_private.issue_order_realtime_ticket(uuid,uuid)'::text,
+            'v'::"char",
+            true,
+            'TABLE(ticket_id uuid, expires_at timestamp with time zone)'::text
+          ),
+          (
+            'hype_private.can_receive_store_order_topic(text)'::text,
+            's'::"char",
+            false,
+            'boolean'::text
+          ),
+          (
+            'hype_private.broadcast_store_order_invalidation()'::text,
+            'v'::"char",
+            false,
+            'trigger'::text
+          ),
+          (
+            'hype_private.revoke_store_order_realtime_tickets()'::text,
+            'v'::"char",
+            false,
+            'trigger'::text
+          )
+      )
+      SELECT NOT EXISTS (
+        SELECT 1
+        FROM expected_functions AS expected_function
+        LEFT JOIN pg_catalog.pg_proc AS function_state
+          ON function_state.oid = to_regprocedure(expected_function.function_signature)
+        LEFT JOIN pg_catalog.pg_roles AS function_owner
+          ON function_owner.oid = function_state.proowner
+        WHERE function_state.oid IS NULL
+          OR function_state.prokind <> 'f'
+          OR function_state.prosecdef IS NOT TRUE
+          OR function_state.proleakproof IS TRUE
+          OR function_state.provolatile <> expected_function.volatility
+          OR function_state.proretset <> expected_function.returns_set
+          OR pg_catalog.pg_get_function_result(function_state.oid)
+            <> expected_function.result_type
+          OR function_owner.rolname = ANY(
+            ARRAY[
+              'anon',
+              'authenticated',
+              'authenticator',
+              'service_role',
+              'vexortech_runtime'
+            ]::name[]
+          )
+          OR (
+            SELECT NOT (
+              count(*) = 1
+              AND bool_and(
+                setting.value = ANY(
+                  ARRAY['search_path=', 'search_path=""']::text[]
+                )
+              )
+            )
+            FROM unnest(COALESCE(function_state.proconfig, ARRAY[]::text[]))
+              AS setting(value)
+            WHERE setting.value LIKE 'search_path=%'
+          )
+      ) AS ok
+    `,
+  },
+  {
+    label: "private order Realtime grants are minimal and tickets have no table grants",
+    sql: `
+      WITH private_schema AS (
+        SELECT schema_state.oid, schema_state.nspowner, schema_state.nspacl
+        FROM pg_catalog.pg_namespace AS schema_state
+        WHERE schema_state.nspname = 'hype_private'
+      ),
+      private_table AS (
+        SELECT
+          table_relation.oid,
+          table_relation.relowner,
+          table_relation.relacl
+        FROM pg_catalog.pg_class AS table_relation
+        JOIN pg_catalog.pg_namespace AS table_schema
+          ON table_schema.oid = table_relation.relnamespace
+        WHERE table_schema.nspname = 'hype_private'
+          AND table_relation.relname = 'order_realtime_tickets'
+          AND table_relation.relkind IN ('r', 'p')
+      ),
+      expected_schema_grants(role_name) AS (
+        VALUES
+          ('vexortech_runtime'::name),
+          ('anon'::name),
+          ('authenticated'::name)
+      ),
+      expected_function_grants(function_signature, role_names) AS (
+        VALUES
+          (
+            'hype_private.issue_order_realtime_ticket(uuid,uuid)'::text,
+            ARRAY['vexortech_runtime']::name[]
+          ),
+          (
+            'hype_private.can_receive_store_order_topic(text)'::text,
+            ARRAY['anon', 'authenticated']::name[]
+          ),
+          (
+            'hype_private.broadcast_store_order_invalidation()'::text,
+            ARRAY[]::name[]
+          ),
+          (
+            'hype_private.revoke_store_order_realtime_tickets()'::text,
+            ARRAY[]::name[]
+          )
+      ),
+      resolved_functions AS (
+        SELECT
+          expected_function.function_signature,
+          expected_function.role_names,
+          function_state.oid,
+          function_state.proowner,
+          function_state.proacl
+        FROM expected_function_grants AS expected_function
+        LEFT JOIN pg_catalog.pg_proc AS function_state
+          ON function_state.oid = to_regprocedure(expected_function.function_signature)
+      )
+      SELECT
+        EXISTS (SELECT 1 FROM private_schema)
+        AND EXISTS (SELECT 1 FROM private_table)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM expected_schema_grants AS expected_grant
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM private_schema
+            CROSS JOIN pg_catalog.pg_roles AS granted_role
+            CROSS JOIN LATERAL aclexplode(
+              COALESCE(
+                private_schema.nspacl,
+                acldefault('n', private_schema.nspowner)
+              )
+            ) AS schema_acl
+            WHERE granted_role.rolname = expected_grant.role_name
+              AND schema_acl.grantee = granted_role.oid
+              AND schema_acl.privilege_type = 'USAGE'
+              AND schema_acl.is_grantable IS FALSE
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM private_schema
+          CROSS JOIN LATERAL aclexplode(
+            COALESCE(
+              private_schema.nspacl,
+              acldefault('n', private_schema.nspowner)
+            )
+          ) AS schema_acl
+          LEFT JOIN pg_catalog.pg_roles AS granted_role
+            ON granted_role.oid = schema_acl.grantee
+          WHERE schema_acl.grantee <> private_schema.nspowner
+            AND NOT (
+              schema_acl.privilege_type = 'USAGE'
+              AND schema_acl.is_grantable IS FALSE
+              AND COALESCE(
+                granted_role.rolname = ANY(
+                  ARRAY['vexortech_runtime', 'anon', 'authenticated']::name[]
+                ),
+                false
+              )
+            )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM private_table
+          CROSS JOIN LATERAL aclexplode(
+            COALESCE(
+              private_table.relacl,
+              acldefault('r', private_table.relowner)
+            )
+          ) AS table_acl
+          WHERE table_acl.grantee <> private_table.relowner
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM private_table
+          JOIN pg_catalog.pg_attribute AS column_state
+            ON column_state.attrelid = private_table.oid
+           AND column_state.attnum > 0
+           AND column_state.attisdropped IS FALSE
+          CROSS JOIN LATERAL aclexplode(column_state.attacl) AS column_acl
+          WHERE column_acl.grantee <> private_table.relowner
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM private_table
+          CROSS JOIN pg_catalog.pg_roles AS checked_role
+          WHERE checked_role.rolname = ANY(
+              ARRAY['vexortech_runtime', 'anon', 'authenticated']::name[]
+            )
+            AND (
+              pg_catalog.has_table_privilege(
+                checked_role.oid,
+                private_table.oid,
+                'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+              )
+              OR pg_catalog.has_any_column_privilege(
+                checked_role.oid,
+                private_table.oid,
+                'SELECT,INSERT,UPDATE,REFERENCES'
+              )
+            )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM resolved_functions AS resolved_function
+          WHERE resolved_function.oid IS NULL
+            OR EXISTS (
+              SELECT 1
+              FROM unnest(resolved_function.role_names) AS expected_role(role_name)
+              WHERE NOT EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_roles AS granted_role
+                CROSS JOIN LATERAL aclexplode(
+                  COALESCE(
+                    resolved_function.proacl,
+                    acldefault('f', resolved_function.proowner)
+                  )
+                ) AS function_acl
+                WHERE granted_role.rolname = expected_role.role_name
+                  AND function_acl.grantee = granted_role.oid
+                  AND function_acl.privilege_type = 'EXECUTE'
+                  AND function_acl.is_grantable IS FALSE
+              )
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM aclexplode(
+                COALESCE(
+                  resolved_function.proacl,
+                  acldefault('f', resolved_function.proowner)
+                )
+              ) AS function_acl
+              LEFT JOIN pg_catalog.pg_roles AS granted_role
+                ON granted_role.oid = function_acl.grantee
+              WHERE function_acl.grantee <> resolved_function.proowner
+                AND NOT (
+                  function_acl.privilege_type = 'EXECUTE'
+                  AND function_acl.is_grantable IS FALSE
+                  AND COALESCE(
+                    granted_role.rolname = ANY(resolved_function.role_names),
+                    false
+                  )
+                )
+            )
+        ) AS ok
+    `,
+  },
+  {
+    label: "private order Realtime triggers match orders and store lifecycle events",
+    sql: `
+      WITH expected_triggers(
+        trigger_name,
+        table_schema,
+        table_name,
+        function_signature,
+        trigger_type,
+        update_columns
+      ) AS (
+        VALUES
+          (
+            'orders_private_broadcast_invalidation'::name,
+            'public'::name,
+            'orders'::name,
+            'hype_private.broadcast_store_order_invalidation()'::text,
+            29::smallint,
+            ARRAY[]::name[]
+          ),
+          (
+            'stores_revoke_order_realtime_tickets'::name,
+            'public'::name,
+            'stores'::name,
+            'hype_private.revoke_store_order_realtime_tickets()'::text,
+            17::smallint,
+            ARRAY['is_active', 'is_suspended', 'owner_user_id']::name[]
+          )
+      )
+      SELECT NOT EXISTS (
+        SELECT 1
+        FROM expected_triggers AS expected_trigger
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_trigger AS trigger_state
+          JOIN pg_catalog.pg_class AS target_table
+            ON target_table.oid = trigger_state.tgrelid
+          JOIN pg_catalog.pg_namespace AS target_schema
+            ON target_schema.oid = target_table.relnamespace
+          WHERE trigger_state.tgname = expected_trigger.trigger_name
+            AND target_schema.nspname = expected_trigger.table_schema
+            AND target_table.relname = expected_trigger.table_name
+            AND trigger_state.tgfoid = to_regprocedure(expected_trigger.function_signature)
+            AND trigger_state.tgtype = expected_trigger.trigger_type
+            AND trigger_state.tgenabled = 'O'
+            AND trigger_state.tgisinternal IS FALSE
+            AND trigger_state.tgqual IS NULL
+            AND COALESCE(
+              (
+                SELECT array_agg(
+                  update_column.attname::name
+                  ORDER BY update_column_state.ordinality
+                )
+                FROM unnest(trigger_state.tgattr)
+                  WITH ORDINALITY AS update_column_state(attnum, ordinality)
+                JOIN pg_catalog.pg_attribute AS update_column
+                  ON update_column.attrelid = trigger_state.tgrelid
+                 AND update_column.attnum = update_column_state.attnum
+              ),
+              ARRAY[]::name[]
+            ) = expected_trigger.update_columns
+        )
+      ) AS ok
+    `,
+  },
+  {
+    label: "private order Realtime has exactly three correctly scoped RLS policies",
+    sql: `
+      WITH realtime_messages AS (
+        SELECT table_relation.oid, table_relation.relrowsecurity
+        FROM pg_catalog.pg_class AS table_relation
+        JOIN pg_catalog.pg_namespace AS table_schema
+          ON table_schema.oid = table_relation.relnamespace
+        WHERE table_schema.nspname = 'realtime'
+          AND table_relation.relname = 'messages'
+          AND table_relation.relkind IN ('r', 'p')
+      ),
+      expected_policies(
+        policy_name,
+        permissive,
+        command,
+        expects_qual,
+        expects_with_check
+      ) AS (
+        VALUES
+          (
+            'hype_store_order_broadcast_receive'::name,
+            true,
+            'r'::"char",
+            true,
+            false
+          ),
+          (
+            'hype_store_order_broadcast_ticket_guard'::name,
+            false,
+            'r'::"char",
+            true,
+            false
+          ),
+          (
+            'hype_store_order_broadcast_database_only'::name,
+            false,
+            'a'::"char",
+            false,
+            true
+          )
+      ),
+      checked_policies AS (
+        SELECT
+          expected_policy.*,
+          policy_state.polqual,
+          policy_state.polwithcheck,
+          policy_state.polrelid,
+          policy_state.polroles
+        FROM expected_policies AS expected_policy
+        LEFT JOIN realtime_messages
+          ON true
+        LEFT JOIN pg_catalog.pg_policy AS policy_state
+          ON policy_state.polrelid = realtime_messages.oid
+         AND policy_state.polname = expected_policy.policy_name
+         AND policy_state.polpermissive = expected_policy.permissive
+         AND policy_state.polcmd = expected_policy.command
+      )
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM realtime_messages
+          WHERE realtime_messages.relrowsecurity IS TRUE
+        )
+        AND (
+          SELECT count(*) = 3
+          FROM pg_catalog.pg_policy AS policy_state
+          JOIN realtime_messages
+            ON realtime_messages.oid = policy_state.polrelid
+          WHERE left(
+            policy_state.polname,
+            length('hype_store_order_broadcast_')
+          ) = 'hype_store_order_broadcast_'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM checked_policies AS checked_policy
+          WHERE checked_policy.polrelid IS NULL
+            OR cardinality(checked_policy.polroles) <> 2
+            OR NOT COALESCE(
+              (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'anon')
+                = ANY(checked_policy.polroles),
+              false
+            )
+            OR NOT COALESCE(
+              (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'authenticated')
+                = ANY(checked_policy.polroles),
+              false
+            )
+            OR (checked_policy.polqual IS NOT NULL) <> checked_policy.expects_qual
+            OR (checked_policy.polwithcheck IS NOT NULL)
+              <> checked_policy.expects_with_check
+            OR (
+              checked_policy.policy_name IN (
+                'hype_store_order_broadcast_receive',
+                'hype_store_order_broadcast_ticket_guard'
+              )
+              AND pg_catalog.pg_get_expr(
+                checked_policy.polqual,
+                checked_policy.polrelid,
+                true
+              ) !~ 'hype_private[.]can_receive_store_order_topic'
+            )
+            OR (
+              checked_policy.policy_name = 'hype_store_order_broadcast_receive'
+              AND pg_catalog.pg_get_expr(
+                checked_policy.polqual,
+                checked_policy.polrelid,
+                true
+              ) !~ 'extension[[:space:]]*=[[:space:]]*''broadcast'''
+            )
+            OR (
+              checked_policy.policy_name = 'hype_store_order_broadcast_ticket_guard'
+              AND (
+                pg_catalog.pg_get_expr(
+                  checked_policy.polqual,
+                  checked_policy.polrelid,
+                  true
+                ) !~ 'realtime[.]topic'
+                OR pg_catalog.pg_get_expr(
+                  checked_policy.polqual,
+                  checked_policy.polrelid,
+                  true
+                ) !~ 'extension[[:space:]]*=[[:space:]]*''broadcast'''
+                OR pg_catalog.pg_get_expr(
+                  checked_policy.polqual,
+                  checked_policy.polrelid,
+                  true
+                ) !~ '[[:space:]]OR[[:space:]]'
+                OR pg_catalog.pg_get_expr(
+                  checked_policy.polqual,
+                  checked_policy.polrelid,
+                  true
+                ) !~ '[[:space:]]AND[[:space:]]'
+                OR position(
+                  '!~'
+                  IN pg_catalog.pg_get_expr(
+                    checked_policy.polqual,
+                    checked_policy.polrelid,
+                    true
+                  )
+                ) = 0
+                OR position(
+                  '''^hype:store-orders:'''
+                  IN pg_catalog.pg_get_expr(
+                    checked_policy.polqual,
+                    checked_policy.polrelid,
+                    true
+                  )
+                ) = 0
+              )
+            )
+            OR (
+              checked_policy.policy_name = 'hype_store_order_broadcast_database_only'
+              AND (
+                pg_catalog.pg_get_expr(
+                  checked_policy.polwithcheck,
+                  checked_policy.polrelid,
+                  true
+                ) !~ 'realtime[.]topic'
+                OR pg_catalog.pg_get_expr(
+                  checked_policy.polwithcheck,
+                  checked_policy.polrelid,
+                  true
+                ) ~ 'extension'
+                OR pg_catalog.pg_get_expr(
+                  checked_policy.polwithcheck,
+                  checked_policy.polrelid,
+                  true
+                ) ~ '[[:space:]](OR|AND)[[:space:]]'
+                OR position(
+                  '!~'
+                  IN pg_catalog.pg_get_expr(
+                    checked_policy.polwithcheck,
+                    checked_policy.polrelid,
+                    true
+                  )
+                ) = 0
+                OR position(
+                  '''^hype:store-orders:'''
+                  IN pg_catalog.pg_get_expr(
+                    checked_policy.polwithcheck,
+                    checked_policy.polrelid,
+                    true
+                  )
+                ) = 0
+              )
+            )
+        ) AS ok
     `,
   },
   {
@@ -2060,6 +2931,103 @@ const checks = [
         "gateway_action_pending IS NULL OR gateway_action_pending = ANY (ARRAY['CANCEL','INACTIVE','ACTIVE','EXEMPT_CANCEL'])",
     },
   ]),
+  requiredCheckConstraintContractsCheck(
+    "20260714143000 validated store settings operational checks",
+    [
+      {
+        name: "store_settings_avg_prep_time_minutes_chk",
+        table: "store_settings",
+        validated: true,
+        expression:
+          "avg_prep_time_minutes IS NULL OR avg_prep_time_minutes >= 1 AND avg_prep_time_minutes <= 240",
+      },
+      {
+        name: "store_settings_min_order_value_chk",
+        table: "store_settings",
+        validated: true,
+        expression:
+          "min_order_value IS NULL OR min_order_value >= 0 AND min_order_value <= 1000000",
+      },
+      {
+        name: "store_settings_delivery_radius_km_chk",
+        table: "store_settings",
+        validated: true,
+        expression:
+          "delivery_radius_km IS NULL OR delivery_radius_km >= 0.1 AND delivery_radius_km <= 500",
+      },
+      {
+        name: "store_settings_delivery_base_fee_chk",
+        table: "store_settings",
+        validated: true,
+        expression:
+          "delivery_base_fee IS NULL OR delivery_base_fee >= 0 AND delivery_base_fee <= 1000",
+      },
+      {
+        name: "store_settings_delivery_fee_per_km_chk",
+        table: "store_settings",
+        validated: true,
+        expression:
+          "delivery_fee_per_km IS NULL OR delivery_fee_per_km >= 0 AND delivery_fee_per_km <= 100",
+      },
+      {
+        name: "store_settings_delivery_fee_chk",
+        table: "store_settings",
+        validated: true,
+        expression: "delivery_fee IS NULL OR delivery_fee >= 0 AND delivery_fee <= 1000",
+      },
+    ],
+  ),
+  {
+    label: "20260714144500 validated delivery zone operational contract",
+    sql: `
+      WITH operational_constraints AS (
+        SELECT constraint_state.convalidated
+        FROM pg_catalog.pg_constraint AS constraint_state
+        WHERE constraint_state.conrelid = 'public.delivery_zones'::regclass
+          AND constraint_state.contype = 'c'
+          AND constraint_state.conname = ANY (ARRAY[
+            'delivery_zones_fee_chk',
+            'delivery_zones_fee_per_km_chk',
+            'delivery_zones_fee_bounds_chk',
+            'delivery_zones_min_order_chk',
+            'delivery_zones_max_radius_km_chk',
+            'delivery_zones_timing_chk',
+            'delivery_zones_priority_chk',
+            'delivery_zones_coverage_chk'
+          ]::name[])
+      )
+      SELECT
+        (
+          SELECT count(*) = 8 AND bool_and(operational_constraints.convalidated)
+          FROM operational_constraints
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_attribute AS active_column
+          JOIN pg_catalog.pg_attrdef AS active_default
+            ON active_default.adrelid = active_column.attrelid
+           AND active_default.adnum = active_column.attnum
+          WHERE active_column.attrelid = 'public.delivery_zones'::regclass
+            AND active_column.attname = 'is_active'
+            AND active_column.attnum > 0
+            AND active_column.attisdropped IS FALSE
+            AND active_column.atttypid = 'boolean'::regtype
+            AND active_column.attnotnull IS TRUE
+            AND regexp_replace(
+              lower(
+                pg_catalog.pg_get_expr(
+                  active_default.adbin,
+                  active_default.adrelid,
+                  true
+                )
+              ),
+              '[[:space:]()]',
+              '',
+              'g'
+            ) = 'true'
+        ) AS ok
+    `,
+  },
   {
     label: "financial movements RLS and effective Data API privileges",
     sql: `

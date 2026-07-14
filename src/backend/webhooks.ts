@@ -4,11 +4,19 @@ import { isProductionRuntime, validateRuntimeEnv, getAsaasWebhookSecret } from "
 import { publishRealtime } from "./realtime";
 import { applyPaymentEscrow } from "@/server/payment.escrow";
 import { handleTransferDone, handleTransferFailed } from "@/server/transfer.service";
-import { handleRefundConfirmed } from "@/server/refund.service";
-import { idemKeys, updateMovementStatus } from "@/server/financial.ledger";
+import { handleRefundConfirmed, refundCancelledOrder } from "@/server/refund.service";
+import {
+  createCustomerRefund,
+  findMovement,
+  idemKeys,
+  recordMovement,
+  updateMovementStatus,
+} from "@/server/financial.ledger";
 import { toCents } from "@/server/financial.calc";
 import { asaas } from "@/server/asaas.server";
 import { nextFutureMonthlyDueDate } from "@/server/billing-date";
+import { orderFinancialLockKey } from "@/server/order-financial-state";
+import { verifyCentralPixFunding } from "@/server/central-funding";
 
 const paidEvents = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"]);
 const paidPaymentStatuses = new Set(["pago", "paid"]);
@@ -728,10 +736,11 @@ const handlePartialRefundConfirmed = async (payment: any, eventId?: string | nul
 
   return withTransaction(async (client) => {
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [
-      `reembolso:${orderId}`,
+      orderFinancialLockKey(orderId),
     ]);
     const { rows: orders } = await client.query(
-      `SELECT id, total, refunded_amount FROM public.orders WHERE id = $1 FOR UPDATE`,
+      `SELECT *
+         FROM public.orders WHERE id = $1 FOR UPDATE`,
       [orderId],
     );
     const order = orders[0];
@@ -740,32 +749,111 @@ const handlePartialRefundConfirmed = async (payment: any, eventId?: string | nul
     if (cumulativeRefund > orderTotal + 0.01) {
       throw new Error("Valor acumulado de estorno excede o total do pedido.");
     }
-
-    await updateMovementStatus(
+    const paymentId = String(payment?.id ?? "").trim();
+    const funding = await verifyCentralPixFunding(client, order, {
+      requiredAmount: cumulativeRefund,
+      acceptedPaymentStatuses: ["pago", "estornado"],
+    });
+    if (!paymentId || !funding.ok || funding.paymentId !== paymentId) {
+      return { updated: false, reason: "refund_proof_invalid", stateConflict: true, orderId };
+    }
+    let refundMovement = await findMovement(
       { idempotencyKey: idemKeys.reembolso(orderId) },
-      {
-        status: "CONFIRMADO",
-        asaasEventId: eventId || null,
-        asaasRefundId: payment?.id ? String(payment.id) : null,
-        metadata: { cumulativeRefund, source: "payment.refunds[DONE]" },
-      },
       client,
     );
+    if (!refundMovement) {
+      await createCustomerRefund(
+        { orderId, storeId: order.store_id, amount: cumulativeRefund, asaasPaymentId: paymentId },
+        client,
+      );
+      refundMovement = await findMovement(
+        { idempotencyKey: idemKeys.reembolso(orderId) },
+        client,
+      );
+    }
+    if (!refundMovement) {
+      return { updated: false, reason: "refund_ledger_conflict", stateConflict: true, orderId };
+    }
+    const transferMovement = await findMovement(
+      { idempotencyKey: idemKeys.repasse(orderId) },
+      client,
+    );
+    const transferConflict =
+      ["PROCESSANDO", "ENVIADO"].includes(String(order.transfer_status)) ||
+      ["PROCESSANDO", "CONFIRMADO"].includes(String(transferMovement?.status));
+    if (
+      refundMovement.status === "CONFIRMADO" &&
+      cumulativeRefund <= Number(order.refunded_amount || 0) + 0.001
+    ) {
+      return {
+        updated: true,
+        duplicate: true,
+        financialConflict: transferConflict,
+        orderId,
+        cumulativeRefund,
+      };
+    }
     const fullRefund = Math.abs(cumulativeRefund - orderTotal) <= 0.01;
     const { rows: updated } = await client.query(
       `UPDATE public.orders
-       SET refund_status = CASE WHEN $3 THEN 'ESTORNADO_TOTAL' ELSE 'ESTORNADO_PARCIAL' END,
+       SET status = CASE WHEN $5 THEN status ELSE 'cancelado' END,
+           cancelled_at = CASE WHEN $5 THEN cancelled_at ELSE COALESCE(cancelled_at, now()) END,
+           cancel_reason = CASE WHEN $5 THEN cancel_reason ELSE COALESCE(cancel_reason, 'Estorno confirmado fora do fluxo normal') END,
+           refund_status = CASE WHEN $3 THEN 'ESTORNADO_TOTAL' ELSE 'ESTORNADO_PARCIAL' END,
            payment_status = 'estornado',
-           transfer_status = CASE WHEN transfer_status = 'ENVIADO' THEN transfer_status ELSE 'CANCELADO' END,
+           transfer_status = CASE WHEN $5 THEN transfer_status ELSE 'CANCELADO' END,
            refunded_amount = GREATEST(COALESCE(refunded_amount, 0), $2),
            refunded_at = COALESCE(refunded_at, now()),
            asaas_event_id_ultimo = COALESCE($4, asaas_event_id_ultimo),
            updated_at = now()
        WHERE id = $1
+         AND payment_method = 'pix'
+         AND payment_status IN ('pago','estorno_pendente','estornado')
+         AND (
+           ($5 = false
+             AND refund_status IN ('NAO_SOLICITADO','NAO_APLICAVEL','PENDENTE','PROCESSANDO','ESTORNADO_PARCIAL','FALHOU')
+             AND transfer_status NOT IN ('PROCESSANDO','ENVIADO'))
+           OR ($5 = true AND transfer_status IN ('PROCESSANDO','ENVIADO'))
+         )
        RETURNING id, refunded_amount, refund_status`,
-      [orderId, cumulativeRefund, fullRefund, eventId || null],
+      [orderId, cumulativeRefund, fullRefund, eventId || null, transferConflict],
     );
-    return { updated: Boolean(updated[0]), orderId, cumulativeRefund };
+    if (!updated[0]) {
+      console.error(
+        JSON.stringify({
+          scope: "refund",
+          event: "partial_webhook_state_conflict",
+          orderId,
+          refundId: payment?.id ? String(payment.id) : null,
+        }),
+      );
+      return {
+        updated: false,
+        stateConflict: true,
+        orderId,
+        cumulativeRefund,
+      };
+    }
+    const updatedMovement = await updateMovementStatus(
+      { idempotencyKey: idemKeys.reembolso(orderId) },
+      {
+        status: "CONFIRMADO",
+        asaasEventId: eventId || null,
+        asaasRefundId: paymentId,
+        metadata: { cumulativeRefund, source: "payment.refunds[DONE]" },
+      },
+      client,
+    );
+    if (!updatedMovement) {
+      throw new Error("O ledger financeiro mudou durante o webhook de estorno parcial.");
+    }
+    return {
+      updated: true,
+      stateConflict: false,
+      financialConflict: transferConflict,
+      orderId,
+      cumulativeRefund,
+    };
   });
 };
 
@@ -1199,8 +1287,16 @@ export const handleAsaasWebhook = async (request: Request) => {
   }
 
   const result = await withTransaction(async (client) => {
+    // Cancellation, delivery, transfer and refund all use this namespace. The
+    // external reference is validated against o.id by the locked query below.
+    await client.query(`SET LOCAL lock_timeout = '5s'`);
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, [
+      orderFinancialLockKey(String(payment.externalReference)),
+    ]);
     const { rows: payments } = await client.query(
-      `SELECT p.*, o.id AS order_exists, o.total AS order_total, o.store_id AS order_store_id
+      `SELECT p.*, o.id AS order_exists, o.total AS order_total, o.store_id AS order_store_id,
+              o.status AS order_status, o.payment_status AS order_payment_status,
+              o.transfer_status AS order_transfer_status, o.refund_status AS order_refund_status
        FROM public.payments p
        JOIN public.orders o ON o.id = p.order_id
        WHERE (p.external_id = $1 OR p.asaas_id = $1 OR (p.order_id::text = $2 AND (p.external_id IS NULL OR p.external_id = $1)))
@@ -1253,14 +1349,17 @@ export const handleAsaasWebhook = async (request: Request) => {
         );
         // valor divergente bloqueia o fluxo financeiro do pedido
         await client.query(
-          `UPDATE public.orders SET transfer_status = 'BLOQUEADO', updated_at = now() WHERE id = $1`,
+          `UPDATE public.orders
+              SET transfer_status = 'BLOQUEADO', updated_at = now()
+            WHERE id = $1
+              AND transfer_status NOT IN ('PROCESSANDO','ENVIADO')`,
           [localPayment.order_id],
         );
         return { updated: false, suspicious: true, eventRowId };
       }
     }
 
-    const wasPaid = localPayment.status === "pago";
+    const wasPaid = paidPaymentStatuses.has(currentStatus);
     const { rows: updatedPayments } = await client.query(
       `UPDATE public.payments
        SET status = $2,
@@ -1283,44 +1382,172 @@ export const handleAsaasWebhook = async (request: Request) => {
     );
 
     let updatedOrder = null;
+    let latePaymentRefund: null | {
+      required: true;
+      automatic: boolean;
+      orderId: string;
+    } = null;
     if (mappedStatus === "pago") {
+      const canceledBeforePayment = String(localPayment.order_status) === "cancelado";
+      if (canceledBeforePayment) {
+        const { rows: canceledOrders } = await client.query(
+          `UPDATE public.orders
+           SET payment_status = 'estorno_pendente',
+               transfer_status = CASE
+                 WHEN transfer_status IN ('LIBERADO','PROCESSANDO','ENVIADO') THEN transfer_status
+                 ELSE 'BLOQUEADO'
+               END,
+               refund_status = CASE
+                 WHEN refund_status IN ('PROCESSANDO','ESTORNADO_TOTAL','ESTORNADO_PARCIAL') THEN refund_status
+                 ELSE 'PENDENTE'
+               END,
+               asaas_event_id_ultimo = COALESCE($2, asaas_event_id_ultimo),
+               updated_at = now()
+           WHERE id = $1
+             AND status = 'cancelado'
+             AND payment_status <> 'estornado'
+           RETURNING *`,
+          [localPayment.order_id, eventId],
+        );
+        updatedOrder = canceledOrders[0] || null;
+        if (!updatedOrder) {
+          return {
+            updated: false,
+            stale: true,
+            eventRowId,
+            payment: updatedPayments[0],
+          };
+        }
+
+        // A canceled sale must not accrue a platform fee or re-enter production.
+        // Record only the external receipt and its mandatory compensation.
+        const automaticRefund = localPayment.provider === "asaas-central";
+        if (automaticRefund) {
+          await recordMovement(
+            {
+              orderId: localPayment.order_id,
+              storeId: localPayment.store_id,
+              type: "ENTRADA_PIX",
+              nature: "CREDITO",
+              amount: Number(localPayment.order_total),
+              status: "CONFIRMADO",
+              description: "Entrada PIX tardia confirmada na conta central",
+              asaasPaymentId: payment.id,
+              asaasEventId: eventId,
+              externalReference: `ORDER_${localPayment.order_id}`,
+              idempotencyKey: idemKeys.entradaPix(localPayment.order_id),
+              metadata: { reason: "late_payment_after_cancellation" },
+            },
+            client,
+          );
+        }
+        await recordMovement(
+          {
+            orderId: localPayment.order_id,
+            storeId: localPayment.store_id,
+            type: "REEMBOLSO_CLIENTE",
+            nature: "DEBITO",
+            amount: Number(localPayment.order_total),
+            status: "PENDENTE",
+            description: "Pagamento PIX recebido apos o cancelamento; estorno obrigatorio",
+            asaasPaymentId: payment.id,
+            asaasEventId: eventId,
+            externalReference: `REFUND_ORDER_${localPayment.order_id}`,
+            idempotencyKey: idemKeys.reembolso(localPayment.order_id),
+            metadata: {
+              reason: "late_payment_after_cancellation",
+              automatic: automaticRefund,
+            },
+          },
+          client,
+        );
+        latePaymentRefund = {
+          required: true,
+          automatic: automaticRefund,
+          orderId: String(localPayment.order_id),
+        };
+      } else {
+        const { rows: orders } = await client.query(
+          `UPDATE public.orders
+           SET status = CASE WHEN status = 'aguardando_pagamento' THEN 'novo' ELSE status END,
+               payment_status = 'pago',
+               updated_at = now()
+           WHERE id = $1
+             AND status <> 'cancelado'
+           RETURNING *`,
+          [localPayment.order_id],
+        );
+        updatedOrder = orders[0] || null;
+
+        if (updatedOrder && !wasPaid) {
+          await client.query(
+            `INSERT INTO public.order_status_history (order_id, store_id, status, notes)
+             SELECT $1, $2, 'novo', 'Pagamento PIX confirmado via Webhook (Asaas)'
+             WHERE NOT EXISTS (
+               SELECT 1 FROM public.order_status_history
+               WHERE order_id = $1 AND status = 'novo' AND notes = 'Pagamento PIX confirmado via Webhook (Asaas)'
+             )`,
+            [localPayment.order_id, localPayment.store_id],
+          );
+        }
+
+        // Escrow (modelo central): registra ENTRADA_PIX + TAXA_PLATAFORMA e
+        // segura o repasse ate a entrega. No-op se a loja nao for central.
+        if (updatedOrder && localPayment.provider === "asaas-central") {
+          await applyPaymentEscrow(
+            client,
+            {
+              id: localPayment.order_id,
+              store_id: localPayment.store_id,
+              total: localPayment.order_total,
+            },
+            payment.id,
+            eventId,
+          );
+        }
+      }
+    } else if (chargebackEvents.has(event)) {
+      const transferMovement = await findMovement(
+        { idempotencyKey: idemKeys.repasse(localPayment.order_id) },
+        client,
+      );
+      const financialConflict =
+        ["PROCESSANDO", "ENVIADO"].includes(String(localPayment.order_transfer_status)) ||
+        ["PROCESSANDO", "CONFIRMADO"].includes(String(transferMovement?.status));
       const { rows: orders } = await client.query(
         `UPDATE public.orders
-         SET status = CASE WHEN status = 'aguardando_pagamento' THEN 'novo' ELSE status END,
-             payment_status = 'pago',
-             updated_at = now()
-         WHERE id = $1
-         RETURNING *`,
-        [localPayment.order_id],
+            SET payment_status = 'estornado',
+                refund_status = 'FALHOU',
+                transfer_status = CASE
+                  WHEN transfer_status IN ('PROCESSANDO','ENVIADO') THEN transfer_status
+                  ELSE 'BLOQUEADO'
+                END,
+                asaas_event_id_ultimo = COALESCE($2, asaas_event_id_ultimo),
+                updated_at = now()
+          WHERE id = $1
+          RETURNING *`,
+        [localPayment.order_id, eventId],
       );
       updatedOrder = orders[0] || null;
-
-      if (updatedOrder && !wasPaid) {
-        await client.query(
-          `INSERT INTO public.order_status_history (order_id, store_id, status, notes)
-           SELECT $1, $2, 'novo', 'Pagamento PIX confirmado via Webhook (Asaas)'
-           WHERE NOT EXISTS (
-             SELECT 1 FROM public.order_status_history
-             WHERE order_id = $1 AND status = 'novo' AND notes = 'Pagamento PIX confirmado via Webhook (Asaas)'
-           )`,
-          [localPayment.order_id, localPayment.store_id],
+      if (financialConflict) {
+        console.error(
+          JSON.stringify({
+            scope: "payment",
+            event: "chargeback_after_transfer_reservation",
+            orderId: localPayment.order_id,
+            transferStatus: localPayment.order_transfer_status,
+            transferMovementStatus: transferMovement?.status ?? null,
+          }),
         );
       }
-
-      // Escrow (modelo central): registra ENTRADA_PIX + TAXA_PLATAFORMA e
-      // segura o repasse ate a entrega. No-op se a loja nao for central.
-      if (updatedOrder) {
-        await applyPaymentEscrow(
-          client,
-          {
-            id: localPayment.order_id,
-            store_id: localPayment.store_id,
-            total: localPayment.order_total,
-          },
-          payment.id,
-          eventId,
-        );
-      }
+      return {
+        updated: Boolean(updatedOrder),
+        payment: updatedPayments[0],
+        order: updatedOrder,
+        eventRowId,
+        latePaymentRefund,
+        financialConflict,
+      };
     } else {
       const { rows: orders } = await client.query(
         `UPDATE public.orders SET payment_status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
@@ -1329,16 +1556,58 @@ export const handleAsaasWebhook = async (request: Request) => {
       updatedOrder = orders[0] || null;
     }
 
-    return { updated: true, payment: updatedPayments[0], order: updatedOrder, eventRowId };
+    return {
+      updated: true,
+      payment: updatedPayments[0],
+      order: updatedOrder,
+      eventRowId,
+      latePaymentRefund,
+    };
   });
+
+  const latePaymentRefund = (result as any).latePaymentRefund as
+    | { required: true; automatic: boolean; orderId: string }
+    | null
+    | undefined;
+  let latePaymentRefundOutcome: Awaited<ReturnType<typeof refundCancelledOrder>> | null = null;
+  if (latePaymentRefund?.automatic) {
+    try {
+      latePaymentRefundOutcome = await refundCancelledOrder(latePaymentRefund.orderId, {
+        reason: "Pagamento PIX recebido apos o cancelamento",
+      });
+    } catch (error: any) {
+      const message = error?.message || "late payment refund failed";
+      await markEventFailed(eventId, claim.rowId, message);
+      return safeJsonError("Webhook processing failed", 500);
+    }
+
+    const durableHandoff = latePaymentRefundOutcome.ok
+      ? true
+      : ["reembolso_ja_em_andamento", "valor_estorno_invalido"].includes(
+          latePaymentRefundOutcome.reason,
+        );
+    if (!durableHandoff && !latePaymentRefundOutcome.ok) {
+      await markEventFailed(
+        eventId,
+        claim.rowId,
+        `late payment refund pending: ${latePaymentRefundOutcome.reason}`,
+      );
+      return safeJsonError("Webhook processing failed", 500);
+    }
+  }
 
   // Ledger de reembolso (modelo central) — fora da txn principal, idempotente.
   if (refundedEvents.has(event)) {
     try {
-      if (event === "PAYMENT_PARTIALLY_REFUNDED") {
-        await handlePartialRefundConfirmed(payment, eventId);
-      } else {
-        await handleRefundConfirmed(payment, eventId, false);
+      const refundOutcome =
+        event === "PAYMENT_PARTIALLY_REFUNDED"
+          ? await handlePartialRefundConfirmed(payment, eventId)
+          : await handleRefundConfirmed(payment, eventId, false);
+      if ((refundOutcome as any).financialConflict) {
+        (result as any).financialConflict = true;
+      }
+      if ((refundOutcome as any).stateConflict && !(refundOutcome as any).financialConflict) {
+        throw new Error((refundOutcome as any).reason || "refund state conflict");
       }
     } catch (error: any) {
       console.error("[asaas:webhook] refund ledger error", error?.message);
@@ -1382,5 +1651,19 @@ export const handleAsaasWebhook = async (request: Request) => {
     });
   }
 
-  return Response.json({ success: true });
+  return Response.json({
+    success: true,
+    financialConflict: Boolean((result as any).financialConflict),
+    latePaymentRefund: latePaymentRefund
+      ? {
+          required: true,
+          automatic: latePaymentRefund.automatic,
+          status: latePaymentRefundOutcome?.ok
+            ? latePaymentRefundOutcome.status
+            : latePaymentRefund?.automatic
+              ? "PROCESSANDO"
+              : "PENDENTE_RECONCILIACAO",
+        }
+      : undefined,
+  });
 };

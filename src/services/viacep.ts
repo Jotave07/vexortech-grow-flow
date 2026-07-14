@@ -1,4 +1,5 @@
 import { geocodeAddressWithGoogle, reverseGeocodeWithGoogle } from "@/services/googleMaps";
+import { fetchExternal } from "@/services/externalFetch";
 
 const VIACEP_BASE_URL = "https://viacep.com.br/ws";
 const BRASILAPI_CEP_BASE_URL = "https://brasilapi.com.br/api/cep/v2";
@@ -150,7 +151,7 @@ const fetchViaCepAddress = async (normalizedCep: string): Promise<ViaCepAddress>
   let response: Response;
 
   try {
-    response = await fetch(`${VIACEP_BASE_URL}/${normalizedCep}/json/`);
+    response = await fetchExternal(`${VIACEP_BASE_URL}/${normalizedCep}/json/`);
   } catch {
     throw new ViaCepError("network_error", "Nao foi possivel consultar o CEP agora. Tente novamente em instantes.");
   }
@@ -185,7 +186,7 @@ const fetchBrasilApiAddress = async (normalizedCep: string): Promise<AddressWith
   let response: Response;
 
   try {
-    response = await fetch(`${BRASILAPI_CEP_BASE_URL}/${normalizedCep}`);
+    response = await fetchExternal(`${BRASILAPI_CEP_BASE_URL}/${normalizedCep}`);
   } catch {
     throw new ViaCepError("network_error", "Nao foi possivel consultar o CEP agora. Tente novamente em instantes.");
   }
@@ -307,7 +308,7 @@ export const geocodeAddressCoordinates = async (address: GeocodeAddressInput): P
     url.searchParams.set("accept-language", "pt-BR");
     url.searchParams.set("q", queryParts.join(", "));
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchExternal(url.toString(), {
       headers: {
         Accept: "application/json",
         "User-Agent": "HypeDelivery/1.0 (hype-delivery@vexortech.com.br)",
@@ -366,7 +367,7 @@ export const reverseGeocodeCoordinates = async (
     url.searchParams.set("accept-language", "pt-BR");
     url.searchParams.set("lat", String(currentCoordinates.lat));
     url.searchParams.set("lon", String(currentCoordinates.lng));
-    response = await fetch(url.toString(), {
+    response = await fetchExternal(url.toString(), {
       headers: {
         Accept: "application/json",
         "User-Agent": "HypeDelivery/1.0 (hype-delivery@vexortech.com.br)",

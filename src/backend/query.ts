@@ -2,6 +2,7 @@ import type { QueryFilter, QueryPayload } from "@/integrations/backend/compat-ty
 import { query, quoteIdent, withTransaction } from "./db";
 import { assertActiveMerchantSubscription, getActor } from "./auth";
 import { publishRealtime } from "./realtime";
+import { assertValidDeliveryZone } from "@/server/delivery-zone-validation";
 
 type QueryContext = {
   admin?: boolean;
@@ -519,10 +520,27 @@ const parseRelationSelections = (select = "*") => {
     .filter(Boolean) as Array<{ name: string; select: string }>;
 };
 
-const baseColumnsSql = (select = "*") => {
+const virtualSelectColumnSql = (table: string, column: string) => {
+  if (table === "store_settings" && column === "pix_checkout_available") {
+    return `(
+      COALESCE(${quoteIdent("accept_pix")}, false)
+      AND (
+        NULLIF(btrim(${quoteIdent("pix_key")}), '') IS NOT NULL
+        OR COALESCE(${quoteIdent("financeiro_ativo")}, false)
+        OR NULLIF(btrim(${quoteIdent("payment_gateway_api_key")}), '') IS NOT NULL
+        OR NULLIF(btrim(${quoteIdent("asaas_api_key")}), '') IS NOT NULL
+      )
+    ) AS ${quoteIdent(column)}`;
+  }
+  return null;
+};
+
+const baseColumnsSql = (table: string, select = "*") => {
   const items = splitTopLevel(select).filter((item) => !item.includes("("));
   if (!items.length || items.includes("*")) return "*";
-  const columns = items.map((item) => ensureName(item.trim())).map(quoteIdent);
+  const columns = items
+    .map((item) => ensureName(item.trim()))
+    .map((column) => virtualSelectColumnSql(table, column) || quoteIdent(column));
   return columns.join(", ");
 };
 
@@ -693,6 +711,7 @@ const publicSelectColumns: Record<string, readonly string[]> = {
     "next_opening_time",
     "payment_methods",
     "payment_instructions",
+    "pix_checkout_available",
     "whatsapp_number",
     "pix_key",
     "pix_key_type",
@@ -801,14 +820,19 @@ const neverFilterAsNonAdmin: Record<string, ReadonlySet<string>> = {
   store_settings: new Set([
     "asaas_api_key",
     "asaas_wallet_id",
+    "financeiro_ativo",
     "payment_gateway_api_key",
     "payment_gateway_config",
+    "payment_gateway_provider",
     "pix_key",
+    "pix_checkout_available",
   ]),
   delivery_zones: new Set(["internal_notes"]),
 };
 
 const publicColumnSql = (table: string, column: string) => {
+  const virtualColumn = virtualSelectColumnSql(table, column);
+  if (virtualColumn) return virtualColumn;
   if (table === "store_settings" && column === "pix_key") {
     return `CASE WHEN NULLIF(btrim(${quoteIdent(column)}), '') IS NULL THEN NULL ELSE '[configured]' END AS ${quoteIdent(column)}`;
   }
@@ -845,13 +869,6 @@ const storeIdTables = new Set([
   "order_status_history",
 ]);
 
-const platformAdminRoles = new Set(["admin", "super_admin"]);
-const assignableNonAdminRoles = new Set([
-  "customer",
-  "store_owner",
-  "store_manager",
-  "store_attendant",
-]);
 const serverManagedTables = new Set([
   "payments",
   "order_items",
@@ -869,18 +886,29 @@ const protectedStoreColumns = new Set([
   "verification_notes",
   "status",
 ]);
+const genericMutationRestrictedTables = new Set([
+  "stores",
+  "store_settings",
+  "profiles",
+  "user_roles",
+]);
 
 const isPrivilegedContext = (ctx: QueryContext, actor: QueryActor | null) =>
   Boolean(ctx.admin || actor?.admin);
 
-const mayReadOwnedPublicRows = (actor: QueryActor | null) => Boolean(actor?.ownedStoreIds.length);
+const actorStoreIds = (actor: QueryActor) => actor.accessibleStoreIds || actor.ownedStoreIds;
+
+const mayReadOwnedPublicRows = (actor: QueryActor | null) =>
+  Boolean(actor && actorStoreIds(actor).length);
 
 const shouldUseStrictPublicProjection = (
   table: string,
   ctx: QueryContext,
   actor: QueryActor | null,
 ) =>
-  publicReadable.has(table) && !isPrivilegedContext(ctx, actor) && !mayReadOwnedPublicRows(actor);
+  publicReadable.has(table) &&
+  !ctx.admin &&
+  (table === "store_settings" || (!actor?.admin && !mayReadOwnedPublicRows(actor)));
 
 const filterGuaranteesOwnedScope = (table: string, filter: any, actor: QueryActor): boolean => {
   if (!filter || typeof filter !== "object" || Array.isArray(filter)) return false;
@@ -903,10 +931,10 @@ const filterGuaranteesOwnedScope = (table: string, filter: any, actor: QueryActo
   }
   const tenantColumn = table === "stores" ? "id" : "store_id";
   if (filter.column !== tenantColumn) return false;
-  if (filter.op === "eq") return actor.ownedStoreIds.includes(String(filter.value || ""));
+  if (filter.op === "eq") return actorStoreIds(actor).includes(String(filter.value || ""));
   if (filter.op === "in" && Array.isArray(filter.values) && filter.values.length > 0) {
     return filter.values.every((value: unknown) =>
-      actor.ownedStoreIds.includes(String(value || "")),
+      actorStoreIds(actor).includes(String(value || "")),
     );
   }
   return false;
@@ -918,8 +946,10 @@ const shouldUseStrictPublicProjectionForPayload = (
   ctx: QueryContext,
   actor: QueryActor | null,
 ) => {
-  if (!publicReadable.has(table) || isPrivilegedContext(ctx, actor)) return false;
-  if (!actor?.ownedStoreIds.length) return true;
+  if (!publicReadable.has(table) || ctx.admin) return false;
+  if (table === "store_settings") return true;
+  if (actor?.admin) return false;
+  if (!actor || !actorStoreIds(actor).length) return true;
   return !(payload.filters || []).some((filter) =>
     filterGuaranteesOwnedScope(table, filter, actor),
   );
@@ -934,11 +964,11 @@ const isPrivateRowForActor = (
   if (actor.admin) return true;
   if (table === "stores") {
     return (
-      actor.ownedStoreIds.includes(String(row.id || "")) ||
+      actorStoreIds(actor).includes(String(row.id || "")) ||
       String(row.owner_user_id || "") === actor.user.id
     );
   }
-  return Boolean(row.store_id && actor.ownedStoreIds.includes(String(row.store_id)));
+  return Boolean(row.store_id && actorStoreIds(actor).includes(String(row.store_id)));
 };
 
 const projectPublicRow = (table: string, row: Record<string, any>) => {
@@ -967,8 +997,15 @@ const sanitizeRowsForActor = (
   ctx: QueryContext,
   actor: QueryActor | null,
 ) => {
-  if (isPrivilegedContext(ctx, actor) || !publicReadable.has(table)) return rows;
-  return rows.map((row) =>
+  const serverSafeRows =
+    table === "store_settings"
+      ? rows.map(({ order_realtime_capability: _capability, ...row }) => row)
+      : rows;
+  if (!ctx.admin && table === "store_settings") {
+    return serverSafeRows.map((row) => projectPublicRow(table, row));
+  }
+  if (isPrivilegedContext(ctx, actor) || !publicReadable.has(table)) return serverSafeRows;
+  return serverSafeRows.map((row) =>
     isPrivateRowForActor(table, row, actor) ? row : projectPublicRow(table, row),
   );
 };
@@ -1004,7 +1041,7 @@ const assertSafeReadShape = (
   ctx: QueryContext,
   actor: QueryActor | null,
 ) => {
-  if (isPrivilegedContext(ctx, actor)) return;
+  if (ctx.admin || (actor?.admin && table !== "store_settings")) return;
   const strictPublic = shouldUseStrictPublicProjectionForPayload(table, payload, ctx, actor);
   const allowedPublicFilters = new Set([
     ...(publicSelectColumns[table] || []),
@@ -1071,7 +1108,7 @@ const accessSql = (
     throw new Error("Nao autorizado.");
   }
 
-  const owned = actor.ownedStoreIds;
+  const owned = actorStoreIds(actor);
   let userParam: string | null = null;
   let storesParam: string | null = null;
   const userSql = () => {
@@ -1090,9 +1127,10 @@ const accessSql = (
   };
 
   if (table === "stores") {
+    const assignedStore = `(${quoteIdent("id")} = ANY(${storesSql()}::uuid[]) OR ${quoteIdent("owner_user_id")} = ${userSql()})`;
     return mutating
-      ? `${quoteIdent("owner_user_id")} = ${userSql()}`
-      : `(${quoteIdent("owner_user_id")} = ${userSql()} OR (COALESCE(${quoteIdent("is_active")}, true) IS TRUE AND COALESCE(${quoteIdent("is_suspended")}, false) IS FALSE))`;
+      ? assignedStore
+      : `(${assignedStore} OR (COALESCE(${quoteIdent("is_active")}, true) IS TRUE AND COALESCE(${quoteIdent("is_suspended")}, false) IS FALSE))`;
   }
   if (table === "profiles")
     return `(${quoteIdent("user_id")} = ${userSql()} OR ${quoteIdent("store_id")} = ANY(${storesSql()}::uuid[]))`;
@@ -1164,22 +1202,16 @@ const onlyColumns = (values: unknown, allowedColumns: string[]) => {
   return columns.length > 0 && columns.every((column) => allowedColumns.includes(column));
 };
 
-const assertAssignableRole = (role: unknown) => {
-  if (role === undefined || role === null) return;
-  const value = String(role);
-  if (platformAdminRoles.has(value)) {
-    throw new Error("Papel administrativo so pode ser alterado por admin da plataforma.");
-  }
-  if (!assignableNonAdminRoles.has(value)) {
-    throw new Error("Papel de usuario invalido.");
-  }
-};
-
 export const assertSafePatchForNonAdmin = (
   table: string,
   operation: QueryPayload["operation"],
   values: unknown,
 ) => {
+  if (genericMutationRestrictedTables.has(table)) {
+    throw new Error(
+      `Mutacao de ${table} disponivel somente por fluxo seguro do servidor (funcao dedicada).`,
+    );
+  }
   if (table === "orders") {
     if (operation === "update" && onlyColumns(values, ["is_seen"])) return;
     throw new Error("Use funcoes seguras para alterar pedidos.");
@@ -1188,26 +1220,6 @@ export const assertSafePatchForNonAdmin = (
     throw new Error("Use funcoes seguras para alterar dados financeiros e operacionais.");
   }
 
-  const columns = changedColumns(values);
-  if (table === "stores") {
-    const blocked = columns.find(
-      (column) =>
-        protectedStoreColumns.has(column) &&
-        !(operation === "insert" && column === "owner_user_id"),
-    );
-    if (blocked) throw new Error(`Campo de loja protegido: ${blocked}.`);
-  }
-
-  if (table === "profiles" || table === "user_roles") {
-    for (const row of normalizeRows(values)) assertAssignableRole(row.role);
-  }
-
-  if (
-    table === "profiles" &&
-    columns.some((column) => ["is_exempt", "billing_exemption_pending"].includes(column))
-  ) {
-    throw new Error("Isencao de assinatura so pode ser alterada por admin da plataforma.");
-  }
 };
 
 const ensureMutationRowsAllowed = async (
@@ -1216,6 +1228,7 @@ const ensureMutationRowsAllowed = async (
   values: unknown,
   ctx: QueryContext,
   actor: QueryActor | null,
+  execute: QueryExecutor = query,
 ) => {
   if (ctx.admin) return;
   if (!actor) throw new Error("Nao autorizado.");
@@ -1225,9 +1238,12 @@ const ensureMutationRowsAllowed = async (
 
   const rows = normalizeRows(values);
   const ownsStore = (storeId: unknown) =>
-    !!storeId && actor.ownedStoreIds.includes(String(storeId));
+    !!storeId && actorStoreIds(actor).includes(String(storeId));
 
   for (const row of rows) {
+    if (table === "delivery_zones") {
+      assertValidDeliveryZone(row, { partial: true });
+    }
     // WITH CHECK equivalent for tenant/ownership columns. The WHERE predicate
     // protects the old row; these checks protect the proposed new row.
     if (table === "stores" && row.owner_user_id && String(row.owner_user_id) !== actor.user.id) {
@@ -1269,19 +1285,22 @@ const ensureMutationRowsAllowed = async (
 
     if (operation === "update") {
       if (table === "product_options" && row.product_id) {
-        const { rows: products } = await query(
-          `SELECT id FROM public.products WHERE id = $1 AND store_id = ANY($2::uuid[])`,
-          [row.product_id, actor.ownedStoreIds],
+        const { rows: products } = await execute(
+          `SELECT id FROM public.products
+           WHERE id = $1 AND store_id = ANY($2::uuid[])
+           FOR SHARE`,
+          [row.product_id, actorStoreIds(actor)],
         );
         if (!products[0]) throw new Error("Produto fora do escopo do usuario.");
       }
       if (table === "product_option_items" && row.option_id) {
-        const { rows: options } = await query(
+        const { rows: options } = await execute(
           `SELECT po.id
            FROM public.product_options po
            JOIN public.products p ON p.id = po.product_id
-           WHERE po.id = $1 AND p.store_id = ANY($2::uuid[])`,
-          [row.option_id, actor.ownedStoreIds],
+           WHERE po.id = $1 AND p.store_id = ANY($2::uuid[])
+           FOR SHARE OF po, p`,
+          [row.option_id, actorStoreIds(actor)],
         );
         if (!options[0]) throw new Error("Opcao fora do escopo do usuario.");
       }
@@ -1310,7 +1329,7 @@ const ensureMutationRowsAllowed = async (
         throw new Error("Pedido e loja sao obrigatorios para avaliar.");
       row.user_id = actor.user.id;
       row.is_visible = row.is_visible ?? true;
-      const { rows: orders } = await query(
+      const { rows: orders } = await execute(
         `SELECT o.id
          FROM public.orders o
          JOIN public.customers c ON c.id = o.customer_id
@@ -1318,7 +1337,8 @@ const ensureMutationRowsAllowed = async (
            AND o.store_id = $2
            AND c.user_id = $3
            AND o.status = 'entregue'
-         LIMIT 1`,
+         LIMIT 1
+         FOR SHARE OF o, c`,
         [row.order_id, row.store_id, actor.user.id],
       );
       if (orders[0]) continue;
@@ -1329,30 +1349,34 @@ const ensureMutationRowsAllowed = async (
       throw new Error("Use o checkout seguro para criar pedidos e pagamentos.");
     }
     if (table === "order_item_options" && row.order_item_id) {
-      const { rows: orders } = await query(
+      const { rows: orders } = await execute(
         `SELECT oi.id
          FROM public.order_items oi
          JOIN public.orders o ON o.id = oi.order_id
-         WHERE oi.id = $1 AND o.store_id = ANY($2::uuid[])`,
-        [row.order_item_id, actor.ownedStoreIds],
+         WHERE oi.id = $1 AND o.store_id = ANY($2::uuid[])
+         FOR SHARE OF oi, o`,
+        [row.order_item_id, actorStoreIds(actor)],
       );
       if (orders[0]) continue;
       throw new Error("Use o checkout seguro para criar opcoes do pedido.");
     }
     if (table === "product_options" && row.product_id) {
-      const { rows: products } = await query(
-        `SELECT id FROM public.products WHERE id = $1 AND store_id = ANY($2::uuid[])`,
-        [row.product_id, actor.ownedStoreIds],
+      const { rows: products } = await execute(
+        `SELECT id FROM public.products
+         WHERE id = $1 AND store_id = ANY($2::uuid[])
+         FOR SHARE`,
+        [row.product_id, actorStoreIds(actor)],
       );
       if (products[0]) continue;
     }
     if (table === "product_option_items" && row.option_id) {
-      const { rows: options } = await query(
+      const { rows: options } = await execute(
         `SELECT po.id
          FROM public.product_options po
          JOIN public.products p ON p.id = po.product_id
-         WHERE po.id = $1 AND p.store_id = ANY($2::uuid[])`,
-        [row.option_id, actor.ownedStoreIds],
+         WHERE po.id = $1 AND p.store_id = ANY($2::uuid[])
+         FOR SHARE OF po, p`,
+        [row.option_id, actorStoreIds(actor)],
       );
       if (options[0]) continue;
     }
@@ -1488,13 +1512,6 @@ const assertPostMutationAccess = async (
   execute: QueryExecutor,
 ) => {
   if (!rows.length || isPrivilegedContext(ctx, actor)) return;
-  const safeProfileDetach =
-    table === "profiles" &&
-    operation === "update" &&
-    onlyColumns(values, ["store_id"]) &&
-    normalizeRows(values).every((row) => row.store_id === null) &&
-    rows.every((row) => row.store_id === null);
-  if (safeProfileDetach) return;
   const ids = Array.from(new Set(rows.map((row) => row.id).filter(Boolean)));
   if (ids.length !== rows.length) throw new Error("Nao foi possivel validar o escopo da mutacao.");
   const params: unknown[] = [ids];
@@ -1515,6 +1532,11 @@ const assertBillingMutationUsesServerFunction = (
   values: unknown,
 ) => {
   if (operation === "select") return;
+  if (genericMutationRestrictedTables.has(table)) {
+    throw new Error(
+      `Mutacao de ${table} disponivel somente por fluxo seguro do servidor (funcao dedicada).`,
+    );
+  }
   const columns = changedColumns(values);
   if (serverManagedTables.has(table)) {
     throw new Error("Use uma funcao segura para alterar dados financeiros e operacionais.");
@@ -1541,7 +1563,7 @@ const relationColumnsSql = (
   const projection =
     forcePublic || shouldUseStrictPublicProjection(relation.table, ctx, actor)
       ? publicBaseColumnsSql(relation.table, select)
-      : baseColumnsSql(select);
+      : baseColumnsSql(relation.table, select);
   if (projection === "*") return projection;
 
   const projectedNames = new Set(requested);
@@ -1673,8 +1695,6 @@ const publishRows = (table: string, eventType: "INSERT" | "UPDATE" | "DELETE", r
 const hasTextValue = (value: unknown) => String(value ?? "").trim().length > 0;
 
 const merchantSubscriptionTables = new Set([
-  "stores",
-  "store_settings",
   "categories",
   "products",
   "product_options",
@@ -1682,18 +1702,202 @@ const merchantSubscriptionTables = new Set([
   "coupons",
   "delivery_zones",
   "delivery_drivers",
-  "profiles",
-  "user_roles",
   "orders",
 ]);
 
-const requestedMutationStoreId = (payload: QueryPayload) => {
-  const row = normalizeRows(payload.values)[0];
-  if (row?.store_id) return String(row.store_id);
-  const filter = (payload.filters || []).find(
-    (candidate) => candidate.op === "eq" && candidate.column === "store_id",
+const directMerchantStoreTables = new Set([
+  "categories",
+  "products",
+  "coupons",
+  "delivery_zones",
+  "delivery_drivers",
+  "orders",
+]);
+
+const lockRelatedProductStores = async (
+  table: "product_options" | "product_option_items",
+  relationIds: string[],
+  execute: QueryExecutor,
+) => {
+  if (!relationIds.length) return [];
+  if (table === "product_options") {
+    const { rows } = await execute(
+      `SELECT id, store_id
+       FROM public.products
+       WHERE id = ANY($1::uuid[])
+       ORDER BY id
+       FOR SHARE`,
+      [relationIds],
+    );
+    if (rows.length !== relationIds.length) throw new Error("Produto relacionado nao encontrado.");
+    return rows;
+  }
+  const { rows } = await execute(
+    `SELECT option_row.id, product.store_id
+     FROM public.product_options option_row
+     JOIN public.products product ON product.id = option_row.product_id
+     WHERE option_row.id = ANY($1::uuid[])
+     ORDER BY option_row.id
+     FOR SHARE OF option_row, product`,
+    [relationIds],
   );
-  return filter && "value" in filter ? String(filter.value || "") : undefined;
+  if (rows.length !== relationIds.length) throw new Error("Opcao relacionada nao encontrada.");
+  return rows;
+};
+
+const lockMerchantMutationStoreIds = async (
+  table: string,
+  operation: QueryPayload["operation"],
+  values: unknown,
+  whereSql: string,
+  params: unknown[],
+  execute: QueryExecutor,
+) => {
+  const storeIds = new Set<string>();
+  const targetIds = new Set<string>();
+  const addStoreId = (value: unknown) => {
+    const storeId = String(value || "");
+    if (storeId) storeIds.add(storeId);
+  };
+  const rows = normalizeRows(values);
+  const inserting = operation === "insert" || operation === "upsert";
+  let affectedRows = 0;
+
+  if (inserting && directMerchantStoreTables.has(table)) {
+    for (const row of rows) {
+      if (!row.store_id) throw new Error("Loja e obrigatoria para esta operacao.");
+      addStoreId(row.store_id);
+    }
+  }
+
+  if (!inserting && directMerchantStoreTables.has(table)) {
+    const { rows: targets } = await execute(
+      `SELECT id, store_id
+       FROM public.${quoteIdent(table)}
+       WHERE ${whereSql}
+       ORDER BY id
+       FOR UPDATE`,
+      params,
+    );
+    affectedRows = targets.length;
+    for (const target of targets) {
+      targetIds.add(String(target.id));
+      addStoreId(target.store_id);
+    }
+    if (affectedRows && operation === "update") {
+      for (const row of rows) if (row.store_id !== undefined) addStoreId(row.store_id);
+    }
+  }
+
+  if (!inserting && table === "product_options") {
+    const { rows: targets } = await execute(
+      `SELECT target.id, product.store_id
+       FROM public.product_options target
+       JOIN public.products product ON product.id = target.product_id
+       WHERE target.id IN (
+         SELECT id FROM public.product_options WHERE ${whereSql}
+       )
+       ORDER BY target.id
+       FOR UPDATE OF target
+       FOR SHARE OF product`,
+      params,
+    );
+    affectedRows = targets.length;
+    for (const target of targets) {
+      targetIds.add(String(target.id));
+      addStoreId(target.store_id);
+    }
+  }
+
+  if (!inserting && table === "product_option_items") {
+    const { rows: targets } = await execute(
+      `SELECT target.id, product.store_id
+       FROM public.product_option_items target
+       JOIN public.product_options option_row ON option_row.id = target.option_id
+       JOIN public.products product ON product.id = option_row.product_id
+       WHERE target.id IN (
+         SELECT id FROM public.product_option_items WHERE ${whereSql}
+       )
+       ORDER BY target.id
+       FOR UPDATE OF target
+       FOR SHARE OF option_row, product`,
+      params,
+    );
+    affectedRows = targets.length;
+    for (const target of targets) {
+      targetIds.add(String(target.id));
+      addStoreId(target.store_id);
+    }
+  }
+
+  if (
+    (inserting || (operation === "update" && affectedRows > 0)) &&
+    (table === "product_options" || table === "product_option_items")
+  ) {
+    const relationColumn = table === "product_options" ? "product_id" : "option_id";
+    const relationIds = Array.from(
+      new Set(rows.map((row) => String(row[relationColumn] || "")).filter(Boolean)),
+    );
+    if (inserting && rows.some((row) => !row[relationColumn])) {
+      throw new Error("Relacionamento de produto e obrigatorio.");
+    }
+    const relatedRows = await lockRelatedProductStores(table, relationIds, execute);
+    for (const related of relatedRows) addStoreId(related.store_id);
+  }
+
+  return { storeIds: [...storeIds].sort(), targetIds: [...targetIds].sort() };
+};
+
+const assertProductCategoriesMatchStores = async (
+  table: string,
+  rows: any[],
+  execute: QueryExecutor,
+) => {
+  if (table !== "products" || !rows.length) return;
+  const categoryIds = Array.from(
+    new Set(rows.map((row) => String(row.category_id || "")).filter(Boolean)),
+  );
+  if (!categoryIds.length) return;
+  const { rows: categories } = await execute(
+    `SELECT id, store_id
+     FROM public.categories
+     WHERE id = ANY($1::uuid[])
+     ORDER BY id
+     FOR SHARE`,
+    [categoryIds],
+  );
+  const categoryStores = new Map(
+    categories.map((category) => [String(category.id), String(category.store_id || "")]),
+  );
+  for (const row of rows) {
+    if (!row.category_id) continue;
+    if (categoryStores.get(String(row.category_id)) !== String(row.store_id || "")) {
+      throw new Error("Categoria do produto deve pertencer a mesma loja.");
+    }
+  }
+};
+
+const assertRealtimeCapabilityIsServerOnly = (table: string, payload: QueryPayload) => {
+  if (table !== "store_settings") return;
+  const capabilityColumn = "order_realtime_capability";
+  const requested = requestedBaseColumns(payload.select);
+  if (requested.includes(capabilityColumn)) {
+    throw new Error("Capacidade Realtime disponivel somente pela funcao autorizada.");
+  }
+  if ((payload.orders || []).some((order) => order.column === capabilityColumn)) {
+    throw new Error("Ordenacao por capacidade Realtime nao permitida.");
+  }
+  visitAtomicFilters(payload.filters || [], (filter) => {
+    if (filter.column === capabilityColumn) {
+      throw new Error("Filtro por capacidade Realtime nao permitido.");
+    }
+  });
+  if (
+    payload.operation !== "select" &&
+    changedColumns(payload.values).includes(capabilityColumn)
+  ) {
+    throw new Error("Capacidade Realtime e gerenciada somente pelo banco de dados.");
+  }
 };
 
 export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryContext = {}) => {
@@ -1704,13 +1908,11 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
       throw new Error("Operacao de consulta invalida.");
     }
     const table = ensureName(payload.table, "tabela");
+    assertRealtimeCapabilityIsServerOnly(table, payload);
     if (!ctx.admin) {
       assertBillingMutationUsesServerFunction(table, payload.operation, payload.values);
     }
     const actor = ctx.admin ? null : await getActor(ctx.token);
-    if (payload.operation !== "select" && actor && merchantSubscriptionTables.has(table)) {
-      await assertActiveMerchantSubscription(actor, requestedMutationStoreId(payload));
-    }
     assertSafeReadShape(table, payload, ctx, actor);
     const params: unknown[] = [];
     const filterState: FilterCompileState = { depth: 0, nodes: 0 };
@@ -1753,7 +1955,7 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
       const limitSql = effectiveLimit === null ? "" : ` LIMIT ${effectiveLimit}`;
       const columnsSql = shouldUseStrictPublicProjectionForPayload(table, payload, ctx, actor)
         ? publicBaseColumnsSql(table, payload.select)
-        : baseColumnsSql(payload.select);
+        : baseColumnsSql(table, payload.select);
       const result = await query(
         `SELECT ${columnsSql} FROM public.${quoteIdent(table)} WHERE ${whereSql}${orderSql ? ` ORDER BY ${orderSql}` : ""}${limitSql}`,
         params,
@@ -1778,14 +1980,41 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
       return { data: rows, error: null };
     }
 
-    await ensureMutationRowsAllowed(table, payload.operation, payload.values, ctx, actor);
     const changedRows = await withTransaction(async (client) => {
       const execute: QueryExecutor = (text, values = []) => client.query(text, values);
+      await ensureMutationRowsAllowed(
+        table,
+        payload.operation,
+        payload.values,
+        ctx,
+        actor,
+        execute,
+      );
+      let mutationWhereSql = whereSql;
+      let mutationParams = params;
+      if (actor && merchantSubscriptionTables.has(table)) {
+        const targets = await lockMerchantMutationStoreIds(
+          table,
+          payload.operation,
+          payload.values,
+          whereSql,
+          params,
+          execute,
+        );
+        for (const storeId of targets.storeIds) {
+          await assertActiveMerchantSubscription(actor, storeId, { execute, lock: true });
+        }
+        if (payload.operation === "update" || payload.operation === "delete") {
+          mutationParams = [targets.targetIds];
+          mutationWhereSql = `id = ANY($1::uuid[])`;
+        }
+      }
       let rows: any[] = [];
       if (payload.operation === "insert") rows = await insertRows(table, payload.values, execute);
       if (payload.operation === "update")
-        rows = await updateRows(table, payload.values, whereSql, params, execute);
-      if (payload.operation === "delete") rows = await deleteRows(table, whereSql, params, execute);
+        rows = await updateRows(table, payload.values, mutationWhereSql, mutationParams, execute);
+      if (payload.operation === "delete")
+        rows = await deleteRows(table, mutationWhereSql, mutationParams, execute);
       if (payload.operation === "upsert") {
         rows = await upsertRows(
           table,
@@ -1795,6 +2024,10 @@ export const executeQueryPayload = async (payload: QueryPayload, ctx: QueryConte
           execute,
         );
       }
+      if (table === "delivery_zones" && payload.operation !== "delete") {
+        for (const row of rows) assertValidDeliveryZone(row);
+      }
+      await assertProductCategoriesMatchStores(table, rows, execute);
       if (payload.operation !== "delete") {
         await assertPostMutationAccess(
           table,

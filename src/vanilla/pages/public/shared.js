@@ -262,13 +262,13 @@ export function setButtonBusy(button, busy, busyLabel = "Processando…") {
   else button.textContent = button.dataset.idleLabel;
 }
 
-export function field({ id, label, input, hint = "", error = "", className = "vxp-col-12" }) {
+export function field({ id, label, input, hint = "", error = "", className = "" }) {
   const hintId = hint ? `${id}-hint` : "";
   const errorId = `${id}-error`;
   input.id = id;
   if (hint || error) input.setAttribute("aria-describedby", [hintId, error ? errorId : ""].filter(Boolean).join(" "));
   if (error) input.setAttribute("aria-invalid", "true");
-  return h("div", { className: `vxp-field ${className}` },
+  return h("div", { className: `vxp-field ${className}`.trim() },
     h("label", { htmlFor: id, text: label }),
     input,
     hint ? h("p", { id: hintId, className: "vxp-field__hint", text: hint }) : null,

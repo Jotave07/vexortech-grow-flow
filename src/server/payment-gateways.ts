@@ -1,4 +1,7 @@
 import { asaas } from "./asaas.server";
+import { fetchWithTimeout, isHttpRequestTimeoutError } from "./http-timeout";
+
+export const PIX_GATEWAY_TEST_TIMEOUT_MS = 15_000;
 
 export type PublicPaymentStatus = "pendente" | "pago" | "falhou" | "cancelado" | "estornado";
 
@@ -93,18 +96,42 @@ export const hasPixGatewayConfig = (settings: any, gateways: Record<string, PixP
   }
 };
 
-export const testPixGatewayConnection = async (provider: string | null | undefined, apiKey: string) => {
+export const testPixGatewayConnection = async (
+  provider: string | null | undefined,
+  apiKey: string,
+  options: { signal?: AbortSignal } = {},
+) => {
   const normalizedProvider = normalizePixGatewayProvider(provider);
   if (normalizedProvider !== "asaas") {
     return { success: false, message: "Gateway de pagamento ainda nao suportado para teste automatico." };
   }
 
-  const response = await fetch(`${process.env.ASAAS_ENVIRONMENT === "sandbox" ? "https://sandbox.asaas.com/api/v3" : "https://www.asaas.com/api/v3"}/customers?limit=1`, {
-    headers: {
-      access_token: apiKey,
-      "User-Agent": "HypeDelivery/1.0",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      `${process.env.ASAAS_ENVIRONMENT === "sandbox" ? "https://sandbox.asaas.com/api/v3" : "https://www.asaas.com/api/v3"}/customers?limit=1`,
+      {
+        headers: {
+          access_token: apiKey,
+          "User-Agent": "HypeDelivery/1.0",
+        },
+        signal: options.signal,
+      },
+      PIX_GATEWAY_TEST_TIMEOUT_MS,
+    );
+  } catch (error) {
+    if (isHttpRequestTimeoutError(error)) {
+      return {
+        success: false,
+        message: "Tempo esgotado ao testar a conexao com o gateway. Tente novamente.",
+      };
+    }
+    if (options.signal?.aborted) throw error;
+    return {
+      success: false,
+      message: "Falha de rede ao conectar com o gateway. Tente novamente.",
+    };
+  }
 
   if (response.ok) {
     return { success: true, message: "Conexao estabelecida com sucesso." };

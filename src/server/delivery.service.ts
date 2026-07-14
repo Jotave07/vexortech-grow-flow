@@ -1,8 +1,15 @@
 import { z } from "zod";
 import crypto from "node:crypto";
 import { query } from "@/backend/db";
-import { fetchAddressByCep, geocodeAddressCoordinates, isValidCep, type AddressCoordinates, type AddressWithCoordinates } from "@/services/viacep";
+import {
+  fetchAddressByCep,
+  geocodeAddressCoordinates,
+  isValidCep,
+  type AddressCoordinates,
+  type AddressWithCoordinates,
+} from "@/services/viacep";
 import { getBestDeliveryDistanceKm } from "@/services/distance";
+import { deliveryZoneValidationError } from "./delivery-zone-validation";
 
 export type DeliveryQuoteInput = {
   storeId: string;
@@ -48,51 +55,94 @@ type DeliveryQuoteDeps = {
   cepLookup?: typeof fetchAddressByCep;
 };
 
-const quoteRequestSchema = z.object({
-  storeId: z.string().uuid().optional(),
-  slug: z.string().min(1).max(160).optional(),
-  subtotal: z.number().nonnegative().default(0),
-  address: z.object({
-    cep: z.string().max(16).optional().nullable(),
-    street: z.string().max(200).optional().nullable(),
-    number: z.string().max(40).optional().nullable(),
-    complement: z.string().max(120).optional().nullable(),
-    neighborhood: z.string().max(120).optional().nullable(),
-    city: z.string().max(120).optional().nullable(),
-    state: z.string().max(2).optional().nullable(),
-  }),
-  customerCoordinates: z.object({
-    lat: z.number().min(-90).max(90),
-    lng: z.number().min(-180).max(180),
-  }).optional().nullable(),
-}).refine((value) => value.storeId || value.slug, {
-  message: "Informe storeId ou slug.",
-});
+const quoteRequestSchema = z
+  .object({
+    storeId: z.string().uuid().optional(),
+    slug: z.string().min(1).max(160).optional(),
+    subtotal: z.number().nonnegative().default(0),
+    address: z.object({
+      cep: z.string().max(16).optional().nullable(),
+      street: z.string().max(200).optional().nullable(),
+      number: z.string().max(40).optional().nullable(),
+      complement: z.string().max(120).optional().nullable(),
+      neighborhood: z.string().max(120).optional().nullable(),
+      city: z.string().max(120).optional().nullable(),
+      state: z.string().max(2).optional().nullable(),
+    }),
+    customerCoordinates: z
+      .object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+      })
+      .optional()
+      .nullable(),
+  })
+  .refine((value) => value.storeId || value.slug, {
+    message: "Informe storeId ou slug.",
+  });
 
 const onlyDigits = (value?: string | null) => String(value || "").replace(/\D/g, "");
-const upper = (value?: string | null) => String(value || "").trim().toUpperCase();
+const upper = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
 const clean = (value?: string | null) => String(value || "").trim();
 const money = (value: unknown) => Number(Number(value || 0).toFixed(2));
+const DEFAULT_DELIVERY_MINUTES_PER_KM = 5;
 
 export const deliveryConfigurationFingerprint = (store: any, settings: any, zones: any[]) =>
-  crypto.createHash("sha256").update(JSON.stringify({
-    store: [
-      store?.id, store?.is_active, store?.is_suspended, store?.latitude, store?.longitude,
-      store?.zip_code, store?.address, store?.address_number, store?.neighborhood, store?.city, store?.state,
-    ],
-    settings: [
-      settings?.allow_delivery, settings?.delivery_radius_km, settings?.free_delivery_above,
-      settings?.avg_prep_time_minutes,
-    ],
-    zones: [...zones]
-      .sort((left, right) => String(left?.id || "").localeCompare(String(right?.id || "")))
-      .map((zone) => [
-        zone?.id, zone?.is_active, zone?.zip_start, zone?.zip_end, zone?.city, zone?.state,
-        zone?.neighborhood, zone?.priority, zone?.fee, zone?.fee_per_km, zone?.min_fee,
-        zone?.max_fee, zone?.min_order, zone?.max_radius_km, zone?.base_prep_time,
-        zone?.minutes_per_km, zone?.additional_region_time,
-      ]),
-  })).digest("hex");
+  crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        store: [
+          store?.id,
+          store?.is_active,
+          store?.is_suspended,
+          store?.latitude,
+          store?.longitude,
+          store?.zip_code,
+          store?.address,
+          store?.address_number,
+          store?.neighborhood,
+          store?.city,
+          store?.state,
+        ],
+        settings: [
+          settings?.allow_delivery,
+          settings?.delivery_radius_km,
+          settings?.free_delivery_above,
+          settings?.delivery_base_fee,
+          settings?.delivery_fee_per_km,
+          settings?.delivery_fee,
+          settings?.min_order_value,
+          settings?.min_order_amount,
+          settings?.avg_prep_time_minutes,
+        ],
+        zones: [...zones]
+          .sort((left, right) => String(left?.id || "").localeCompare(String(right?.id || "")))
+          .map((zone) => [
+            zone?.id,
+            zone?.is_active,
+            zone?.zip_start,
+            zone?.zip_end,
+            zone?.city,
+            zone?.state,
+            zone?.neighborhood,
+            zone?.priority,
+            zone?.fee,
+            zone?.fee_per_km,
+            zone?.min_fee,
+            zone?.max_fee,
+            zone?.min_order,
+            zone?.max_radius_km,
+            zone?.base_prep_time,
+            zone?.minutes_per_km,
+            zone?.additional_region_time,
+          ]),
+      }),
+    )
+    .digest("hex");
 
 const readNumber = (value: unknown) => {
   if (value === null || value === undefined || value === "") return null;
@@ -106,7 +156,10 @@ const readCoordinates = (row: any): AddressCoordinates | null => {
   return lat !== null && lng !== null ? { lat, lng } : null;
 };
 
-const unavailable = (reason: string, extra: Partial<DeliveryQuoteResult> = {}): DeliveryQuoteResult => ({
+const unavailable = (
+  reason: string,
+  extra: Partial<DeliveryQuoteResult> = {},
+): DeliveryQuoteResult => ({
   available: false,
   reason,
   fee: 0,
@@ -160,7 +213,8 @@ const matchRegionRank = (zone: any, address: ReturnType<typeof normalizeAddress>
   const zoneCity = upper(zone.city);
   const zoneState = upper(zone.state);
   const zoneNeighborhood = upper(zone.neighborhood);
-  const cityMatches = (!zoneCity || zoneCity === address.city) && (!zoneState || zoneState === address.state);
+  const cityMatches =
+    (!zoneCity || zoneCity === address.city) && (!zoneState || zoneState === address.state);
   if (!cityMatches) return 0;
   if (zoneNeighborhood && zoneNeighborhood !== "GERAL") {
     return zoneNeighborhood === address.neighborhood ? 2 : 0;
@@ -170,7 +224,11 @@ const matchRegionRank = (zone: any, address: ReturnType<typeof normalizeAddress>
 
 const findBestRegion = (zones: any[], address: ReturnType<typeof normalizeAddress>) =>
   zones
-    .map((zone) => ({ zone, rank: matchRegionRank(zone, address), priority: Number(zone.priority || 0) }))
+    .map((zone) => ({
+      zone,
+      rank: matchRegionRank(zone, address),
+      priority: Number(zone.priority || 0),
+    }))
     .filter((match) => match.rank > 0)
     .sort((a, b) => b.rank - a.rank || b.priority - a.priority)[0]?.zone || null;
 
@@ -185,8 +243,17 @@ const applyFeeBounds = (fee: number, zone: any) => {
 
 const applyStoreFreeDelivery = (fee: number, subtotal: number, settings: any) => {
   const freeDeliveryAbove = readNumber(settings?.free_delivery_above);
-  if (freeDeliveryAbove !== null && freeDeliveryAbove > 0 && subtotal >= freeDeliveryAbove) return 0;
+  if (freeDeliveryAbove !== null && freeDeliveryAbove > 0 && subtotal >= freeDeliveryAbove)
+    return 0;
   return fee;
+};
+
+export const resolveRadiusDeliveryPricing = (settings: any) => {
+  const baseFee = Math.max(0, readNumber(settings?.delivery_base_fee) ?? 0);
+  const feePerKm = Math.max(0, readNumber(settings?.delivery_fee_per_km) ?? 0);
+  const legacyFee = Math.max(0, readNumber(settings?.delivery_fee) ?? 0);
+  const hasCurrentPricing = baseFee > 0 || feePerKm > 0 || legacyFee === 0;
+  return { baseFee: hasCurrentPricing ? baseFee : legacyFee, feePerKm };
 };
 
 export const quoteDelivery = async (
@@ -231,9 +298,18 @@ export const quoteDelivery = async (
   const { rows: zones } = await runQuery(
     `SELECT *
      FROM public.delivery_zones
-     WHERE store_id = $1 AND COALESCE(is_active, true) IS TRUE`,
+     WHERE store_id = $1 AND is_active IS TRUE`,
     [input.storeId],
   );
+  const invalidZone = zones.find((zone) => deliveryZoneValidationError(zone));
+  if (invalidZone) {
+    return unavailable(
+      "A configuracao das regioes de entrega e invalida. A loja precisa revisa-la.",
+      {
+        normalizedAddress: address,
+      },
+    );
+  }
   const configurationFingerprint = deliveryConfigurationFingerprint(store, settings, zones);
   const resolveCepIntoAddress = async () => {
     try {
@@ -254,7 +330,7 @@ export const quoteDelivery = async (
 
   // CEP data is resolved server-side even when the client sent a complete address.
   // This prevents a client from pairing a valid delivery zone with another city/street.
-  if (!await resolveCepIntoAddress()) {
+  if (!(await resolveCepIntoAddress())) {
     return unavailable("Nao foi possivel validar o CEP informado. Tente novamente.", {
       normalizedAddress: { cep: address.cep },
     });
@@ -268,25 +344,31 @@ export const quoteDelivery = async (
   let distanceKm: number | null = null;
 
   const resolveDistanceKm = async () => {
-    const hasGeocodableAddress = Boolean(address.city && address.state && (address.street || address.neighborhood || address.cep));
+    const hasGeocodableAddress = Boolean(
+      address.city && address.state && (address.street || address.neighborhood || address.cep),
+    );
     if (!customerCoordinates && !hasGeocodableAddress) return null;
     if (!customerCoordinates && hasGeocodableAddress) {
       customerCoordinates = await geocode(addressForGeocode(address));
     }
     if (!customerCoordinates) return null;
     if (!storeCoordinates) {
-      storeCoordinates = await geocode(addressForGeocode(normalizeAddress({
-        cep: store.zip_code,
-        street: store.address,
-        number: store.address_number,
-        neighborhood: store.neighborhood,
-        city: store.city,
-        state: store.state,
-      })));
+      storeCoordinates = await geocode(
+        addressForGeocode(
+          normalizeAddress({
+            cep: store.zip_code,
+            street: store.address,
+            number: store.address_number,
+            neighborhood: store.neighborhood,
+            city: store.city,
+            state: store.state,
+          }),
+        ),
+      );
     }
     if (!storeCoordinates || !customerCoordinates) return null;
     const result = await distance(storeCoordinates, customerCoordinates);
-    return result.distanceKm;
+    return Number.isFinite(result.distanceKm) && result.distanceKm >= 0 ? result.distanceKm : null;
   };
 
   if (!region) {
@@ -298,23 +380,86 @@ export const quoteDelivery = async (
     }
 
     distanceKm = await resolveDistanceKm();
-    if (distanceKm !== null && distanceKm > globalRadiusKm) {
+    if (distanceKm === null) {
+      return unavailable("Nao foi possivel calcular a distancia para validar o raio de entrega.", {
+        normalizedAddress: address,
+      });
+    }
+
+    if (distanceKm > globalRadiusKm) {
       return unavailable("Regiao nao atendida. Endereco fora do raio de entrega da loja.", {
         distanceKm,
         normalizedAddress: address,
       });
     }
 
-    return unavailable("Regiao nao atendida. Esta loja ainda nao entrega nesse endereco.", {
-      ...(distanceKm !== null ? { distanceKm } : {}),
+    const minOrder =
+      readNumber(settings.min_order_value) ?? readNumber(settings.min_order_amount) ?? 0;
+    const radiusPricing = resolveRadiusDeliveryPricing(settings);
+    const rawFee = radiusPricing.baseFee + radiusPricing.feePerKm * distanceKm;
+    const fee = applyStoreFreeDelivery(money(rawFee), input.subtotal, settings);
+    if (!Number.isFinite(fee) || fee < 0) {
+      return unavailable("A configuracao do frete por raio e invalida.", {
+        distanceKm,
+        normalizedAddress: address,
+      });
+    }
+
+    if (input.subtotal < minOrder) {
+      return unavailable(`Pedido minimo para entrega e R$ ${minOrder.toFixed(2)}.`, {
+        fee,
+        distanceKm,
+        source: "radius",
+        normalizedAddress: address,
+      });
+    }
+
+    const basePrep = readNumber(settings.avg_prep_time_minutes) ?? 30;
+    const estimatedMin = Math.max(
+      1,
+      Math.round(basePrep + DEFAULT_DELIVERY_MINUTES_PER_KM * distanceKm),
+    );
+
+    return {
+      available: true,
+      fee,
+      distanceKm,
+      estimatedMin,
+      estimatedMax: Math.round(estimatedMin * 1.25),
+      regionId: null,
+      regionName: null,
+      source: "radius",
       normalizedAddress: address,
-    });
+      configurationFingerprint,
+    };
   }
 
   distanceKm = await resolveDistanceKm();
 
   const globalRadiusKm = readNumber(settings.delivery_radius_km);
-  if (distanceKm !== null && globalRadiusKm !== null && globalRadiusKm > 0 && distanceKm > globalRadiusKm) {
+  const regionRadiusKm = readNumber(region.max_radius_km);
+  const feePerKm = readNumber(region.fee_per_km) ?? 0;
+  if (
+    distanceKm === null &&
+    ((globalRadiusKm ?? 0) > 0 || (regionRadiusKm ?? 0) > 0 || feePerKm > 0)
+  ) {
+    return unavailable(
+      "Nao foi possivel calcular a distancia exigida para esta regiao de entrega.",
+      {
+        regionId: region.id,
+        regionName: region.name || region.neighborhood || null,
+        source: "region",
+        normalizedAddress: address,
+      },
+    );
+  }
+
+  if (
+    distanceKm !== null &&
+    globalRadiusKm !== null &&
+    globalRadiusKm > 0 &&
+    distanceKm > globalRadiusKm
+  ) {
     return unavailable("Regiao nao atendida. Endereco fora do raio de entrega da loja.", {
       distanceKm,
       regionId: region.id,
@@ -324,8 +469,12 @@ export const quoteDelivery = async (
     });
   }
 
-  const regionRadiusKm = readNumber(region.max_radius_km);
-  if (distanceKm !== null && regionRadiusKm !== null && regionRadiusKm > 0 && distanceKm > regionRadiusKm) {
+  if (
+    distanceKm !== null &&
+    regionRadiusKm !== null &&
+    regionRadiusKm > 0 &&
+    distanceKm > regionRadiusKm
+  ) {
     return unavailable("Regiao nao atendida. Endereco fora do raio desta regiao de entrega.", {
       distanceKm,
       regionId: region.id,
@@ -336,8 +485,17 @@ export const quoteDelivery = async (
   }
 
   const minOrder = readNumber(region.min_order) || 0;
-  const rawFee = (readNumber(region.fee) || 0) + (readNumber(region.fee_per_km) || 0) * (distanceKm || 0);
+  const rawFee = (readNumber(region.fee) || 0) + feePerKm * (distanceKm || 0);
   const fee = applyStoreFreeDelivery(applyFeeBounds(rawFee, region), input.subtotal, settings);
+  if (!Number.isFinite(fee) || fee < 0) {
+    return unavailable("A configuracao de preco desta regiao de entrega e invalida.", {
+      ...(distanceKm !== null ? { distanceKm } : {}),
+      regionId: region.id,
+      regionName: region.name || region.neighborhood || null,
+      source: "region",
+      normalizedAddress: address,
+    });
+  }
 
   if (input.subtotal < minOrder) {
     return unavailable(`Pedido minimo para esta regiao e R$ ${minOrder.toFixed(2)}.`, {
@@ -350,10 +508,14 @@ export const quoteDelivery = async (
     });
   }
 
-  const basePrep = readNumber(region.base_prep_time) ?? readNumber(settings.avg_prep_time_minutes) ?? 30;
+  const basePrep =
+    readNumber(region.base_prep_time) ?? readNumber(settings.avg_prep_time_minutes) ?? 30;
   const minutesPerKm = readNumber(region.minutes_per_km) ?? 5;
   const additionalRegionTime = readNumber(region.additional_region_time) ?? 0;
-  const estimatedMin = Math.max(1, Math.round(basePrep + minutesPerKm * (distanceKm || 0) + additionalRegionTime));
+  const estimatedMin = Math.max(
+    1,
+    Math.round(basePrep + minutesPerKm * (distanceKm || 0) + additionalRegionTime),
+  );
 
   return {
     available: true,

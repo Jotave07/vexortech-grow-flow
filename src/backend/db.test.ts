@@ -52,4 +52,21 @@ describe("PostgreSQL TLS connection config", () => {
       getPgPoolConfig("postgresql://postgres:secret@db.example.com:5432/postgres"),
     ).toThrow("nao pode ser combinado");
   });
+
+  it.each([
+    "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres",
+    "postgresql://vexortech_runtime.project:secret@aws-0.pooler.supabase.com:6543/postgres?sslmode=require",
+  ])("activates certificate-validated TLS for a Supabase pooler URL: %s", (connectionString) => {
+    delete process.env.DATABASE_SSL_ROOT_CERT;
+    delete process.env.POSTGRES_SSL_ROOT_CERT;
+
+    const config = getPgPoolConfig(connectionString);
+
+    expect(config.ssl).toEqual({ rejectUnauthorized: true });
+    expect(new URL(String(config.connectionString)).searchParams.has("sslmode")).toBe(false);
+    const client = new pg.Client(config);
+    const connectionParameters = (client as unknown as { connectionParameters: { ssl: unknown } })
+      .connectionParameters;
+    expect(connectionParameters.ssl).toEqual({ rejectUnauthorized: true });
+  });
 });

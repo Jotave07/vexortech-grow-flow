@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { routes } from "./index.js";
 import { calculateDashboardMetrics } from "./dashboard.js";
-import { FINANCIAL_BUCKETS, subscriptionSummary } from "./finance.js";
+import { FINANCIAL_BUCKETS, financialOrderActions, subscriptionSummary } from "./finance.js";
 import { filterOrders, nextOrderStatuses } from "./orders.js";
 import { parseFeatures, planPayload } from "./plans.js";
 import { platformHealthSummary } from "./platform.js";
@@ -121,6 +121,43 @@ describe("contratos de gestao financeira e planos", () => {
         { status: "pendente_pagamento", asaas_subscription_id: null, plans: { price_monthly: 30 } },
       ]),
     ).toEqual({ active: 2, risk: 1, mrr: 50 });
+  });
+
+  it("expoe liberacao manual somente em LIBERADO e nunca bloqueia PROCESSANDO pela UI", () => {
+    expect(
+      financialOrderActions({ transfer_status: "LIBERADO", transfer_movement_status: null }),
+    ).toMatchObject({
+      releaseTransfer: true,
+      blockTransfer: true,
+    });
+    expect(financialOrderActions({ transfer_status: "PROCESSANDO" })).toMatchObject({
+      releaseTransfer: false,
+      retryTransfer: false,
+      blockTransfer: false,
+    });
+    expect(
+      financialOrderActions({ transfer_status: "FALHOU", transfer_movement_status: "FALHOU" }),
+    ).toMatchObject({
+      releaseTransfer: false,
+      retryTransfer: true,
+      blockTransfer: true,
+    });
+    expect(financialOrderActions({ transfer_status: "AGUARDANDO_ENTREGA" }).blockTransfer).toBe(
+      true,
+    );
+    expect(
+      financialOrderActions({
+        transfer_status: "FALHOU",
+        transfer_movement_status: "CONFIRMADO",
+      }),
+    ).toMatchObject({ retryTransfer: false, blockTransfer: false });
+  });
+
+  it("liga a liberacao manual ao handler administrativo com confirmacao", async () => {
+    const source = await readFile(new URL("./finance.js", import.meta.url), "utf8");
+    expect(source).toContain('runAction("admin-release-transfer"');
+    expect(source).toContain("Liberar repasse do pedido");
+    expect(source).toContain('confirmLabel: "Liberar repasse"');
   });
 
   it("resume saude da plataforma sem expor configuracoes secretas", () => {

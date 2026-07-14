@@ -3,10 +3,13 @@ import { reverseGeocodeWithGoogle } from "@/services/googleMaps";
 import {
   ViaCepError,
   calculateDistanceKm,
+  fetchAddressByCep,
   fetchAddressFromCurrentLocation,
+  geocodeAddressCoordinates,
   isValidCoordinates,
   isWithinDeliveryRadius,
 } from "./viacep";
+import { EXTERNAL_REQUEST_TIMEOUT_MS } from "./externalFetch";
 
 vi.mock("@/services/googleMaps", () => ({
   geocodeAddressWithGoogle: vi.fn().mockResolvedValue(null),
@@ -27,8 +30,69 @@ describe("viacep coordinate safeguards", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("aborts a stalled ViaCEP request and continues with BrasilAPI", async () => {
+    vi.useFakeTimers();
+    let firstSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn()
+      .mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => {
+        firstSignal = init?.signal || undefined;
+        return new Promise<Response>((_resolve, reject) => {
+          firstSignal?.addEventListener("abort", () => {
+            const error = new Error("request aborted");
+            error.name = "AbortError";
+            reject(error);
+          }, { once: true });
+        });
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          cep: "01001000",
+          street: "Praca da Se",
+          neighborhood: "Se",
+          city: "Sao Paulo",
+          state: "SP",
+        }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = fetchAddressByCep("01001-000");
+    await vi.advanceTimersByTimeAsync(EXTERNAL_REQUEST_TIMEOUT_MS);
+
+    await expect(result).resolves.toMatchObject({ cep: "01001-000", city: "Sao Paulo", state: "SP" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(firstSignal?.aborted).toBe(true);
+  });
+
+  it("aborts stalled Nominatim geocoding and returns no coordinates", async () => {
+    vi.useFakeTimers();
+    let requestSignal: AbortSignal | undefined;
+    vi.stubGlobal("fetch", vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      requestSignal = init?.signal || undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        requestSignal?.addEventListener("abort", () => {
+          const error = new Error("request aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      });
+    }));
+
+    const result = geocodeAddressCoordinates({
+      street: "Praca da Se",
+      city: "Sao Paulo",
+      state: "SP",
+    });
+    await vi.advanceTimersByTimeAsync(EXTERNAL_REQUEST_TIMEOUT_MS);
+
+    await expect(result).resolves.toBeNull();
+    expect(requestSignal?.aborted).toBe(true);
   });
 
   it("accepts only finite coordinates inside latitude and longitude ranges", () => {
